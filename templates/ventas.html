@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+{% block title %}Ventas Lanzamiento — VH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold" style="color:#1a0810;">Ventas — Lanzamiento N4</h4>
+    <small class="text-muted">Enero–Marzo 2026 · <strong>{{ total_sales }} ventas</strong> ({{ total_transactions }} transacciones/pagos) · Vista director comercial</small>
+  </div>
+  <span class="badge" style="background:linear-gradient(135deg,#3d0f1e,#6b1a2e);color:#f1d7be;font-size:13px;padding:8px 14px;border-radius:20px;">
+    <i class="bi bi-lock-fill me-1"></i> Solo Tomas
+  </span>
+</div>
+
+<div class="alert border-0 mb-4 py-2 px-3" style="background:#fff8f0;border-left:3px solid #c9a066 !important;border-radius:6px;font-size:13px;">
+  <i class="bi bi-info-circle me-1" style="color:#c9a066;"></i>
+  <strong>{{ total_transactions - total_sales }} registros son segundos/terceros pagos</strong> (cuotas, señas + balance) — se incluyen en ingresos pero no como ventas nuevas.
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#c9a066,#8b5a2b);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-people-fill text-white" style="font-size:14px;"></i>
+          </div>
+          <span class="text-muted" style="font-size:12px;">Ventas únicas</span>
+        </div>
+        <div class="fw-bold" style="font-size:36px;color:#1a0810;line-height:1;">{{ total_sales }}</div>
+        <div style="font-size:11px;color:#888;">clientes nuevos · {{ total_transactions }} transacciones</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#1a7a4a,#0d5c37);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-currency-dollar text-white" style="font-size:14px;"></i>
+          </div>
+          <span class="text-muted" style="font-size:12px;">Total facturado</span>
+        </div>
+        <div class="fw-bold" style="font-size:26px;color:#1a0810;">U$D {{ "{:,.0f}".format(total_usd_equiv) }}</div>
+        <div style="font-size:11px;color:#888;">cotiz. promedio ${{ "{:,}".format(avg_cotizacion) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#1a4a7a,#0d3a5c);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-wallet2 text-white" style="font-size:14px;"></i>
+          </div>
+          <span class="text-muted" style="font-size:12px;">Cash collected neto</span>
+        </div>
+        <div class="fw-bold" style="font-size:24px;color:#1a4a7a;">U$D {{ "{:,.0f}".format(unified_neto_usd) }}</div>
+        <div style="font-size:11px;color:#888;">después de fees de billeteras</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#3d0f1e,#6b1a2e);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-trophy text-white" style="font-size:14px;"></i>
+          </div>
+          <span class="text-muted" style="font-size:12px;">Top vendedor</span>
+        </div>
+        <div class="fw-bold" style="font-size:20px;color:#1a0810;">{{ top_vendor.split()[0] }}</div>
+        <div style="font-size:11px;color:#888;">{{ top_vendor_sales }} ventas · U$D {{ "{:,.0f}".format(top_vendor_usd) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECCIÓN CASH COLLECTED
+     ══════════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-top:3px solid #1a4a7a !important;">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#1a4a7a,#0d3a5c);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="bi bi-cash-coin text-white"></i>
+      </div>
+      <div>
+        <h5 class="mb-0 fw-bold">Cash Collected Real</h5>
+        <small class="text-muted" style="font-size:12px;">Ingresos netos después de descontar el fee de cada billetera de cobro</small>
+      </div>
+    </div>
+
+    <!-- Totales unificados (hero) -->
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-6">
+        <div class="p-3 rounded-3" style="background:linear-gradient(135deg,#e8f4fd,#d0e8f8);">
+          <div style="font-size:12px;color:#1a4a7a;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+            <i class="bi bi-globe me-1"></i> Total Unificado — en USD
+          </div>
+          <div class="d-flex justify-content-between align-items-end mb-2">
+            <div>
+              <div style="font-size:11px;color:#666;">Facturado bruto</div>
+              <div style="font-size:20px;font-weight:700;color:#1a3a5a;">U$D {{ "{:,.0f}".format(unified_bruto_usd) }}</div>
+            </div>
+            <div class="text-center">
+              <div style="font-size:11px;color:#c0392b;">Fees billeteras</div>
+              <div style="font-size:18px;font-weight:700;color:#c0392b;">− U$D {{ "{:,.0f}".format(unified_fee_usd) }}</div>
+            </div>
+            <div class="text-end">
+              <div style="font-size:11px;color:#1a7a4a;font-weight:600;">INGRESÓ</div>
+              <div style="font-size:26px;font-weight:800;color:#1a7a4a;">U$D {{ "{:,.0f}".format(unified_neto_usd) }}</div>
+            </div>
+          </div>
+          <!-- progress bar fee vs neto -->
+          <div style="height:8px;background:#c0392b30;border-radius:4px;overflow:hidden;">
+            <div style="height:100%;border-radius:4px;background:#1a7a4a;width:{{ ((unified_neto_usd / unified_bruto_usd)*100)|round|int if unified_bruto_usd else 0 }}%;"></div>
+          </div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">
+            {{ "%.1f"|format((unified_neto_usd / unified_bruto_usd * 100) if unified_bruto_usd else 0) }}% cobrado efectivo
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="p-3 rounded-3" style="background:linear-gradient(135deg,#f5f0e8,#ede0cc);">
+          <div style="font-size:12px;color:#6b3a1e;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+            <i class="bi bi-currency-exchange me-1"></i> Total Unificado — en ARS equiv.
+          </div>
+          <div class="d-flex justify-content-between align-items-end mb-2">
+            <div>
+              <div style="font-size:11px;color:#666;">Facturado bruto</div>
+              <div style="font-size:20px;font-weight:700;color:#3d0f1e;">${{ "{:,.0f}".format(unified_bruto_ars_eq) }}</div>
+            </div>
+            <div class="text-center">
+              <div style="font-size:11px;color:#c0392b;">Fees billeteras</div>
+              <div style="font-size:18px;font-weight:700;color:#c0392b;">− ${{ "{:,.0f}".format(unified_fee_ars_eq) }}</div>
+            </div>
+            <div class="text-end">
+              <div style="font-size:11px;color:#1a7a4a;font-weight:600;">INGRESÓ</div>
+              <div style="font-size:26px;font-weight:800;color:#1a7a4a;">${{ "{:,.0f}".format(unified_neto_ars_eq) }}</div>
+            </div>
+          </div>
+          <div style="height:8px;background:#c0392b30;border-radius:4px;overflow:hidden;">
+            <div style="height:100%;border-radius:4px;background:#c9a066;width:{{ ((unified_neto_ars_eq / unified_bruto_ars_eq)*100)|round|int if unified_bruto_ars_eq else 0 }}%;"></div>
+          </div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">USD convertidos a ${{ "{:,}".format(avg_cotizacion) }} cotización promedio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Separado por moneda -->
+    <div class="row g-3 mb-4">
+      <!-- ARS -->
+      <div class="col-12 col-md-6">
+        <div style="border:1px solid #e8d8c8;border-radius:10px;overflow:hidden;">
+          <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#f8f2eb;">
+            <span style="font-size:13px;font-weight:700;color:#3d0f1e;"><i class="bi bi-cash me-1"></i>Pagos en ARS — Pesos</span>
+            <span class="ms-auto badge" style="background:#f0e8dc;color:#6b3a1e;font-size:10px;">{{ n_ars }} transacc.</span>
+          </div>
+          <div class="p-3">
+            <div class="d-flex justify-content-between mb-2" style="font-size:13px;">
+              <span style="color:#666;">Facturado</span>
+              <span style="font-weight:600;color:#1a0810;">${{ "{:,.0f}".format(cash_bruto_ars) }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2" style="font-size:13px;">
+              <span style="color:#c0392b;">− Fees billeteras</span>
+              <span style="font-weight:600;color:#c0392b;">− ${{ "{:,.0f}".format(cash_fee_ars) }}</span>
+            </div>
+            <div style="height:1px;background:#e8d8c8;margin:8px 0;"></div>
+            <div class="d-flex justify-content-between" style="font-size:15px;">
+              <span style="font-weight:700;color:#1a7a4a;">Cash neto ARS</span>
+              <span style="font-weight:800;color:#1a7a4a;font-size:17px;">${{ "{:,.0f}".format(cash_neto_ars) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- USD -->
+      <div class="col-12 col-md-6">
+        <div style="border:1px solid #c8d8e8;border-radius:10px;overflow:hidden;">
+          <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eef4fb;">
+            <span style="font-size:13px;font-weight:700;color:#1a3a5a;"><i class="bi bi-currency-dollar me-1"></i>Pagos en USD — Dólares</span>
+            <span class="ms-auto badge" style="background:#d0e8f0;color:#0d3a5c;font-size:10px;">{{ n_usd }} transacc.</span>
+          </div>
+          <div class="p-3">
+            <div class="d-flex justify-content-between mb-2" style="font-size:13px;">
+              <span style="color:#666;">Facturado</span>
+              <span style="font-weight:600;color:#1a0810;">U$D {{ "{:,.2f}".format(cash_bruto_usd) }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2" style="font-size:13px;">
+              <span style="color:#c0392b;">− Fees billeteras</span>
+              <span style="font-weight:600;color:#c0392b;">− U$D {{ "{:,.2f}".format(cash_fee_usd) }}</span>
+            </div>
+            <div style="height:1px;background:#c8d8e8;margin:8px 0;"></div>
+            <div class="d-flex justify-content-between" style="font-size:15px;">
+              <span style="font-weight:700;color:#1a7a4a;">Cash neto USD</span>
+              <span style="font-weight:800;color:#1a7a4a;font-size:17px;">U$D {{ "{:,.2f}".format(cash_neto_usd) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desglose por billetera -->
+    <h6 class="fw-semibold mb-3" style="color:#444;">Desglose por billetera de cobro</h6>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" style="font-size:13px;">
+        <thead>
+          <tr style="background:#f8f2eb;">
+            <th style="width:22%;">Billetera</th>
+            <th class="text-center">Fee</th>
+            <th class="text-end">Facturado ARS</th>
+            <th class="text-end">Fee ARS</th>
+            <th class="text-end">Neto ARS</th>
+            <th class="text-end">Facturado USD</th>
+            <th class="text-end">Fee USD</th>
+            <th class="text-end">Neto USD</th>
+            <th class="text-center"># Pagos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in wallet_list %}
+          <tr>
+            <td>
+              <span class="fw-semibold">
+                {% if w.metodo == 'PESOS FINANCIERA' %}<i class="bi bi-bank me-1" style="color:#c9a066;"></i>Financiera ARS
+                {% elif w.metodo == 'DOLARES MULTID' %}<i class="bi bi-arrow-left-right me-1" style="color:#1a4a7a;"></i>Dólares Multi D
+                {% elif w.metodo == 'PESOS MULTI D' %}<i class="bi bi-arrow-left-right me-1" style="color:#8b5a2b;"></i>Pesos Multi D
+                {% elif w.metodo == 'BINANCE' %}<i class="bi bi-currency-bitcoin me-1" style="color:#f0b90b;"></i>Binance
+                {% elif w.metodo == 'Stripe' %}<i class="bi bi-credit-card me-1" style="color:#635bff;"></i>Stripe
+                {% elif w.metodo == 'PAYPAL' %}<i class="bi bi-paypal me-1" style="color:#003087;"></i>PayPal
+                {% else %}<i class="bi bi-wallet me-1"></i>{{ w.metodo }}{% endif %}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge" style="font-size:11px;{% if w.fee_pct == 0 %}background:#d4edda;color:#155724;{% elif w.fee_pct <= 0.07 %}background:#fff3cd;color:#856404;{% else %}background:#f8d7da;color:#721c24;{% endif %}">
+                {{ (w.fee_pct * 100)|round(1) }}%
+              </span>
+            </td>
+            <td class="text-end">{% if w.bruto_ars > 0 %}<span style="color:#3d0f1e;">${{ "{:,.0f}".format(w.bruto_ars) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-end">{% if w.fee_ars > 0 %}<span style="color:#c0392b;font-size:12px;">−${{ "{:,.0f}".format(w.fee_ars) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-end">{% if w.neto_ars > 0 %}<span style="color:#1a7a4a;font-weight:600;">${{ "{:,.0f}".format(w.neto_ars) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-end">{% if w.bruto_usd > 0 %}<span style="color:#1a3a5a;">U$D {{ "{:,.0f}".format(w.bruto_usd) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-end">{% if w.fee_usd > 0 %}<span style="color:#c0392b;font-size:12px;">−U$D {{ "{:,.1f}".format(w.fee_usd) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-end">{% if w.neto_usd > 0 %}<span style="color:#1a7a4a;font-weight:600;">U$D {{ "{:,.1f}".format(w.neto_usd) }}</span>{% else %}—{% endif %}</td>
+            <td class="text-center"><span class="badge bg-secondary" style="font-size:11px;">{{ w.count }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f0e8dc;font-weight:700;">
+            <td>TOTAL</td><td></td>
+            <td class="text-end" style="color:#3d0f1e;">${{ "{:,.0f}".format(cash_bruto_ars) }}</td>
+            <td class="text-end" style="color:#c0392b;">−${{ "{:,.0f}".format(cash_fee_ars) }}</td>
+            <td class="text-end" style="color:#1a7a4a;">${{ "{:,.0f}".format(cash_neto_ars) }}</td>
+            <td class="text-end" style="color:#1a3a5a;">U$D {{ "{:,.0f}".format(cash_bruto_usd) }}</td>
+            <td class="text-end" style="color:#c0392b;">−U$D {{ "{:,.1f}".format(cash_fee_usd) }}</td>
+            <td class="text-end" style="color:#1a7a4a;">U$D {{ "{:,.1f}".format(cash_neto_usd) }}</td>
+            <td class="text-center">{{ total_transactions }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     VENTAS POR DÍA / DÍAS TOP
+     ══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h6 class="mb-0 fw-semibold">Ventas por día</h6>
+            <small class="text-muted" style="font-size:11px;">Clientes nuevos por día (sin contar pagos repetidos)</small>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm px-2 py-1 chart-toggle active" data-chart="dailyChart" data-mode="count" style="font-size:11px;background:#f0e8dc;color:#6b3a1e;border:none;border-radius:6px;"># Ventas</button>
+            <button class="btn btn-sm px-2 py-1 chart-toggle" data-chart="dailyChart" data-mode="usd" style="font-size:11px;background:transparent;color:#888;border:none;border-radius:6px;">USD equiv.</button>
+          </div>
+        </div>
+        <canvas id="dailyChart" height="110"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <h6 class="mb-1 fw-semibold">Días con más ventas</h6>
+        <small class="text-muted d-block mb-3" style="font-size:11px;">Por clientes nuevos cerrados</small>
+        {% for day, count in top_days %}
+        <div class="d-flex align-items-center mb-2">
+          <div style="width:26px;font-size:11px;font-weight:700;color:#c9a066;">{{ loop.index }}°</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:#1a0810;">{{ day }}</div>
+            <div style="height:6px;background:#f0e8dc;border-radius:3px;margin-top:3px;">
+              <div style="height:100%;border-radius:3px;background:linear-gradient(90deg,#c9a066,#8b5a2b);width:{{ (count / top_days[0][1] * 100)|int }}%;"></div>
+            </div>
+          </div>
+          <div style="width:26px;text-align:right;font-size:13px;font-weight:700;color:#3d0f1e;">{{ count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SEMANAS + RANKING VENDEDORES
+     ══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h6 class="mb-0 fw-semibold">Ventas por semana de clase</h6>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm px-2 py-1 chart-toggle active" data-chart="semanaChart" data-mode="count" style="font-size:11px;background:#f0e8dc;color:#6b3a1e;border:none;border-radius:6px;"># Ventas</button>
+            <button class="btn btn-sm px-2 py-1 chart-toggle" data-chart="semanaChart" data-mode="usd" style="font-size:11px;background:transparent;color:#888;border:none;border-radius:6px;">USD equiv.</button>
+          </div>
+        </div>
+        <small class="text-muted d-block mb-3" style="font-size:11px;">Clase 1: 11-ene · Clase 2: 18-ene · Cierre: 25-ene</small>
+        <canvas id="semanaChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h6 class="mb-0 fw-semibold">Ingresos por vendedor</h6>
+          <div class="btn-group btn-group-sm" id="vendorToggle">
+            <button class="btn btn-sm active" onclick="setVendorMode('bruto')" id="vBtn-bruto"
+              style="background:#3d0f1e;color:#fff;border:none;border-radius:6px 0 0 6px;font-size:11px;padding:3px 10px;">Bruto</button>
+            <button class="btn btn-sm" onclick="setVendorMode('neto')" id="vBtn-neto"
+              style="background:#f0e8e0;color:#555;border:none;border-radius:0 6px 6px 0;font-size:11px;padding:3px 10px;">Neto real</button>
+          </div>
+        </div>
+        <small class="text-muted d-block mb-3" style="font-size:11px;">USD equiv. — Neto = descontando fees de cada billetera</small>
+        <canvas id="vendorChart" height="220"></canvas>
+        <div class="mt-2" id="vendorLegend" style="font-size:11px;color:#888;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     RESUMEN FINANCIERO + TIPO DE PAGO
+     ══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <h6 class="mb-3 fw-semibold">Resumen financiero</h6>
+        <div class="row g-2">
+          <div class="col-6 text-center p-2" style="background:#fdf5ec;border-radius:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:2px;">Total ARS recaudado</div>
+            <div style="font-size:18px;font-weight:700;color:#3d0f1e;">${{ "{:,.0f}".format(total_ars) }}</div>
+            <div style="font-size:10px;color:#aaa;">{{ n_ars }} transacc.</div>
+          </div>
+          <div class="col-6 text-center p-2" style="background:#eef4fb;border-radius:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:2px;">Total USD recaudado</div>
+            <div style="font-size:18px;font-weight:700;color:#1a4a7a;">U$D {{ "{:,.0f}".format(total_usd_direct) }}</div>
+            <div style="font-size:10px;color:#aaa;">{{ n_usd }} transacc.</div>
+          </div>
+          <div class="col-6 text-center p-2" style="background:#f9f5ef;border-radius:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:2px;">Ticket prom. ARS</div>
+            <div style="font-size:18px;font-weight:700;color:#3d0f1e;">${{ "{:,.0f}".format(avg_ticket_ars) }}</div>
+            <div style="font-size:10px;color:#aaa;">≈ U$D {{ "{:,.0f}".format((avg_ticket_ars / avg_cotizacion)|round) }}</div>
+          </div>
+          <div class="col-6 text-center p-2" style="background:#eef4fb;border-radius:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:2px;">Ticket prom. USD</div>
+            <div style="font-size:18px;font-weight:700;color:#1a4a7a;">U$D {{ avg_ticket_usd }}</div>
+            <div style="font-size:10px;color:#aaa;">sobre {{ n_usd }} pagos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h6 class="mb-0 fw-semibold">Tipo de pago</h6>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm px-2 py-1 chart-toggle active" data-chart="tipoChart" data-mode="count" style="font-size:11px;background:#f0e8dc;color:#6b3a1e;border:none;border-radius:6px;"># Transacc.</button>
+            <button class="btn btn-sm px-2 py-1 chart-toggle" data-chart="tipoChart" data-mode="usd" style="font-size:11px;background:transparent;color:#888;border:none;border-radius:6px;">USD equiv.</button>
+          </div>
+        </div>
+        <small class="text-muted d-block mb-2" style="font-size:11px;">PAGO = cobro completo · SEÑA = anticipo · CUOTA = pago en cuotas</small>
+        <div class="row align-items-center">
+          <div class="col-7">
+            <canvas id="tipoChart" height="170"></canvas>
+          </div>
+          <div class="col-5" id="tipoLegend">
+            <!-- filled by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla detallada -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h6 class="mb-0 fw-semibold">Detalle de transacciones</h6>
+        <small class="text-muted" style="font-size:11px;">Fondo dorado = venta nueva · sin fondo = pago adicional de cliente ya contado</small>
+      </div>
+      <span class="badge bg-secondary">{{ total_transactions }} registros · {{ total_sales }} ventas</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="table table-sm table-hover" style="font-size:12px;">
+        <thead>
+          <tr style="background:#f8f2eb;">
+            <th>#</th><th>Fecha</th><th>Vendedor</th><th>Tipo pago</th>
+            <th>Importe</th><th>Moneda</th><th>Billetera</th><th>Fee</th>
+            <th>Neto</th><th>Semana</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in table_rows %}
+          {% set is_ars = (r.moneda == 'ARS' or r.n == 65) %}
+          {% set fee_pct = {'PESOS FINANCIERA':0.07,'DOLARES MULTID':0.21,'PESOS MULTI D':0.21,'BINANCE':0.0,'Stripe':0.058,'PAYPAL':0.09}.get(r.metodo, 0) %}
+          {% set fee_amt = (r.importe * fee_pct)|round(0) %}
+          {% set neto = (r.importe - fee_amt)|round(0) %}
+          <tr style="{% if r.is_first_payment %}background:#fffbf5;{% endif %}">
+            <td class="text-muted">{{ r.n }}</td>
+            <td>{{ r.fecha }}</td>
+            <td><span class="fw-semibold">{{ r.vendedor.split()[0] }}</span></td>
+            <td>
+              <span class="badge" style="font-size:10px;{% if r.tipo_pago == 'PAGO' %}background:#d4edda;color:#155724;{% elif r.tipo_pago == 'SEÑA' %}background:#fff3cd;color:#856404;{% else %}background:#e2e3e5;color:#383d41;{% endif %}">{{ r.tipo_pago }}</span>
+            </td>
+            <td>{% if is_ars %}<span style="color:#6b3a1e;">${{ "{:,.0f}".format(r.importe) }}</span>{% else %}<span style="color:#1a4a7a;">U$D {{ r.importe }}</span>{% endif %}</td>
+            <td><span class="badge" style="font-size:10px;{% if is_ars %}background:#f0e8dc;color:#6b3a1e;{% else %}background:#d0e8f0;color:#0d3a5c;{% endif %}">{{ 'ARS' if is_ars else 'USD' }}</span></td>
+            <td style="font-size:11px;color:#555;">{{ r.metodo }}</td>
+            <td style="font-size:11px;color:#c0392b;">{% if fee_pct > 0 %}−{{ (fee_pct*100)|round(1) }}%{% else %}<span style="color:#1a7a4a;">0%</span>{% endif %}</td>
+            <td style="font-weight:600;">{% if is_ars %}<span style="color:#1a7a4a;">${{ "{:,.0f}".format(neto) }}</span>{% else %}<span style="color:#1a7a4a;">U$D {{ "{:,.0f}".format(neto) }}</span>{% endif %}</td>
+            <td style="font-size:11px;color:#888;">{{ r.semana.split("(")[0].strip() }}</td>
+            <td>{% if r.is_first_payment %}<span style="font-size:10px;color:#c9a066;font-weight:700;">✓ venta</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+const VH_COLORS = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
+const VH_LABELS_FULL = {
+  'PAGO':   'Pago completo',
+  'SEÑA':   'Seña / anticipo',
+  'CUOTA 1':'Cuota 1',
+  'CUOTA 2':'Cuota 2',
+};
+
+const dailyLabels    = {{ daily_labels|safe }};
+const dailyCountVals = {{ daily_count_vals|safe }};
+const dailyUsdVals   = {{ daily_usd_vals|safe }};
+const semanaLabels   = {{ semana_labels|safe }};
+const semanaCountVals= {{ semana_count_vals|safe }};
+const semanaUsdVals  = {{ semana_usd_vals|safe }};
+const vendorFullLabels = {{ vendor_full_labels|safe }};
+const vendorUsdVals  = {{ vendor_usd_vals|safe }};
+const vendorSalesVals= {{ vendor_sales_vals|safe }};
+const vendorNetoVals = {{ vendor_neto_vals|safe }};
+const tipoLabels     = {{ tipo_labels|safe }};
+const tipoCounts     = {{ tipo_counts|safe }};
+const tipoUsd        = {{ tipo_usd|safe }};
+
+function dailyColor(label) {
+  if (!label.includes('/1/2026')) return '#d0c4b8';
+  const day = parseInt(label.split('/')[0]);
+  if (day >= 25) return '#c9a066';
+  if (day >= 18) return '#8b5a2b';
+  if (day >= 11) return '#5a2b0f';
+  return '#d0c4b8';
+}
+
+// Daily chart
+const dailyChart = new Chart(document.getElementById('dailyChart'), {
+  type: 'bar',
+  data: { labels: dailyLabels, datasets: [{ label:'# Ventas', data: dailyCountVals,
+    backgroundColor: dailyLabels.map(dailyColor), borderRadius:4, borderSkipped:false }] },
+  options: { responsive:true, plugins:{ legend:{display:false},
+    tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} ventas`}}},
+    scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}},
+             y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:1}}}}
+});
+
+// Semana chart
+const semanaChart = new Chart(document.getElementById('semanaChart'), {
+  type: 'bar',
+  data: { labels: semanaLabels, datasets:[{ label:'# Ventas', data:semanaCountVals,
+    backgroundColor:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8'], borderRadius:6, borderSkipped:false }]},
+  options:{ responsive:true, plugins:{legend:{display:false}},
+    scales:{ x:{grid:{display:false},ticks:{font:{size:10}}},
+             y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:2}}}}
+});
+
+// Vendor chart — bruto vs neto toggleable
+let vendorMode = 'bruto';
+const vendorChart = new Chart(document.getElementById('vendorChart'), {
+  type:'bar',
+  data:{
+    labels: vendorFullLabels,
+    datasets:[
+      { label:'Bruto', data:vendorUsdVals, backgroundColor:'rgba(61,15,30,0.85)', borderRadius:4, borderSkipped:false },
+      { label:'Neto real', data:vendorNetoVals, backgroundColor:'rgba(45,106,79,0.85)', borderRadius:4, borderSkipped:false }
+    ]
+  },
+  options:{
+    indexAxis:'y', responsive:true,
+    plugins:{
+      legend:{display:true, labels:{font:{size:11}, boxWidth:12, padding:12}},
+      tooltip:{callbacks:{
+        label: ctx => {
+          const val = ctx.parsed.x;
+          const suffix = ctx.datasetIndex === 1 ? ' (neto, sin fees)' : ' (bruto)';
+          return ` U$D ${val.toLocaleString('es-AR', {maximumFractionDigits:0})}${suffix}`;
+        },
+        afterBody: ctx => [`${vendorSalesVals[ctx[0].dataIndex]} ventas cerradas`]
+      }}
+    },
+    scales:{
+      x:{grid:{color:'#f0e8dc'}, ticks:{font:{size:10}, callback: v=>`$${(v/1000).toFixed(0)}k`}},
+      y:{grid:{display:false}, ticks:{font:{size:12,weight:'600'}}}
+    }
+  }
+});
+
+function setVendorMode(mode) {
+  vendorMode = mode;
+  const brutoBtn = document.getElementById('vBtn-bruto');
+  const netoBtn  = document.getElementById('vBtn-neto');
+  if(mode === 'bruto') {
+    vendorChart.data.datasets[0].hidden = false;
+    vendorChart.data.datasets[1].hidden = true;
+    brutoBtn.style.background='#3d0f1e'; brutoBtn.style.color='#fff';
+    netoBtn.style.background='#f0e8e0'; netoBtn.style.color='#555';
+  } else if(mode === 'neto') {
+    vendorChart.data.datasets[0].hidden = true;
+    vendorChart.data.datasets[1].hidden = false;
+    brutoBtn.style.background='#f0e8e0'; brutoBtn.style.color='#555';
+    netoBtn.style.background='#2d6a4f'; netoBtn.style.color='#fff';
+  }
+  vendorChart.update();
+  // Update legend
+  if(mode === 'neto') {
+    const maxNeto = Math.max(...vendorNetoVals);
+    const maxIdx = vendorNetoVals.indexOf(maxNeto);
+    document.getElementById('vendorLegend').textContent =
+      `Líder en cash real: ${vendorFullLabels[maxIdx]} — U$D ${maxNeto.toLocaleString('es-AR',{maximumFractionDigits:0})} neto`;
+  } else {
+    document.getElementById('vendorLegend').textContent = '';
+  }
+}
+// Start with both visible
+vendorChart.data.datasets[1].hidden = true;
+vendorChart.update();
+
+// Tipo pago donut — con leyenda custom detallada
+const TIPO_DESCRIP = {
+  'PAGO':   'Pago único completo',
+  'SEÑA':   'Anticipo / seña inicial',
+  'CUOTA 1':'Primera cuota',
+  'CUOTA 2':'Segunda cuota',
+};
+const tipoChart = new Chart(document.getElementById('tipoChart'), {
+  type:'doughnut',
+  data:{ labels: tipoLabels.map(l => TIPO_DESCRIP[l] || l),
+    datasets:[{ data:tipoCounts, backgroundColor:VH_COLORS, borderWidth:3, borderColor:'#fff',
+      hoverOffset:6 }]},
+  options:{ responsive:true, cutout:'62%',
+    plugins:{ legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>{
+        const usd = tipoUsd[ctx.dataIndex];
+        return [` ${ctx.parsed} transacciones`, ` U$D ${usd.toLocaleString()} equiv.`];
+      }}}}},
+});
+
+// Leyenda custom para tipo pago
+function renderTipoLegend(mode) {
+  const container = document.getElementById('tipoLegend');
+  container.innerHTML = '';
+  tipoLabels.forEach((lbl, i) => {
+    const name = TIPO_DESCRIP[lbl] || lbl;
+    const val  = mode === 'usd' ? `U$D ${tipoUsd[i].toLocaleString()}` : `${tipoCounts[i]} transacc.`;
+    container.innerHTML += `
+      <div class="d-flex align-items-center mb-2" style="gap:8px;">
+        <div style="width:12px;height:12px;border-radius:3px;background:${VH_COLORS[i]};flex-shrink:0;"></div>
+        <div style="font-size:11px;line-height:1.3;">
+          <div style="font-weight:600;color:#1a0810;">${name}</div>
+          <div style="color:#888;">${val}</div>
+        </div>
+      </div>`;
+  });
+}
+renderTipoLegend('count');
+
+// Toggle logic
+const chartMap = { dailyChart, semanaChart };
+const chartDataMap = {
+  dailyChart: {
+    count:{ data:dailyCountVals, label:'# Ventas',   colors:dailyLabels.map(dailyColor) },
+    usd:  { data:dailyUsdVals,   label:'USD equiv.',  colors:dailyLabels.map(()=>'#1a7a4a') }
+  },
+  semanaChart: {
+    count:{ data:semanaCountVals, label:'# Ventas',   colors:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8'] },
+    usd:  { data:semanaUsdVals,   label:'USD equiv.',  colors:['#a8d0c0','#1a7a4a','#1a9a5a','#22b570','#a8c0d0'] }
+  }
+};
+const tipoChartData = {
+  count:{ data:tipoCounts },
+  usd:  { data:tipoUsd }
+};
+
+document.querySelectorAll('.chart-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const chartId = btn.dataset.chart;
+    const mode = btn.dataset.mode;
+
+    if (chartId === 'tipoChart') {
+      tipoChart.data.datasets[0].data = tipoChartData[mode].data;
+      tipoChart.update();
+      renderTipoLegend(mode);
+    } else {
+      const chart = chartMap[chartId];
+      const d = chartDataMap[chartId][mode];
+      chart.data.datasets[0].data = d.data;
+      chart.data.datasets[0].label = d.label;
+      chart.data.datasets[0].backgroundColor = d.colors;
+      chart.update();
+    }
+    document.querySelectorAll(`.chart-toggle[data-chart="${chartId}"]`).forEach(b => {
+      b.style.background='transparent'; b.style.color='#888'; b.classList.remove('active');
+    });
+    btn.style.background='#f0e8dc'; btn.style.color='#6b3a1e'; btn.classList.add('active');
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vendor.name }} — Perfil{% endblock %}
+{% block page_title %}Perfil del Vendedor{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  /* Hero */
+  .profile-hero {
+    background: linear-gradient(135deg, #1e2235 0%, #2d3561 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    color: #fff;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-hero::before {
+    content:'';position:absolute;top:-60px;right:-60px;
+    width:220px;height:220px;background:rgba(102,126,234,0.12);border-radius:50%;
+  }
+  .avatar-img, .avatar-initials {
+    width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,0.25);flex-shrink:0;
+  }
+  .avatar-img { object-fit:cover; }
+  .avatar-initials {
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:34px;font-weight:800;color:#fff;
+  }
+  .avatar-wrap { position:relative;cursor:pointer;flex-shrink:0; }
+  .avatar-overlay {
+    position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0.45);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity 0.2s;font-size:20px;color:#fff;
+  }
+  .avatar-wrap:hover .avatar-overlay { opacity:1; }
+
+  .kpi-pill {
+    background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);
+    border-radius:12px;padding:12px 18px;text-align:center;min-width:90px;
+  }
+  .kpi-pill .kpi-value { font-size:24px;font-weight:800;line-height:1;margin-bottom:2px; }
+  .kpi-pill .kpi-label { font-size:10px;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:0.8px; }
+
+  .trend-badge {
+    display:inline-flex;align-items:center;gap:3px;
+    padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+  }
+  .trend-up   { background:rgba(16,185,129,0.2);color:#6ee7b7; }
+  .trend-down { background:rgba(239,68,68,0.2);color:#fca5a5; }
+  .trend-equal{ background:rgba(251,191,36,0.2);color:#fde68a; }
+
+  /* Status badge */
+  .status-badge {
+    display:inline-flex;align-items:center;gap:5px;
+    padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;
+  }
+  .status-activo     { background:rgba(16,185,129,0.2);color:#6ee7b7; }
+  .status-inactivo   { background:rgba(107,114,128,0.2);color:#d1d5db; }
+  .status-en-campo   { background:rgba(245,158,11,0.2);color:#fde68a; }
+  .status-ganando    { background:rgba(168,85,247,0.2);color:#d8b4fe; }
+  .status-formacion  { background:rgba(59,130,246,0.2);color:#93c5fd; }
+
+  /* Cards */
+  .section-card {
+    background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:24px;
+    margin-bottom:24px;
+  }
+  .section-title {
+    font-size:12px;font-weight:700;color:#1e2235;
+    text-transform:uppercase;letter-spacing:0.8px;margin-bottom:18px;
+  }
+
+  /* Score badge */
+  .score-badge {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:40px;height:40px;border-radius:10px;font-weight:800;font-size:15px;
+  }
+  .score-high { background:#d1fae5;color:#065f46; }
+  .score-mid  { background:#fef3c7;color:#92400e; }
+  .score-low  { background:#fee2e2;color:#991b1b; }
+  .score-none { background:#f3f4f6;color:#6b7280; }
+
+  /* Feedback expand */
+  .session-row { cursor:pointer; }
+  .session-row:hover { background:#f8f9ff !important; }
+  .feedback-panel {
+    display:none;background:#f8f9ff;border-top:1px solid #e9ecef;
+    padding:20px 24px;white-space:pre-wrap;font-size:13px;line-height:1.7;color:#374151;
+  }
+  .feedback-panel.open { display:block; }
+
+  /* Info fields */
+  .info-field-label {
+    font-size:11px;font-weight:700;color:#667eea;
+    text-transform:uppercase;letter-spacing:0.7px;margin-bottom:4px;
+  }
+  .info-field-value { font-size:13px;color:#374151;line-height:1.6; }
+  .info-field-empty { font-size:13px;color:#9ca3af;font-style:italic; }
+
+  /* Radar container */
+  #radar-container {
+    background:#0f1117;border-radius:12px;padding:16px;
+    width:100%;min-height:280px;position:relative;
+  }
+  #radar-container canvas { display:block;width:100%!important; }
+
+  /* Skill score grid */
+  .skill-grid { display:flex;flex-direction:column;gap:8px; }
+  .skill-row { display:flex;align-items:center;gap:10px; }
+  .skill-name { font-size:12px;color:#374151;width:140px;flex-shrink:0;font-weight:500; }
+  .skill-bar-bg { flex:1;background:#f3f4f6;border-radius:4px;height:8px;overflow:hidden; }
+  .skill-bar-fill { height:8px;border-radius:4px;transition:width 0.4s; }
+  .skill-score { font-size:12px;font-weight:700;color:#1e2235;width:32px;text-align:right; }
+
+  /* FODA */
+  .foda-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0; }
+  @media(max-width:576px){.foda-grid{grid-template-columns:1fr;}}
+  .foda-card {
+    border-radius:12px;padding:18px;
+  }
+  .foda-card.fortalezas { background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25); }
+  .foda-card.debilidades { background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2); }
+  .foda-card.oportunidades { background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25); }
+  .foda-card.amenazas { background:rgba(107,114,128,0.1);border:1px solid rgba(107,114,128,0.2); }
+  .foda-title {
+    font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .foda-content { font-size:13px;line-height:1.7;color:#374151;white-space:pre-wrap; }
+
+  /* Plan de acción */
+  .plan-step {
+    display:flex;gap:14px;align-items:flex-start;
+    background:#fff;border-radius:12px;padding:16px 18px;
+    border:1px solid rgba(102,126,234,0.15);
+    margin-bottom:10px;
+  }
+  .plan-step-num {
+    width:32px;height:32px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;color:#fff;
+  }
+  .plan-book-item {
+    display:flex;align-items:flex-start;gap:10px;
+    padding:12px 16px;background:#f8f9ff;border-radius:10px;
+    border-left:3px solid #667eea;margin-bottom:8px;
+    font-size:13px;line-height:1.6;color:#374151;
+  }
+
+  /* Achievement / experience items */
+  .achieve-item {
+    display:flex;align-items:flex-start;gap:14px;
+    background:#fff;border-radius:12px;padding:16px 18px;
+    border:1px solid rgba(245,158,11,0.2);
+    box-shadow:0 2px 8px rgba(245,158,11,0.08);
+    margin-bottom:10px;
+  }
+  .achieve-icon {
+    width:38px;height:38px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#f59e0b,#fbbf24);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;color:#fff;
+  }
+  .achieve-text { font-size:14px;color:#374151;line-height:1.6;font-weight:500; }
+
+  .result-item {
+    display:flex;align-items:flex-start;gap:14px;
+    background:#fff;border-radius:12px;padding:16px 18px;
+    border:1px solid rgba(16,185,129,0.2);
+    box-shadow:0 2px 8px rgba(16,185,129,0.08);
+    margin-bottom:10px;
+  }
+  .result-icon {
+    width:38px;height:38px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#10b981,#34d399);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;color:#fff;
+  }
+
+  .exp-item {
+    display:flex;align-items:flex-start;gap:14px;
+    background:#fff;border-radius:12px;padding:16px 18px;
+    border:1px solid rgba(102,126,234,0.2);
+    box-shadow:0 2px 8px rgba(102,126,234,0.08);
+    margin-bottom:10px;
+  }
+  .exp-icon {
+    width:38px;height:38px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;color:#fff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── HERO ── -->
+<div class="profile-hero mb-4">
+  <div class="d-flex align-items-center gap-4 flex-wrap">
+
+    <label class="avatar-wrap" for="photo-input" title="Cambiar foto">
+      {% if vendor.photo_path %}
+        <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}"
+             class="avatar-img" id="avatar-img" alt="{{ vendor.name }}">
+      {% else %}
+        <div class="avatar-initials" id="avatar-initials">{{ vendor.name[0].upper() }}</div>
+      {% endif %}
+      <div class="avatar-overlay"><i class="bi bi-camera-fill"></i></div>
+    </label>
+    <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
+
+    <div class="flex-grow-1">
+      <h2 style="font-size:24px;font-weight:800;margin:0 0 6px;">{{ vendor.name }}</h2>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span style="font-size:13px;color:rgba(255,255,255,0.7);">
+          {{ vendor.role or 'Vendedor VH' }}
+        </span>
+        {% if vendor.phone %}
+          <span style="font-size:12px;color:rgba(255,255,255,0.4);">
+            <i class="bi bi-telephone me-1"></i>{{ vendor.phone }}
+          </span>
+        {% endif %}
+
+        {% if vendor.status %}
+          {% if vendor.status == 'Activo' %}
+            <span class="status-badge status-activo"><i class="bi bi-circle-fill" style="font-size:7px;"></i>Activo</span>
+          {% elif vendor.status == 'Ganando plata' %}
+            <span class="status-badge status-ganando"><i class="bi bi-currency-dollar"></i>Ganando plata</span>
+          {% elif vendor.status == 'En campo' %}
+            <span class="status-badge status-en-campo"><i class="bi bi-briefcase-fill"></i>En campo</span>
+          {% elif vendor.status == 'En formación' %}
+            <span class="status-badge status-formacion"><i class="bi bi-book-fill"></i>En formación</span>
+          {% elif vendor.status == 'Inactivo' %}
+            <span class="status-badge status-inactivo"><i class="bi bi-pause-circle-fill"></i>Inactivo</span>
+          {% endif %}
+        {% endif %}
+
+        {% if trend == 'up' %}
+          <span class="trend-badge trend-up"><i class="bi bi-arrow-up-short"></i>En alza</span>
+        {% elif trend == 'down' %}
+          <span class="trend-badge trend-down"><i class="bi bi-arrow-down-short"></i>En baja</span>
+        {% elif trend == 'equal' %}
+          <span class="trend-badge trend-equal"><i class="bi bi-dash"></i>Estable</span>
+        {% endif %}
+      </div>
+      {% if vendor.joined_program %}
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;">
+          <i class="bi bi-calendar3 me-1"></i>En el programa desde {{ vendor.joined_program }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <div class="kpi-pill">
+        <div class="kpi-value">{{ total_sessions }}</div>
+        <div class="kpi-label">Sesiones</div>
+      </div>
+      <div class="kpi-pill">
+        <div class="kpi-value">{{ avg_score if avg_score else '—' }}</div>
+        <div class="kpi-label">Promedio</div>
+      </div>
+      <div class="kpi-pill">
+        <div class="kpi-value" style="color:#fbbf24;">{{ best_score if best_score else '—' }}</div>
+        <div class="kpi-label">Mejor</div>
+      </div>
+      <button onclick="openEditModal()"
+              style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);
+                     border-radius:10px;color:#fff;padding:10px 14px;cursor:pointer;font-size:16px;">
+        <i class="bi bi-pencil-fill"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── INFO PERSONAL ── -->
+<div class="section-card">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="section-title mb-0"><i class="bi bi-person-vcard me-2" style="color:#667eea;"></i>Información del vendedor</div>
+    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal()" style="font-size:12px;">
+      <i class="bi bi-pencil me-1"></i>Editar perfil
+    </button>
+  </div>
+  <div class="row g-3">
+    <div class="col-sm-6 col-lg-3">
+      <div class="info-field-label"><i class="bi bi-briefcase me-1"></i>Rol / Cargo</div>
+      {% if vendor.role %}
+        <div class="info-field-value">{{ vendor.role }}</div>
+      {% else %}
+        <div class="info-field-empty">Sin especificar</div>
+      {% endif %}
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="info-field-label"><i class="bi bi-telephone me-1"></i>Teléfono</div>
+      {% if vendor.phone %}
+        <div class="info-field-value">{{ vendor.phone }}</div>
+      {% else %}
+        <div class="info-field-empty">Sin especificar</div>
+      {% endif %}
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="info-field-label"><i class="bi bi-activity me-1"></i>Estado</div>
+      {% if vendor.status %}
+        <div class="info-field-value fw-semibold">{{ vendor.status }}</div>
+      {% else %}
+        <div class="info-field-empty">Sin especificar</div>
+      {% endif %}
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="info-field-label"><i class="bi bi-calendar3 me-1"></i>Ingresó al programa</div>
+      {% if vendor.joined_program %}
+        <div class="info-field-value">{{ vendor.joined_program }}</div>
+      {% else %}
+        <div class="info-field-empty">Sin especificar</div>
+      {% endif %}
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="info-field-label"><i class="bi bi-chat-quote me-1"></i>Bio / Descripción</div>
+      {% if vendor.bio %}
+        <div class="info-field-value">{{ vendor.bio }}</div>
+      {% else %}
+        <div class="info-field-empty">Hacé clic en "Editar perfil" para agregar una descripción.</div>
+      {% endif %}
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="info-field-label"><i class="bi bi-bullseye me-1"></i>Objetivos de mejora</div>
+      {% if vendor.objectives %}
+        <div class="info-field-value">{{ vendor.objectives }}</div>
+      {% else %}
+        <div class="info-field-empty">¿En qué habilidades se quiere enfocar? Completá los objetivos.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── VIDEO TESTIMONIO ── -->
+<div class="section-card" style="background:linear-gradient(135deg,#1a0810 0%,#3d0f1e 100%);border:none;padding:28px;">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="section-title mb-0" style="color:#f1d7be;">
+      <i class="bi bi-camera-video-fill me-2"></i>Video Testimonio
+    </div>
+    <label for="testimonial-input" class="btn btn-sm"
+           style="background:rgba(201,160,102,0.15);border:1px solid rgba(201,160,102,0.35);color:#c9a066;font-size:12px;font-weight:600;cursor:pointer;border-radius:8px;padding:6px 14px;margin:0;">
+      <i class="bi bi-cloud-arrow-up me-1"></i>{{ 'Reemplazar video' if vendor.testimonial_video else 'Subir video' }}
+    </label>
+    <input type="file" id="testimonial-input" accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.wmv,.flv,.3gp" style="display:none" onchange="uploadTestimonial(this)">
+  </div>
+
+  {% if vendor.testimonial_video %}
+  <div id="testimonial-container" style="display:flex;justify-content:center;">
+    <div style="position:relative;width:100%;max-width:340px;">
+      <!-- 9:16 aspect ratio wrapper -->
+      <div style="position:relative;padding-bottom:177.78%;background:#000;border-radius:16px;overflow:hidden;">
+        <video id="testimonial-player" controls
+               style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;">
+          <source src="{{ url_for('serve_testimonial', filename=vendor.testimonial_video) }}">
+        </video>
+      </div>
+      <div style="font-size:11px;color:rgba(201,160,102,0.45);margin-top:8px;text-align:center;">
+        <i class="bi bi-phone me-1"></i>Formato vertical · {{ vendor.testimonial_video.rsplit('.',1)[-1].upper() }}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div id="testimonial-empty" style="border:2px dashed rgba(201,160,102,0.25);border-radius:12px;padding:40px;text-align:center;">
+    <i class="bi bi-camera-video" style="font-size:40px;color:rgba(201,160,102,0.3);display:block;margin-bottom:12px;"></i>
+    <div style="font-size:14px;font-weight:600;color:rgba(241,215,190,0.6);margin-bottom:6px;">Aún no hay video testimonio</div>
+    <div style="font-size:12px;color:rgba(201,160,102,0.4);">Subí un video contando tu experiencia, logros y resultados en VH · Máx. 5 GB</div>
+  </div>
+  {% endif %}
+
+  <!-- Upload progress -->
+  <div id="testimonial-progress" style="display:none;margin-top:16px;">
+    <div class="d-flex justify-content-between mb-1" style="font-size:12px;color:rgba(201,160,102,0.7);">
+      <span id="testimonial-progress-label">Subiendo video...</span>
+      <span id="testimonial-progress-pct">0%</span>
+    </div>
+    <div class="progress" style="height:6px;border-radius:4px;background:rgba(201,160,102,0.15);">
+      <div class="progress-bar" id="testimonial-progress-bar"
+           style="width:0%;background:linear-gradient(90deg,#c9a066,#f1d7be);transition:width 0.2s;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MÉTRICAS CLAVE ── -->
+{% set m = vendor_metrics %}
+<div class="section-card" style="background:linear-gradient(135deg,#0f1117 0%,#1a1f35 100%);border:none;padding:28px;">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="section-title mb-0" style="color:#a78bfa;">
+      <i class="bi bi-lightning-charge-fill me-2"></i>Métricas de desempeño
+    </div>
+    <button onclick="openEditModal()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);border-radius:8px;color:#a78bfa;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
+      <i class="bi bi-pencil me-1"></i>Editar métricas
+    </button>
+  </div>
+
+  <div class="row g-3">
+    <!-- Tasa de cierre -->
+    <div class="col-6 col-md-4 col-lg-2">
+      <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:18px 12px;text-align:center;height:100%;">
+        <div style="font-size:11px;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;font-weight:700;">
+          <i class="bi bi-bullseye me-1"></i>Tasa cierre
+        </div>
+        <div style="font-size:36px;font-weight:900;color:#10b981;line-height:1;">
+          {{ m.close_rate or '—' }}{% if m.close_rate %}<span style="font-size:20px;">%</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Ticket promedio -->
+    <div class="col-6 col-md-4 col-lg-2">
+      <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:18px 12px;text-align:center;height:100%;">
+        <div style="font-size:11px;color:#fde68a;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;font-weight:700;">
+          <i class="bi bi-tag-fill me-1"></i>Ticket prom.
+        </div>
+        <div style="font-size:28px;font-weight:900;color:#f59e0b;line-height:1;">
+          {% if m.avg_ticket %}{{ m.currency or '$' }}{{ m.avg_ticket }}{% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Demos por semana -->
+    <div class="col-6 col-md-4 col-lg-2">
+      <div style="background:rgba(102,126,234,0.12);border:1px solid rgba(102,126,234,0.25);border-radius:14px;padding:18px 12px;text-align:center;height:100%;">
+        <div style="font-size:11px;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;font-weight:700;">
+          <i class="bi bi-camera-video-fill me-1"></i>Demos/sem.
+        </div>
+        <div style="font-size:36px;font-weight:900;color:#a78bfa;line-height:1;">
+          {{ m.weekly_demos or '—' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Facturado empresa -->
+    <div class="col-6 col-md-6 col-lg-3">
+      <div style="background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);border-radius:14px;padding:18px 12px;text-align:center;height:100%;">
+        <div style="font-size:11px;color:#d8b4fe;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;font-weight:700;">
+          <i class="bi bi-building me-1"></i>Facturado a empresa
+        </div>
+        <div style="font-size:28px;font-weight:900;color:#c084fc;line-height:1;">
+          {% if m.total_billed %}{{ m.currency or '$' }}{{ m.total_billed }}{% else %}—{% endif %}
+        </div>
+        {% if m.total_billed %}<div style="font-size:10px;color:rgba(192,132,252,0.6);margin-top:4px;">acumulado</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Comisiones ganadas -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div style="background:rgba(251,191,36,0.1);border:2px solid rgba(251,191,36,0.35);border-radius:14px;padding:18px 12px;text-align:center;height:100%;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-10px;right:-10px;font-size:60px;opacity:0.06;">💰</div>
+        <div style="font-size:11px;color:#fde68a;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;font-weight:700;">
+          <i class="bi bi-currency-dollar me-1"></i>Mis comisiones
+        </div>
+        <div style="font-size:32px;font-weight:900;color:#fbbf24;line-height:1;">
+          {% if m.total_commission %}{{ m.currency or '$' }}{{ m.total_commission }}{% else %}—{% endif %}
+        </div>
+        {% if m.total_commission %}<div style="font-size:10px;color:rgba(251,191,36,0.6);margin-top:4px;">ganadas en el programa</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if not m %}
+  <div class="text-center mt-3" style="color:rgba(255,255,255,0.25);font-size:13px;">
+    Hacé clic en "Editar métricas" para cargar los números de este vendedor.
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── FODA + PLAN DE ACCIÓN (solo si hay feedback) ── -->
+{% if last_feedback %}
+<div class="section-card" style="background:linear-gradient(135deg,#0f1117 0%,#1a1f35 100%);border:none;padding:28px;">
+  <div class="section-title mb-4" style="color:#a78bfa;">
+    <i class="bi bi-person-check-fill me-2"></i>Análisis FODA · Última sesión
+  </div>
+  <div class="foda-grid" id="foda-grid">
+    <div class="foda-card fortalezas">
+      <div class="foda-title" style="color:#10b981;">🟢 Fortalezas</div>
+      <div class="foda-content" id="foda-fortalezas" style="color:#d1fae5;">Procesando...</div>
+    </div>
+    <div class="foda-card debilidades">
+      <div class="foda-title" style="color:#ef4444;">🔴 Debilidades</div>
+      <div class="foda-content" id="foda-debilidades" style="color:#fecaca;">Procesando...</div>
+    </div>
+    <div class="foda-card oportunidades">
+      <div class="foda-title" style="color:#f59e0b;">🟡 Oportunidades</div>
+      <div class="foda-content" id="foda-oportunidades" style="color:#fde68a;">Procesando...</div>
+    </div>
+    <div class="foda-card amenazas">
+      <div class="foda-title" style="color:#9ca3af;">⚫ Amenazas</div>
+      <div class="foda-content" id="foda-amenazas" style="color:#e5e7eb;">Procesando...</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-card" style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border:1px solid #93c5fd;padding:28px;">
+  <div class="section-title mb-4" style="color:#1e40af;">
+    <i class="bi bi-rocket-takeoff-fill me-2" style="color:#667eea;"></i>Plan de acción personalizado
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;">
+        <i class="bi bi-lightning-fill me-1"></i>Esta semana
+      </div>
+      <div id="plan-semana" style="font-size:13px;color:#1e3a5f;line-height:1.7;">—</div>
+    </div>
+    <div class="col-md-6">
+      <div style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;">
+        <i class="bi bi-calendar-week me-1"></i>Este mes
+      </div>
+      <div id="plan-mes" style="font-size:13px;color:#1e3a5f;line-height:1.7;">—</div>
+    </div>
+    <div class="col-12">
+      <div style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;margin-top:8px;">
+        <i class="bi bi-book-fill me-1"></i>Clases VH recomendadas para repasar
+      </div>
+      <div id="plan-clases">—</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── GRÁFICO DE PROGRESO ── -->
+{% if valid_scores %}
+<div class="section-card" style="padding:24px;background:#fff;">
+  <div class="section-title"><i class="bi bi-graph-up-arrow me-2" style="color:#667eea;"></i>Progreso en el programa</div>
+  <div style="position:relative;height:220px;">
+    <canvas id="progressChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── LOGROS DESTACADOS ── -->
+<div class="section-card" style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);border:1px solid #fde68a;padding:28px;">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="section-title mb-0" style="color:#92400e;">
+      <i class="bi bi-trophy-fill me-2" style="color:#f59e0b;"></i>Logros destacados
+    </div>
+    <button onclick="openEditModal()" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:8px;color:#d97706;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
+      <i class="bi bi-pencil me-1"></i>Editar
+    </button>
+  </div>
+  {% if vendor.achievements %}
+    <div id="achievements-list"></div>
+  {% else %}
+    <div class="text-center py-3" style="color:#d97706;opacity:0.5;">
+      <i class="bi bi-trophy" style="font-size:40px;display:block;margin-bottom:10px;"></i>
+      <span style="font-size:13px;">Agregá los logros más importantes de este vendedor.</span>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ── RESULTADOS ADICIONALES ── -->
+{% if vendor.results %}
+<div class="section-card" style="background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border:1px solid #6ee7b7;padding:28px;">
+  <div class="section-title" style="color:#065f46;"><i class="bi bi-bar-chart-fill me-2" style="color:#10b981;"></i>Resultados adicionales</div>
+  <div id="results-list"></div>
+</div>
+{% endif %}
+
+<!-- ── EXPERIENCIA ── -->
+<div class="section-card" style="background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%);border:1px solid #c7d2fe;padding:28px;">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="section-title mb-0" style="color:#3730a3;">
+      <i class="bi bi-briefcase-fill me-2" style="color:#667eea;"></i>Experiencia & trabajos realizados
+    </div>
+    <button onclick="openEditModal()" style="background:rgba(102,126,234,0.15);border:1px solid rgba(102,126,234,0.4);border-radius:8px;color:#667eea;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
+      <i class="bi bi-pencil me-1"></i>Editar
+    </button>
+  </div>
+  {% if vendor.experience %}
+    <div id="experience-list"></div>
+  {% else %}
+    <div class="text-center py-3" style="color:#667eea;opacity:0.5;">
+      <i class="bi bi-briefcase" style="font-size:40px;display:block;margin-bottom:10px;"></i>
+      <span style="font-size:13px;">Agregá la experiencia laboral, sectores y proyectos.</span>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ── GRÁFICOS — solo si hay sesiones con score ── -->
+{% if valid_scores %}
+<div class="row g-4 mb-4">
+
+  <!-- Radar (solo si hay section_scores) -->
+  {% if scored_count > 0 %}
+  <div class="col-lg-5">
+    <div class="section-card mb-0" style="padding:20px;">
+      <div class="section-title"><i class="bi bi-stars me-2" style="color:#667eea;"></i>Habilidades VH</div>
+      <div id="radar-container">
+        <canvas id="radarChart" height="260"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Evolución de puntaje -->
+  <div class="{% if scored_count > 0 %}col-lg-7{% else %}col-12{% endif %}">
+    <div class="section-card mb-0" style="padding:20px;">
+      <div class="section-title"><i class="bi bi-graph-up-arrow me-2" style="color:#10b981;"></i>Evolución de puntaje</div>
+      <div style="position:relative;height:240px;">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Habilidades en detalle (solo si hay section_scores) -->
+{% if scored_count > 0 %}
+<div class="section-card">
+  <div class="section-title"><i class="bi bi-bar-chart-horizontal me-2" style="color:#764ba2;"></i>Habilidades en detalle</div>
+  <div class="skill-grid" id="skills-detail-grid"></div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="section-card text-center py-4 text-muted">
+  <i class="bi bi-camera-video" style="font-size:40px;opacity:0.2;display:block;margin-bottom:12px;"></i>
+  <p class="mb-1 fw-semibold">Sin sesiones evaluadas aún</p>
+  <p class="small mb-0">Subí un video desde el <a href="{{ url_for('index') }}">Dashboard</a> para ver los gráficos.</p>
+</div>
+{% endif %}
+
+<!-- ── HISTORIAL ── -->
+<div class="section-card p-0" style="overflow:hidden;">
+  <div class="d-flex align-items-center justify-content-between px-4 py-3" style="border-bottom:1px solid #e9ecef;">
+    <span style="font-size:12px;font-weight:700;color:#1e2235;text-transform:uppercase;letter-spacing:0.8px;">
+      <i class="bi bi-camera-video me-2" style="color:#667eea;"></i>Historial de sesiones
+    </span>
+    <span class="badge bg-secondary">{{ records | length }}</span>
+  </div>
+  {% if records %}
+  <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+    <thead style="background:#f8f9fa;">
+      <tr>
+        <th class="ps-4" style="width:48px;">#</th>
+        <th>Archivo</th>
+        <th style="width:110px;">Fecha</th>
+        <th style="width:72px;text-align:center;">Score</th>
+        <th style="width:40px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rec in records | reverse %}
+      <tr class="session-row" onclick="toggleFeedback('fb-{{ loop.index }}')">
+        <td class="ps-4 text-muted">{{ loop.index }}</td>
+        <td class="fw-medium">{{ rec.file_name }}</td>
+        <td class="text-muted" style="white-space:nowrap;">
+          {{ rec.processed_at[:10] if rec.processed_at else '—' }}
+        </td>
+        <td style="text-align:center;">
+          {% if rec.score %}
+            {% set s = rec.score | int %}
+            <span class="score-badge {% if s >= 8 %}score-high{% elif s >= 5 %}score-mid{% else %}score-low{% endif %}">
+              {{ "%.1f"|format(rec.score) }}
+            </span>
+          {% else %}
+            <span class="score-badge score-none">—</span>
+          {% endif %}
+        </td>
+        <td style="text-align:center;">
+          <i class="bi bi-chevron-down text-muted" id="chevron-fb-{{ loop.index }}"
+             style="font-size:12px;transition:transform 0.2s;"></i>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="5" style="padding:0;border-top:none;">
+          <div class="feedback-panel" id="fb-{{ loop.index }}">
+            {% if rec.feedback_text %}{{ rec.feedback_text }}
+            {% else %}<em class="text-muted">Sin feedback disponible.</em>{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="text-center py-4 text-muted">
+    <i class="bi bi-inbox" style="font-size:36px;opacity:0.2;display:block;margin-bottom:10px;"></i>
+    <p class="mb-0">Sin sesiones aún.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── MODAL EDITAR ── -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:16px;border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px 16px 0 0;border:none;">
+        <h5 class="modal-title text-white" style="font-weight:700;">
+          <i class="bi bi-pencil-fill me-2"></i>Editar perfil de {{ vendor.name }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" style="max-height:75vh;overflow-y:auto;">
+
+        <!-- Datos básicos -->
+        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#667eea;margin-bottom:12px;">
+          <i class="bi bi-person me-1"></i>Datos personales
+        </p>
+        <div class="row g-3 mb-4">
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" style="font-size:13px;">Rol / Cargo</label>
+            <input type="text" class="form-control" id="edit-role"
+                   value="{{ vendor.role or '' }}"
+                   placeholder="Ej: Vendedor Senior, Coach VH..." style="border-radius:8px;">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" style="font-size:13px;">Teléfono</label>
+            <input type="text" class="form-control" id="edit-phone"
+                   value="{{ vendor.phone or '' }}"
+                   placeholder="Ej: +54 11 1234-5678" style="border-radius:8px;">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" style="font-size:13px;">Estado en el programa</label>
+            <select class="form-select" id="edit-status" style="border-radius:8px;">
+              <option value="">Sin especificar</option>
+              <option value="En formación" {% if vendor.status == 'En formación' %}selected{% endif %}>En formación</option>
+              <option value="Activo" {% if vendor.status == 'Activo' %}selected{% endif %}>Activo</option>
+              <option value="En campo" {% if vendor.status == 'En campo' %}selected{% endif %}>En campo (ya vende)</option>
+              <option value="Ganando plata" {% if vendor.status == 'Ganando plata' %}selected{% endif %}>Ganando plata</option>
+              <option value="Inactivo" {% if vendor.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" style="font-size:13px;">Fecha de ingreso al programa</label>
+            <input type="text" class="form-control" id="edit-joined"
+                   value="{{ vendor.joined_program or '' }}"
+                   placeholder="Ej: Marzo 2025" style="border-radius:8px;">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" style="font-size:13px;">Bio / Descripción</label>
+            <textarea class="form-control" id="edit-bio" rows="2" style="border-radius:8px;"
+                      placeholder="Experiencia, fortalezas, especialidad...">{{ vendor.bio or '' }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" style="font-size:13px;">Objetivos de mejora</label>
+            <textarea class="form-control" id="edit-objectives" rows="2" style="border-radius:8px;"
+                      placeholder="¿En qué habilidades se quiere enfocar?">{{ vendor.objectives or '' }}</textarea>
+          </div>
+        </div>
+
+        <!-- Métricas numéricas -->
+        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#a78bfa;margin-bottom:12px;">
+          <i class="bi bi-lightning-charge-fill me-1"></i>Métricas de desempeño
+        </p>
+        <div class="row g-3 mb-4">
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Tasa de cierre (%)</label>
+            <input type="number" min="0" max="100" class="form-control" id="edit-close-rate"
+                   value="{{ vendor_metrics.close_rate or '' }}"
+                   placeholder="Ej: 35" style="border-radius:8px;">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Ticket promedio</label>
+            <input type="text" class="form-control" id="edit-avg-ticket"
+                   value="{{ vendor_metrics.avg_ticket or '' }}"
+                   placeholder="Ej: 80.000" style="border-radius:8px;">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Demos por semana</label>
+            <input type="number" min="0" class="form-control" id="edit-weekly-demos"
+                   value="{{ vendor_metrics.weekly_demos or '' }}"
+                   placeholder="Ej: 12" style="border-radius:8px;">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Moneda</label>
+            <select class="form-select" id="edit-currency" style="border-radius:8px;">
+              <option value="$" {% if vendor_metrics.currency == '$' or not vendor_metrics.currency %}selected{% endif %}>$ (Pesos)</option>
+              <option value="U$D" {% if vendor_metrics.currency == 'U$D' %}selected{% endif %}>U$D (Dólares)</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Facturado a empresa</label>
+            <input type="text" class="form-control" id="edit-total-billed"
+                   value="{{ vendor_metrics.total_billed or '' }}"
+                   placeholder="Ej: 1.200.000" style="border-radius:8px;">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">Mis comisiones ganadas</label>
+            <input type="text" class="form-control" id="edit-total-commission"
+                   value="{{ vendor_metrics.total_commission or '' }}"
+                   placeholder="Ej: 180.000" style="border-radius:8px;">
+          </div>
+        </div>
+
+        <!-- Logros y resultados -->
+        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#f59e0b;margin-bottom:12px;">
+          <i class="bi bi-trophy me-1"></i>Logros, resultados y experiencia
+        </p>
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <label class="form-label fw-semibold" style="font-size:13px;">Logros destacados</label>
+            <textarea class="form-control" id="edit-achievements" rows="2" style="border-radius:8px;"
+                      placeholder="Premios, reconocimientos, hitos...">{{ vendor.achievements or '' }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" style="font-size:13px;">Resultados adicionales</label>
+            <textarea class="form-control" id="edit-results" rows="2" style="border-radius:8px;"
+                      placeholder="Otros datos relevantes, contexto de los números...">{{ vendor.results or '' }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" style="font-size:13px;">Experiencia & trabajos realizados</label>
+            <textarea class="form-control" id="edit-experience" rows="3" style="border-radius:8px;"
+                      placeholder="Empresas, sectores, proyectos...">{{ vendor.experience or '' }}</textarea>
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100 fw-semibold" style="border-radius:8px;" onclick="saveVendorInfo()">
+          <i class="bi bi-floppy me-2"></i>Guardar cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Datos del vendedor ──
+const radarData   = {{ radar_data | safe }};
+const chartLabels = {{ chart_labels | safe }};
+const chartScores = {{ chart_scores | safe }};
+
+// ── Edit modal (primero para que siempre esté disponible) ──
+let _editModal = null;
+function openEditModal() {
+  if (!_editModal) _editModal = new bootstrap.Modal(document.getElementById('editModal'));
+  _editModal.show();
+}
+
+// Ensure buttons work even if charts fail
+document.addEventListener('DOMContentLoaded', function() {
+
+  // ── FODA y Plan de Acción ──
+  const lastFeedback = {{ last_feedback | tojson | safe }};
+  if (lastFeedback) {
+    function extractSection(text, startMarker, endMarker) {
+      const start = text.indexOf(startMarker);
+      if (start === -1) return '';
+      const from = start + startMarker.length;
+      const end = endMarker ? text.indexOf(endMarker, from) : text.length;
+      return (end === -1 ? text.slice(from) : text.slice(from, end)).trim();
+    }
+    function extractSubSection(text, marker) {
+      const idx = text.indexOf(marker);
+      if (idx === -1) return '';
+      const from = idx + marker.length;
+      // Next subsection starts with ####
+      const nextIdx = text.indexOf('\n####', from);
+      return (nextIdx === -1 ? text.slice(from) : text.slice(from, nextIdx)).trim();
+    }
+
+    const fodaBlock = extractSection(lastFeedback, '### 7. ANÁLISIS FODA PERSONAL', '### 8. PLAN DE ACCIÓN');
+    const planBlock = extractSection(lastFeedback, '### 8. PLAN DE ACCIÓN PERSONALIZADO', '### SCORES');
+
+    if (fodaBlock) {
+      const setFoda = (id, marker) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const txt = extractSubSection(fodaBlock, marker);
+        el.textContent = txt || '—';
+      };
+      setFoda('foda-fortalezas', '#### 🟢 Fortalezas');
+      setFoda('foda-debilidades', '#### 🔴 Debilidades');
+      setFoda('foda-oportunidades', '#### 🟡 Oportunidades');
+      setFoda('foda-amenazas', '#### ⚫ Amenazas');
+    }
+
+    if (planBlock) {
+      const semana = extractSubSection(planBlock, '#### Esta semana');
+      const mes = extractSubSection(planBlock, '#### Este mes');
+      const clases = extractSubSection(planBlock, '#### Clases VH recomendadas');
+
+      const semanaEl = document.getElementById('plan-semana');
+      const mesEl = document.getElementById('plan-mes');
+      const clasesEl = document.getElementById('plan-clases');
+
+      if (semanaEl && semana) {
+        semanaEl.innerHTML = semana.split('\n').filter(l=>l.trim()).map(l =>
+          `<div class="plan-step"><div class="plan-step-num">→</div><div>${l.replace(/^[-•*·\d.]\s*/,'')}</div></div>`
+        ).join('');
+      }
+      if (mesEl && mes) {
+        mesEl.innerHTML = mes.split('\n').filter(l=>l.trim()).map(l =>
+          `<div class="plan-step"><div class="plan-step-num" style="background:linear-gradient(135deg,#10b981,#34d399);">✓</div><div>${l.replace(/^[-•*·\d.]\s*/,'')}</div></div>`
+        ).join('');
+      }
+      if (clasesEl && clases) {
+        clasesEl.innerHTML = clases.split('\n').filter(l=>l.trim()).map(l => {
+          const cleaned = l.replace(/^📚\s*/, '').replace(/^[-•*·]\s*/,'');
+          return `<div class="plan-book-item"><span style="font-size:16px;flex-shrink:0;">📚</span><span>${cleaned}</span></div>`;
+        }).join('');
+      }
+    }
+  }
+
+  // ── Logros / Resultados / Experiencia: visual cards ──
+  function renderItems(containerId, text, cls, iconCls, icon) {
+    const el = document.getElementById(containerId);
+    if (!el || !text) return;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    el.innerHTML = lines.map(line =>
+      `<div class="${cls}"><div class="${iconCls}">${icon}</div><div class="achieve-text">${line.replace(/^[-•*·]\s*/,'')}</div></div>`
+    ).join('');
+  }
+  renderItems('achievements-list', {{ (vendor.achievements or '')|tojson }}, 'achieve-item','achieve-icon','<i class="bi bi-star-fill"></i>');
+  renderItems('results-list',      {{ (vendor.results or '')|tojson }},       'result-item', 'result-icon', '<i class="bi bi-graph-up-arrow"></i>');
+  renderItems('experience-list',   {{ (vendor.experience or '')|tojson }},    'exp-item',    'exp-icon',    '<i class="bi bi-briefcase-fill"></i>');
+
+  // ── Habilidades en detalle (HTML puro, no canvas) ──
+  const skillsGrid = document.getElementById('skills-detail-grid');
+  if (skillsGrid && radarData.length) {
+    const labels = ['Diagnóstico / Desapego','Descubrimiento / Acuerdos','Empatía / Escucha','Ing. de Preguntas','Gestión de Creencias','Storytelling','Pitch Personalizado','Mentalidad'];
+    skillsGrid.innerHTML = labels.map((lbl, i) => {
+      const v = radarData[i] || 0;
+      const color = v >= 8 ? '#10b981' : v >= 6 ? '#f59e0b' : '#ef4444';
+      return `<div class="skill-row">
+        <span class="skill-name">${lbl}</span>
+        <div class="skill-bar-bg"><div class="skill-bar-fill" style="width:${Math.round(v/10*100)}%;background:${color};"></div></div>
+        <span class="skill-score">${v.toFixed(1)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Radar de habilidades ──
+  const radarEl = document.getElementById('radarChart');
+  if (radarEl && radarData.some(v => v > 0)) {
+    try {
+      new Chart(radarEl, {
+        type: 'radar',
+        data: {
+          labels: ['Diag/Desapego','Descub/Acuerdos','Empatía/Escucha','Ing.Preguntas','Gest.Creencias','Storytelling','Pitch','Mentalidad'],
+          datasets: [{
+            data: radarData,
+            fill: false,
+            borderColor: '#a78bfa',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#f59e0b',
+            pointBorderColor: '#0f1117',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { r: {
+            min: 0, max: 10,
+            ticks: { stepSize: 2, color: 'rgba(255,255,255,0.7)', backdropColor: 'transparent', font: { size: 9 } },
+            grid: { color: 'rgba(255,255,255,0.4)' },
+            pointLabels: { color: '#fff', font: { size: 10, weight: '700' } },
+            angleLines: { color: 'rgba(255,255,255,0.4)' },
+          }},
+          plugins: { legend: { display: false } },
+        }
+      });
+    } catch(e) { console.warn('Radar:', e); }
+  }
+
+  // ── Evolución de puntaje ──
+  const lineEl = document.getElementById('lineChart');
+  if (lineEl && chartScores.some(v => v !== null)) {
+    try {
+      new Chart(lineEl, {
+        type: 'line',
+        data: {
+          labels: chartLabels,
+          datasets: [{
+            label: 'Puntaje VH',
+            data: chartScores,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,0.12)',
+            borderWidth: 3,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#10b981',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+            tension: 0.4,
+            fill: true,
+            spanGaps: true,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 10, ticks: { stepSize: 2, color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+            x: { grid: { display: false }, ticks: { color: '#6b7280' } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1e2235', bodyColor: '#10b981', padding: 10,
+              callbacks: { label: ctx => ' Puntaje: ' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '—') } }
+          }
+        }
+      });
+    } catch(e) { console.warn('Line:', e); }
+  }
+
+  // ── Gráfico de progreso (barras simples por sesión) ──
+  const progressEl = document.getElementById('progressChart');
+  if (progressEl && chartLabels.length > 0) {
+    try {
+      new Chart(progressEl, {
+        type: 'bar',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            {
+              label: 'Puntaje VH',
+              data: chartScores,
+              backgroundColor: chartScores.map(v =>
+                v === null ? 'rgba(200,200,200,0.4)' :
+                v >= 8 ? 'rgba(16,185,129,0.75)' :
+                v >= 6 ? 'rgba(245,158,11,0.75)' : 'rgba(239,68,68,0.75)'
+              ),
+              borderColor: chartScores.map(v =>
+                v === null ? '#ccc' :
+                v >= 8 ? '#10b981' : v >= 6 ? '#f59e0b' : '#ef4444'
+              ),
+              borderWidth: 2,
+              borderRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 10, ticks: { stepSize: 2, color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+            x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 } } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1e2235', padding: 10,
+              callbacks: { label: ctx => ' Score: ' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) + '/10' : '—') } }
+          }
+        }
+      });
+    } catch(e) { console.warn('Progress:', e); }
+  }
+
+  // ── Expand feedback ──
+  window.toggleFeedback = function(id) {
+    const panel   = document.getElementById(id);
+    const chevron = document.getElementById('chevron-' + id);
+    if (!panel) return;
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open', !isOpen);
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  };
+
+  // ── Save vendor info ──
+  window.saveVendorInfo = async function() {
+    const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const getSel = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const payload = {
+      role: get('edit-role'), phone: get('edit-phone'), bio: get('edit-bio'),
+      objectives: get('edit-objectives'), achievements: get('edit-achievements'),
+      results: get('edit-results'), experience: get('edit-experience'),
+      status: getSel('edit-status'), joined_program: get('edit-joined'),
+      metrics: {
+        close_rate: get('edit-close-rate'), avg_ticket: get('edit-avg-ticket'),
+        weekly_demos: get('edit-weekly-demos'), currency: getSel('edit-currency'),
+        total_billed: get('edit-total-billed'), total_commission: get('edit-total-commission'),
+      }
+    };
+    try {
+      const resp = await fetch('{{ url_for("update_vendor_info", vendor_id=vendor.id) }}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        if (_editModal) _editModal.hide();
+        showToast('Información guardada.', 'success');
+        setTimeout(() => window.location.reload(), 700);
+      } else { showToast(data.error || 'Error al guardar.', 'danger'); }
+    } catch(e) { showToast('Error de red.', 'danger'); }
+  };
+
+  // ── Photo upload ──
+  window.uploadPhoto = async function(input) {
+    if (!input.files.length) return;
+    const form = new FormData();
+    form.append('photo', input.files[0]);
+    try {
+      const resp = await fetch('{{ url_for("upload_photo", vendor_id=vendor.id) }}', { method:'POST', body:form });
+      const data = await resp.json();
+      if (data.ok) {
+        const label = document.querySelector('label.avatar-wrap');
+        const initials = document.getElementById('avatar-initials');
+        let img = document.getElementById('avatar-img');
+        if (!img) {
+          img = document.createElement('img');
+          img.id = 'avatar-img'; img.className = 'avatar-img'; img.alt = '{{ vendor.name }}';
+          if (initials) initials.replaceWith(img);
+          else label.insertBefore(img, label.querySelector('.avatar-overlay'));
+        }
+        img.src = '/uploads/photos/' + data.filename + '?t=' + Date.now();
+        showToast('Foto actualizada.', 'success');
+      } else { showToast(data.error || 'Error al subir la foto.', 'danger'); }
+    } catch(e) { showToast('Error: ' + e.message, 'danger'); }
+    input.value = '';
+  };
+
+  // ── Testimonial upload ──
+  window.uploadTestimonial = function(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024 * 1024) {
+      showToast('El video supera los 5 GB.', 'danger');
+      input.value = ''; return;
+    }
+
+    const progressDiv = document.getElementById('testimonial-progress');
+    const progressBar = document.getElementById('testimonial-progress-bar');
+    const progressPct = document.getElementById('testimonial-progress-pct');
+    const progressLabel = document.getElementById('testimonial-progress-label');
+
+    progressDiv.style.display = 'block';
+    const form = new FormData();
+    form.append('video', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', evt => {
+      if (evt.lengthComputable) {
+        const pct = Math.round(evt.loaded / evt.total * 100);
+        progressBar.style.width = pct + '%';
+        progressPct.textContent = pct + '%';
+        if (pct === 100) progressLabel.textContent = 'Procesando...';
+      }
+    });
+    xhr.addEventListener('load', () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.ok) {
+          showToast('Video testimonio subido correctamente.', 'success');
+          setTimeout(() => window.location.reload(), 1200);
+        } else {
+          showToast(data.error || 'Error al subir el video.', 'danger');
+          progressDiv.style.display = 'none';
+        }
+      } catch { showToast('Error inesperado.', 'danger'); progressDiv.style.display = 'none'; }
+    });
+    xhr.addEventListener('error', () => { showToast('Error de red.', 'danger'); progressDiv.style.display = 'none'; });
+    xhr.timeout = 0;
+    xhr.open('POST', '{{ url_for("upload_testimonial", vendor_id=vendor.id) }}');
+    xhr.send(form);
+    input.value = '';
+  };
+
+}); // end DOMContentLoaded
+</script>
+{% endblock %}

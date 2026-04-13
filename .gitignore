@@ -1,0 +1,34 @@
+# Environment & secrets
+.env
+*.env
+
+# Database (datos reales de vendedores)
+feedback.db
+*.db
+
+# Uploads (archivos de usuarios)
+uploads/
+
+# Logs
+*.log
+server.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.Python
+venv/
+env/
+.venv/
+
+# Claude internal
+.claude/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Temporales
+*.part
+*.tmp

@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+
+{% block title %}Vendedores – Feedback VH{% endblock %}
+{% block page_title %}Vendedores{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Vendor card ── */
+  .vendor-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.18s;
+    position: relative;
+    cursor: pointer;
+  }
+  .vendor-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(102,126,234,0.15);
+  }
+
+  /* Top gradient banner */
+  .vendor-card-banner {
+    height: 64px;
+    background: linear-gradient(135deg, #1e2235 0%, #2d3561 100%);
+    position: relative;
+  }
+
+  /* Score badge on banner */
+  .score-bubble {
+    position: absolute;
+    top: 10px; right: 14px;
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+  }
+  .score-bubble small {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* Avatar */
+  .vendor-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    object-fit: cover;
+    position: absolute;
+    bottom: -36px; left: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .vendor-avatar-initials {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff;
+    position: absolute;
+    bottom: -36px; left: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .vendor-card-body {
+    padding: 44px 20px 20px;
+  }
+
+  .vendor-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e2235;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .trend-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .trend-up    { background: rgba(16,185,129,0.15); color: #059669; }
+  .trend-down  { background: rgba(239,68,68,0.15);  color: #dc2626; }
+  .trend-equal { background: rgba(245,158,11,0.15); color: #d97706; }
+
+  /* Mini KPIs */
+  .mini-kpis {
+    display: flex; gap: 8px; margin: 14px 0 16px;
+  }
+  .mini-kpi {
+    flex: 1; text-align: center;
+    background: #f8f9ff; border-radius: 10px; padding: 8px 4px;
+  }
+  .mini-kpi .val {
+    font-size: 18px; font-weight: 800; color: #1e2235; line-height: 1;
+  }
+  .mini-kpi .lbl {
+    font-size: 10px; color: #9ca3af; text-transform: uppercase;
+    letter-spacing: 0.6px; margin-top: 2px;
+  }
+
+  /* Skill mini-bars */
+  .skill-bars { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; }
+  .skill-bar-row { display: flex; align-items: center; gap: 6px; }
+  .skill-bar-label { font-size: 10px; color: #6b7280; width: 88px; flex-shrink: 0; }
+  .skill-bar-bg { flex: 1; background: #f3f4f6; border-radius: 3px; height: 6px; overflow: hidden; }
+  .skill-bar-fill { height: 6px; border-radius: 3px; }
+  .skill-bar-val { font-size: 10px; font-weight: 700; color: #374151; width: 22px; text-align: right; }
+
+  /* No sessions state */
+  .no-sessions {
+    text-align: center; padding: 12px 0;
+    color: #9ca3af; font-size: 13px;
+  }
+
+  /* Sesiones pill */
+  .sessions-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #6b7280;
+    background: #f3f4f6; border-radius: 20px; padding: 3px 10px;
+  }
+
+  /* Add card */
+  .add-vendor-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 2px dashed #d1d5db;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 20px;
+    min-height: 320px;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s;
+    text-decoration: none;
+  }
+  .add-vendor-card:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+  }
+
+  /* Search bar */
+  .search-wrap {
+    position: relative;
+    max-width: 300px;
+  }
+  .search-wrap i {
+    position: absolute; left: 11px; top: 50%;
+    transform: translateY(-50%); color: #9ca3af; font-size: 14px;
+  }
+  .search-wrap input {
+    padding: 8px 12px 8px 32px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px; font-size: 13px;
+    width: 100%; outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: #667eea; }
+
+  /* Modal mejoras */
+  .add-form-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e9ecef;
+    padding: 28px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header row -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+  <div>
+    <h4 style="font-weight:800;color:#1e2235;margin:0;">
+      {{ vendors | length }} vendedor{{ 'es' if vendors | length != 1 else '' }}
+    </h4>
+    <p style="font-size:13px;color:#6b7280;margin:0;">
+      {{ vendor_stats.values() | selectattr('sessions') | list | length }} con sesiones evaluadas
+    </p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <div class="search-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="vendor-search" placeholder="Buscar vendedor...">
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+      <i class="bi bi-person-plus-fill me-1"></i> Agregar
+    </button>
+  </div>
+</div>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert" style="border-radius:10px;">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+<!-- Vendor cards grid -->
+<div class="row g-4" id="vendor-grid">
+
+  {% for vendor in vendors %}
+  {% set stats = vendor_stats.get(vendor.id, {}) %}
+  {% set avg = stats.get('avg_score') %}
+  {% set best = stats.get('best_score') %}
+  {% set sessions = stats.get('sessions', 0) %}
+  {% set trend = stats.get('trend') %}
+  {% set section_avgs = stats.get('section_avgs', {}) %}
+
+  <div class="col-sm-6 col-lg-4 col-xl-3 vendor-col" data-name="{{ vendor.name | lower }}">
+    <div class="vendor-card h-100" onclick="window.location='{{ url_for('vendor_profile', vendor_id=vendor.id) }}'">
+
+      <!-- Banner -->
+      <div class="vendor-card-banner">
+        {% if avg %}
+          <div class="score-bubble">
+            {{ "%.1f"|format(avg) }}<br><small>/ 10</small>
+          </div>
+        {% endif %}
+
+        <!-- Avatar sobre el banner -->
+        {% if vendor.photo_path %}
+          <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}"
+               class="vendor-avatar" alt="{{ vendor.name }}">
+        {% else %}
+          <div class="vendor-avatar-initials">{{ vendor.name[0].upper() }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Body -->
+      <div class="vendor-card-body">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div class="vendor-name" title="{{ vendor.name }}">{{ vendor.name }}</div>
+          {% if trend == 'up' %}
+            <span class="trend-badge trend-up flex-shrink-0"><i class="bi bi-arrow-up-short"></i>Sube</span>
+          {% elif trend == 'down' %}
+            <span class="trend-badge trend-down flex-shrink-0"><i class="bi bi-arrow-down-short"></i>Baja</span>
+          {% elif trend == 'equal' %}
+            <span class="trend-badge trend-equal flex-shrink-0"><i class="bi bi-dash"></i>Estable</span>
+          {% endif %}
+        </div>
+
+        <!-- Estado + sesiones -->
+        <div class="mt-1 mb-3 d-flex align-items-center gap-2 flex-wrap">
+          <span class="sessions-pill">
+            <i class="bi bi-camera-video-fill"></i>
+            {{ sessions }} sesión{{ 'es' if sessions != 1 else '' }}
+          </span>
+          {% if vendor.status %}
+            {% if vendor.status == 'Ganando plata' %}
+              <span style="font-size:11px;font-weight:700;background:rgba(168,85,247,0.12);color:#7c3aed;border-radius:20px;padding:2px 8px;">
+                <i class="bi bi-currency-dollar"></i>{{ vendor.status }}
+              </span>
+            {% elif vendor.status == 'En campo' %}
+              <span style="font-size:11px;font-weight:700;background:rgba(245,158,11,0.12);color:#d97706;border-radius:20px;padding:2px 8px;">
+                <i class="bi bi-briefcase-fill"></i>{{ vendor.status }}
+              </span>
+            {% elif vendor.status == 'Activo' %}
+              <span style="font-size:11px;font-weight:700;background:rgba(16,185,129,0.12);color:#059669;border-radius:20px;padding:2px 8px;">
+                <i class="bi bi-circle-fill" style="font-size:7px;"></i> Activo
+              </span>
+            {% elif vendor.status == 'En formación' %}
+              <span style="font-size:11px;font-weight:700;background:rgba(59,130,246,0.12);color:#2563eb;border-radius:20px;padding:2px 8px;">
+                <i class="bi bi-book-fill"></i>{{ vendor.status }}
+              </span>
+            {% elif vendor.status == 'Inactivo' %}
+              <span style="font-size:11px;font-weight:700;background:rgba(107,114,128,0.12);color:#6b7280;border-radius:20px;padding:2px 8px;">
+                <i class="bi bi-pause-circle-fill"></i>{{ vendor.status }}
+              </span>
+            {% endif %}
+          {% endif %}
+        </div>
+
+        {% if vendor.joined_program %}
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:10px;">
+            <i class="bi bi-calendar3 me-1"></i>Desde {{ vendor.joined_program }}
+          </div>
+        {% endif %}
+
+        {% if sessions > 0 %}
+          <!-- Mini KPIs -->
+          <div class="mini-kpis">
+            <div class="mini-kpi">
+              <div class="val" style="color:{% if avg >= 8 %}#059669{% elif avg >= 5 %}#d97706{% else %}#dc2626{% endif %};">
+                {{ "%.1f"|format(avg) }}
+              </div>
+              <div class="lbl">Promedio</div>
+            </div>
+            <div class="mini-kpi">
+              <div class="val" style="color:#f59e0b;">{{ "%.1f"|format(best) }}</div>
+              <div class="lbl">Mejor</div>
+            </div>
+            <div class="mini-kpi">
+              {% set last = stats.get('last_score') %}
+              <div class="val">{{ "%.1f"|format(last) if last else '—' }}</div>
+              <div class="lbl">Última</div>
+            </div>
+          </div>
+
+          <!-- Mini skill bars -->
+          {% if section_avgs %}
+          <div class="skill-bars">
+            {% set skill_map = [
+              ('diagnostico_desapego', 'Diag. Desapego'),
+              ('descubrimiento_acuerdos', 'Descubrimiento'),
+              ('empatia_escucha', 'Empatía'),
+              ('ingenieria_preguntas', 'Ing. Preguntas'),
+              ('gestion_creencias', 'Creencias'),
+              ('storytelling', 'Storytelling'),
+              ('pitch_personalizado', 'Pitch'),
+              ('mentalidad', 'Mentalidad'),
+            ] %}
+            {% for key, label in skill_map %}
+              {% set val = section_avgs.get(key, 0) %}
+              {% if val > 0 %}
+              <div class="skill-bar-row">
+                <span class="skill-bar-label">{{ label }}</span>
+                <div class="skill-bar-bg">
+                  <div class="skill-bar-fill" style="width:{{ (val/10*100)|int }}%;
+                    background:{% if val >= 8 %}#10b981{% elif val >= 6 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                </div>
+                <span class="skill-bar-val">{{ "%.0f"|format(val) }}</span>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+
+        {% else %}
+          <div class="no-sessions">
+            <i class="bi bi-hourglass" style="font-size:28px;opacity:0.25;display:block;margin-bottom:8px;"></i>
+            Sin sesiones aún
+          </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 mt-2" onclick="event.stopPropagation();">
+          <a href="{{ url_for('vendor_profile', vendor_id=vendor.id) }}"
+             class="btn btn-sm btn-primary flex-grow-1" style="font-size:12px;">
+            <i class="bi bi-person-lines-fill me-1"></i>Ver perfil
+          </a>
+          <button class="btn btn-sm btn-outline-danger"
+                  onclick="deleteVendor({{ vendor.id }}, '{{ vendor.name | replace("'", "\\'") }}')"
+                  title="Eliminar" style="font-size:12px;">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Card para agregar -->
+  <div class="col-sm-6 col-lg-4 col-xl-3">
+    <div class="add-vendor-card" data-bs-toggle="modal" data-bs-target="#addModal">
+      <i class="bi bi-person-plus" style="font-size:40px;color:#d1d5db;margin-bottom:12px;"></i>
+      <p style="font-size:14px;font-weight:600;color:#9ca3af;margin:0;">Agregar vendedor</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add vendor modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+    <div class="modal-content" style="border-radius:16px;border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px 16px 0 0;border:none;">
+        <h5 class="modal-title text-white" style="font-weight:700;">
+          <i class="bi bi-person-plus-fill me-2"></i>Nuevo vendedor
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form method="POST" action="{{ url_for('vendors') }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">
+              Nombre completo <span class="text-danger">*</span>
+            </label>
+            <input type="text" class="form-control" name="name"
+                   placeholder="Ej: María García" required autocomplete="off"
+                   style="border-radius:8px;">
+          </div>
+          <input type="hidden" name="email" value="sin-email@local">
+          <button type="submit" class="btn btn-primary w-100" style="border-radius:8px;font-weight:700;">
+            <i class="bi bi-floppy me-2"></i>Guardar vendedor
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-body p-4 text-center">
+        <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:36px;"></i>
+        <p class="mt-3 mb-1 fw-semibold">¿Eliminar a <strong id="delete-vendor-name"></strong>?</p>
+        <p class="text-muted mb-4" style="font-size:13px;">Esta acción no se puede deshacer.</p>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-secondary flex-grow-1" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger flex-grow-1" id="confirm-delete-btn">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Delete ──
+  let pendingDeleteId = null;
+  const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+  function deleteVendor(id, name) {
+    pendingDeleteId = id;
+    document.getElementById('delete-vendor-name').textContent = name;
+    deleteModal.show();
+  }
+
+  document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    deleteModal.hide();
+    try {
+      const resp = await fetch(`/vendors/${id}`, { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) {
+        // Remove card with animation
+        const col = document.querySelector(`[data-name]`);
+        // find by vendor id via onclick
+        document.querySelectorAll('.vendor-col').forEach(col => {
+          if (col.querySelector(`[onclick*="/vendors/${id}/"]`)) {
+            col.style.transition = 'opacity 0.3s';
+            col.style.opacity = '0';
+            setTimeout(() => col.remove(), 300);
+          }
+        });
+        showToast('Vendedor eliminado.', 'success');
+      } else {
+        showToast('Error: ' + (data.error || 'desconocido'), 'danger');
+      }
+    } catch {
+      showToast('Error de red.', 'danger');
+    }
+    pendingDeleteId = null;
+  });
+
+  // ── Search ──
+  document.getElementById('vendor-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('.vendor-col').forEach(col => {
+      const name = col.dataset.name || '';
+      col.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

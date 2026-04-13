@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback Lanzamiento — {{ vendor_name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.75;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 40px 48px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid #3d0f1e;
+    padding-bottom: 14px;
+    margin-bottom: 32px;
+  }
+  .doc-header h1 { font-size: 20pt; color: #1a0810; font-weight: 800; }
+  .doc-header .sub { font-size: 10pt; color: #777; margin-top: 4px; }
+  .doc-header .meta { font-size: 9pt; color: #777; text-align: right; line-height: 1.6; }
+  .score-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #3d0f1e, #c9a066);
+    color: #fff;
+    font-size: 13pt;
+    font-weight: 900;
+    padding: 6px 16px;
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+
+  /* ── Typography ── */
+  h3 {
+    font-size: 13pt;
+    font-weight: 800;
+    color: #3d0f1e;
+    margin: 28px 0 7px;
+    padding-bottom: 5px;
+    border-bottom: 1.5px solid #d4a867;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1a0810;
+    margin: 16px 0 5px;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 9px; }
+  strong { color: #1a0810; font-weight: 700; }
+  em { color: #555; font-style: italic; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 20px 0;
+  }
+
+  ul { padding-left: 22px; margin: 6px 0 12px; }
+  ol { padding-left: 22px; margin: 6px 0 12px; }
+  li { margin-bottom: 5px; }
+
+  blockquote {
+    border-left: 3px solid #c9a066;
+    padding: 8px 14px;
+    margin: 10px 0 14px;
+    background: #fdf8f0;
+    font-style: italic;
+    color: #555;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 18px;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+  table th {
+    background: #3d0f1e;
+    color: #fff;
+    padding: 7px 11px;
+    text-align: left;
+    font-size: 9.5pt;
+    font-weight: 700;
+  }
+  table td {
+    padding: 6px 11px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+  }
+  table tr:nth-child(even) td { background: #fafafa; }
+
+  .check-ok  { color: #1a7a4a; font-weight: 700; }
+  .check-bad { color: #9b1c1c; font-weight: 700; }
+
+  /* ── Print button (hidden when printing) ── */
+  .print-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: linear-gradient(135deg, #3d0f1e, #c9a066);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,.25);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 999;
+  }
+  .print-btn:hover { opacity: .9; }
+
+  /* ── Print media ── */
+  @media print {
+    @page { size: A4; margin: 18mm 15mm 20mm; }
+    body { padding: 0; font-size: 10.5pt; }
+    .print-btn { display: none !important; }
+    h3 { page-break-before: auto; }
+    table, blockquote { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating print button -->
+<button class="print-btn" onclick="window.print()">
+  🖨️ Guardar como PDF
+</button>
+
+<!-- Document -->
+<div class="doc-header">
+  <div>
+    <h1>Feedback — {{ vendor_name }}</h1>
+    <div class="sub">Lanzamiento Digital VH · Análisis de conversación WhatsApp</div>
+  </div>
+  <div class="meta">
+    {% if score %}<div class="score-badge">{{ "%.1f"|format(score) }} / 10</div>{% endif %}
+    <div style="margin-top:6px;">{{ submitted_at[:10] if submitted_at else "" }}</div>
+  </div>
+</div>
+
+<div id="feedbackBody">
+  <!-- Rendered by JS below -->
+</div>
+
+<script>
+const rawFeedback = {{ feedback_text | tojson }};
+
+function applyInline(text) {
+  // Tables: don't process inline here
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  text = text.replace(/✓/g, '<span class="check-ok">✓</span>');
+  text = text.replace(/✗/g, '<span class="check-bad">✗</span>');
+  return text;
+}
+
+function renderFeedback(text) {
+  const lines = text.split('\n');
+  let out = '';
+  let inUL = false, inOL = false, inTable = false, tableHasHeader = false;
+
+  function closeLists() {
+    if (inUL) { out += '</ul>\n'; inUL = false; }
+    if (inOL) { out += '</ol>\n'; inOL = false; }
+  }
+  function closeTable() {
+    if (inTable) { out += '</tbody></table>\n'; inTable = false; tableHasHeader = false; }
+  }
+  function closeAll() { closeLists(); closeTable(); }
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // Skip json_scores block
+    if (line.startsWith('```json_scores')) {
+      while (i < lines.length && lines[i] !== '```' && !lines[i].startsWith('```json_scores')) {
+        i++;
+        if (lines[i] && lines[i].startsWith('```')) break;
+      }
+      continue;
+    }
+    if (line.trim() === '```') continue;
+
+    // Table rows
+    if (line.startsWith('|')) {
+      closeLists();
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
+      const isSep = cells.every(c => /^[-: ]+$/.test(c));
+      if (!inTable) {
+        closeTable();
+        out += '<table><thead><tr>';
+        cells.forEach(c => { out += `<th>${applyInline(c)}</th>`; });
+        out += '</tr></thead><tbody>\n';
+        inTable = true; tableHasHeader = true;
+      } else if (isSep) {
+        // skip separator
+      } else {
+        out += '<tr>';
+        cells.forEach(c => { out += `<td>${applyInline(c)}</td>`; });
+        out += '</tr>\n';
+      }
+      continue;
+    } else {
+      closeTable();
+    }
+
+    // Headings
+    if (/^### /.test(line)) { closeAll(); out += `<h3>${applyInline(line.slice(4))}</h3>\n`; continue; }
+    if (/^## /.test(line))  { closeAll(); out += `<h3>${applyInline(line.slice(3))}</h3>\n`; continue; }
+    if (/^#### /.test(line)) { closeAll(); out += `<h4>${applyInline(line.slice(5))}</h4>\n`; continue; }
+
+    // HR
+    if (/^---+$/.test(line.trim())) { closeAll(); out += '<hr>\n'; continue; }
+
+    // Blockquote
+    if (line.startsWith('> ')) { closeAll(); out += `<blockquote>${applyInline(line.slice(2))}</blockquote>\n`; continue; }
+
+    // Unordered list
+    if (/^[-*] /.test(line)) {
+      closeTable();
+      if (inOL) { out += '</ol>\n'; inOL = false; }
+      if (!inUL) { out += '<ul>\n'; inUL = true; }
+      out += `<li>${applyInline(line.slice(2))}</li>\n`; continue;
+    }
+
+    // Ordered list
+    if (/^\d+\. /.test(line)) {
+      closeTable();
+      if (inUL) { out += '</ul>\n'; inUL = false; }
+      if (!inOL) { out += '<ol>\n'; inOL = true; }
+      out += `<li>${applyInline(line.replace(/^\d+\.\s+/, ''))}</li>\n`; continue;
+    }
+
+    // Empty line
+    if (!line.trim()) { closeAll(); out += '\n'; continue; }
+
+    // Normal paragraph
+    closeAll();
+    out += `<p>${applyInline(line)}</p>\n`;
+  }
+  closeAll();
+  return out;
+}
+
+document.getElementById('feedbackBody').innerHTML = renderFeedback(rawFeedback);
+
+// Auto-open print dialog
+window.addEventListener('load', function() {
+  // Small delay to let the browser render the content first
+  setTimeout(function() { window.print(); }, 600);
+});
+</script>
+</body>
+</html>

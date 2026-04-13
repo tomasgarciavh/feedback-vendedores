@@ -1,0 +1,478 @@
+{% extends "base.html" %}
+{% block title %}Feedback Lanzamiento — VH{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --lanz-dark: #1a0810;
+    --lanz-mid: #3d0f1e;
+    --lanz-gold: #c9a066;
+    --lanz-green: #2d6a4f;
+    --lanz-red: #8b1a2b;
+  }
+
+  /* Upload */
+  .upload-zone {
+    border: 2px dashed var(--lanz-gold);
+    border-radius: 14px; padding: 32px 24px;
+    text-align: center; transition: all 0.2s; cursor: pointer; background: #faf8f5;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--lanz-mid); background: #f5ede0; }
+
+  /* Vendor picker */
+  .vendor-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .vendor-pick-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 6px; border-radius: 12px; border: 2px solid #e9ecef;
+    background: #fff; cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .vendor-pick-btn:hover { border-color: var(--lanz-gold); background: #faf8f5; }
+  .vendor-pick-btn.selected {
+    border-color: var(--lanz-mid);
+    background: linear-gradient(135deg, rgba(61,15,30,.08), rgba(201,160,102,.12));
+    box-shadow: 0 0 0 3px rgba(201,160,102,.25);
+  }
+  .vendor-pick-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #e9ecef; }
+  .vendor-pick-initials {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, #3d0f1e, #c9a066);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 800; color: #fff;
+  }
+  .vendor-pick-name { font-size: 11px; font-weight: 700; color: #1e2235; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px; }
+
+  /* Score ring */
+  .score-ring {
+    width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 900; border: 3px solid transparent;
+  }
+  .score-ring.high { background: #f0fff4; border-color: #2d6a4f; color: #2d6a4f; }
+  .score-ring.mid  { background: #fffbf0; border-color: #c9a066; color: #8b6914; }
+  .score-ring.low  { background: #fff5f5; border-color: #8b1a2b; color: #8b1a2b; }
+
+  /* Section bars */
+  .section-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 768px) { .section-grid { grid-template-columns: repeat(2, 1fr); } }
+  .section-bar-wrap { }
+  .section-bar { height: 5px; border-radius: 3px; background: #e9ecef; overflow: hidden; margin: 3px 0; }
+  .section-bar-fill { height: 100%; border-radius: 3px; }
+
+  /* Feedback card */
+  .fb-card { border: 1px solid #e9ecef; border-radius: 14px; overflow: hidden; background: #fff; margin-bottom: 14px; transition: box-shadow .2s; }
+  .fb-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.07); }
+  .fb-card-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #faf8f5; gap: 12px; }
+
+  /* Status */
+  .st-processing { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; }
+  .st-done  { background: #dcfce7; color: #166534; font-size: 11px; padding: 4px 10px; border-radius: 20px; }
+  .st-error { background: #fee2e2; color: #991b1b; font-size: 11px; padding: 4px 10px; border-radius: 20px; }
+
+  /* Modal feedback body */
+  .feedback-rendered { font-size: 13.5px; line-height: 1.8; color: #374151; }
+  .feedback-rendered h3 { font-size: 15px; font-weight: 800; color: #1a0810; margin: 22px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #f0e8e0; }
+  .feedback-rendered h4 { font-size: 13px; font-weight: 700; color: #3d0f1e; margin: 14px 0 4px; }
+  .feedback-rendered strong { color: #1a0810; }
+  .feedback-rendered em { color: #555; }
+  .feedback-rendered ul { padding-left: 18px; margin: 6px 0 10px; }
+  .feedback-rendered li { margin-bottom: 5px; }
+  .feedback-rendered hr { border: none; border-top: 1px solid #f0e8e0; margin: 18px 0; }
+  .feedback-rendered blockquote { border-left: 3px solid #c9a066; padding: 6px 12px; margin: 8px 0; background: #faf8f5; border-radius: 0 6px 6px 0; font-style: italic; color: #555; }
+  .feedback-rendered .sci-block { background: #f7f9fc; border-radius: 8px; padding: 10px 14px; margin: 6px 0; border-left: 3px solid #c9a066; font-size: 13px; }
+  .feedback-rendered .sci-block.mejora { border-left-color: #8b1a2b; background: #fff9f9; }
+  .feedback-rendered .sci-block.fortaleza { border-left-color: #2d6a4f; background: #f0fff4; }
+
+  /* File type badges */
+  .ft-video { background: #ede9fe; color: #5b21b6; font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+  .ft-image { background: #e0f2fe; color: #0369a1; font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+
+  .pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+  .step-label { font-size: 11px; font-weight: 700; color: #3d0f1e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .step-num { width: 20px; height: 20px; background: #3d0f1e; color: #c9a066; border-radius: 50%; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:#1a0810;">Feedback — Lanzamiento Digital</h4>
+    <p class="text-muted mb-0" style="font-size:13px;">Subí una captura o grabación de tu chat de WhatsApp y recibí feedback profundo del proceso de venta.</p>
+  </div>
+  <span class="badge" style="background:linear-gradient(135deg,#3d0f1e,#c9a066);font-size:12px;padding:8px 14px;">
+    <i class="bi bi-rocket-takeoff me-1"></i>21 días
+  </span>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}{% for cat, msg in messages %}
+<div class="alert alert-{{ cat }} alert-dismissible" role="alert" style="border-radius:10px;">
+  {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}{% endif %}
+{% endwith %}
+
+<!-- KPIs -->
+{% set done_subs = submissions | selectattr("status","equalto","done") | list %}
+{% set pending_subs = submissions | selectattr("status","equalto","processing") | list %}
+{% set all_scores = done_subs | selectattr("score") | map(attribute="score") | list %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;padding:16px 10px;">
+      <div style="font-size:26px;font-weight:900;color:#3d0f1e;">{{ done_subs | length }}</div>
+      <div style="font-size:11px;color:#888;">Completados</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;padding:16px 10px;">
+      <div style="font-size:26px;font-weight:900;color:#c9a066;">{{ pending_subs | length }}</div>
+      <div style="font-size:11px;color:#888;">En proceso</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;padding:16px 10px;">
+      {% if all_scores %}
+      <div style="font-size:26px;font-weight:900;color:#2d6a4f;">{{ "%.1f"|format(all_scores|sum / all_scores|length) }}</div>
+      {% else %}
+      <div style="font-size:26px;font-weight:900;color:#bbb;">—</div>
+      {% endif %}
+      <div style="font-size:11px;color:#888;">Score promedio</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;padding:16px 10px;">
+      <div style="font-size:26px;font-weight:900;color:#3d0f1e;">{{ vendors | length }}</div>
+      <div style="font-size:11px;color:#888;">Vendedores</div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload card -->
+<div class="card border-0 shadow-sm mb-5" style="border-radius:14px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:16px 22px;">
+    <h5 class="fw-bold mb-0 text-white"><i class="bi bi-cloud-upload me-2" style="color:#c9a066;"></i>Nuevo Análisis</h5>
+  </div>
+  <div class="card-body p-4">
+    <form method="POST" action="{{ url_for('lanzamiento_upload') }}" enctype="multipart/form-data" id="lanzForm">
+
+      <div class="step-label"><span class="step-num">1</span>Seleccioná el vendedor</div>
+      <input type="hidden" name="vendor_name" id="lanzVendorInput" required>
+      <div class="vendor-picker" id="lanzVendorPicker">
+        {% for v in vendors %}
+        <div class="vendor-pick-btn" onclick="selectVendor(this,'{{ v.name | e }}')" data-name="{{ v.name | e }}">
+          {% if v.photo_path %}
+            <img src="{{ url_for('vendor_photo', filename=v.photo_path.split('/')[-1]) }}" class="vendor-pick-avatar" alt="{{ v.name }}">
+          {% else %}
+            <div class="vendor-pick-initials">{{ v.name[0]|upper }}</div>
+          {% endif %}
+          <span class="vendor-pick-name">{{ v.name }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="step-label mt-2"><span class="step-num">2</span>Subí tu conversación <span style="font-weight:400;color:#888;">(captura jpg/png/webp o grabación mp4/mov)</span></div>
+      <div class="upload-zone" id="lanzDropZone" onclick="document.getElementById('lanzFileInput').click()">
+        <input type="file" id="lanzFileInput" name="file" style="display:none"
+               accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.jpg,.jpeg,.png,.webp">
+        <div id="lanzDropContent">
+          <div style="font-size:34px;margin-bottom:8px;">📱</div>
+          <div style="font-size:14px;font-weight:700;color:#3d0f1e;margin-bottom:4px;">Arrastrá o hacé click para subir</div>
+          <div style="font-size:12px;color:#999;">Captura de pantalla o grabación de pantalla del chat</div>
+        </div>
+        <div id="lanzFilePreview" style="display:none;">
+          <div style="font-size:28px;margin-bottom:6px;" id="lanzFileIcon">📎</div>
+          <div style="font-size:13px;font-weight:700;color:#3d0f1e;" id="lanzFileName"></div>
+          <div style="font-size:11px;color:#888;" id="lanzFileSize"></div>
+        </div>
+      </div>
+
+      <div class="text-end mt-3">
+        <button type="submit" id="lanzSubmitBtn" class="btn text-white fw-bold px-4" style="background:linear-gradient(135deg,#3d0f1e,#8b3a52);border-radius:10px;" disabled>
+          <i class="bi bi-stars me-2"></i>Analizar con IA
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Historial -->
+{% if submissions %}
+<div style="font-size:12px;font-weight:700;color:#3d0f1e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">
+  <i class="bi bi-clock-history me-1"></i>Historial de Análisis
+</div>
+
+{% for s in submissions %}
+<div class="fb-card" id="card-{{ s.file_id }}">
+  <div class="fb-card-header">
+    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+      <!-- Score -->
+      {% if s.score %}
+      {% set sc = s.score %}
+      <div class="score-ring {% if sc >= 7 %}high{% elif sc >= 5 %}mid{% else %}low{% endif %}">{{ "%.1f"|format(sc) }}</div>
+      {% else %}
+      <div class="score-ring mid" style="font-size:20px;">
+        {% if s.status == 'processing' %}<i class="bi bi-hourglass-split pulse"></i>
+        {% elif s.status == 'error' %}<i class="bi bi-x-circle" style="color:#8b1a2b;"></i>
+        {% else %}—{% endif %}
+      </div>
+      {% endif %}
+      <div style="min-width:0;">
+        <div class="fw-bold" style="font-size:14px;color:#1a0810;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.vendor_name }}</div>
+        <div style="font-size:11px;color:#999;margin-top:1px;">
+          {{ s.submitted_at[:16] if s.submitted_at else '' }} &nbsp;·&nbsp;
+          <span class="{% if s.file_type == 'image' %}ft-image{% else %}ft-video{% endif %}">
+            {% if s.file_type == 'image' %}📸 Captura{% else %}🎥 Video{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      {% if s.status == 'processing' %}
+        <span class="st-processing"><span class="pulse">⏳</span>Analizando...</span>
+      {% elif s.status == 'done' %}
+        <span class="st-done"><i class="bi bi-check-circle me-1"></i>Listo</span>
+        {% if s.feedback_text %}
+        <button class="btn btn-sm fw-bold" style="background:#3d0f1e;color:#fff;border-radius:8px;font-size:12px;padding:5px 12px;"
+                onclick="openFeedback('{{ s.file_id }}', '{{ s.vendor_name | e }}')">
+          <i class="bi bi-eye me-1"></i>Ver feedback
+        </button>
+        {% endif %}
+      {% else %}
+        <span class="st-error"><i class="bi bi-x-circle me-1"></i>Error</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Section scores -->
+  {% if s.score and s.section_scores_dict %}
+  <div class="px-4 py-2" style="background:#fff;border-top:1px solid #f0e8e0;">
+    <div class="section-grid">
+      {% for key, label, icon in [
+        ("relacion","Relación","❤️"),
+        ("descubrimiento","Descubrimiento","🔍"),
+        ("siembra","Siembra","🌱"),
+        ("recomendacion","Recomendación","🎯"),
+        ("objeciones","Objeciones","🛡️"),
+        ("epp_formula","E.P.P.","💬"),
+        ("comunicacion","Comunicación","🧠"),
+        ("mentalidad","Mentalidad","⚡"),
+      ] %}
+      {% set val = s.section_scores_dict.get(key, 0) %}
+      <div class="section-bar-wrap">
+        <div style="font-size:10px;color:#888;">{{ icon }} {{ label }}</div>
+        <div class="section-bar">
+          <div class="section-bar-fill" style="width:{{ val * 10 }}%;background:{% if val >= 7 %}#2d6a4f{% elif val >= 5 %}#c9a066{% else %}#8b1a2b{% endif %};"></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:{% if val >= 7 %}#2d6a4f{% elif val >= 5 %}#8b6914{% else %}#8b1a2b{% endif %};">{{ val }}/10</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Error message -->
+  {% if s.status == 'error' %}
+  <div class="px-4 py-2" style="background:#fff5f5;border-top:1px solid #fecaca;">
+    <div style="font-size:12px;color:#8b1a2b;"><i class="bi bi-exclamation-circle me-1"></i>{{ s.error_message or 'Error desconocido' }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Processing message -->
+  {% if s.status == 'processing' %}
+  <div class="px-4 py-2 text-center" id="proc-{{ s.file_id }}" style="background:#fafafa;border-top:1px solid #f0e8e0;">
+    <div style="font-size:12px;color:#999;"><i class="bi bi-hourglass-split pulse me-1"></i>El análisis puede tardar 1-3 minutos...</div>
+  </div>
+  {% endif %}
+
+  <!-- Hidden feedback data for modal -->
+  {% if s.feedback_text %}
+  <div id="fbdata-{{ s.file_id }}" style="display:none;">{{ s.feedback_text }}</div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% else %}
+<div class="text-center py-5" style="color:#ccc;">
+  <div style="font-size:44px;margin-bottom:10px;">📱</div>
+  <div style="font-size:14px;font-weight:600;color:#999;">Todavía no hay análisis</div>
+  <div style="font-size:12px;color:#bbb;margin-top:4px;">Subí tu primera conversación arriba para empezar.</div>
+</div>
+{% endif %}
+
+<!-- ══ FEEDBACK MODAL ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="feedbackModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#fff;border:none;padding:16px 24px;">
+        <div>
+          <h5 class="modal-title fw-bold mb-0" id="feedbackModalTitle">Feedback</h5>
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;" id="feedbackModalSub"></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="feedbackModalBody" style="min-height:300px;"></div>
+      <div class="modal-footer" style="background:#faf8f5;border-top:1px solid #f0e8e0;">
+        <button class="btn btn-sm" style="background:#c9a066;color:#1a0810;border-radius:8px;font-weight:700;" onclick="openPrintPage()">
+          <i class="bi bi-printer me-1"></i>Imprimir / PDF
+        </button>
+        <button class="btn btn-sm" style="background:#3d0f1e;color:#fff;border-radius:8px;" onclick="copyFeedback()">
+          <i class="bi bi-clipboard me-1"></i>Copiar texto
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:8px;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Vendor picker ─────────────────────────────────────────────────────────
+function selectVendor(el, name) {
+  document.querySelectorAll('#lanzVendorPicker .vendor-pick-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('lanzVendorInput').value = name;
+  checkSubmit();
+}
+
+// ── File zone ─────────────────────────────────────────────────────────────
+const fileInput = document.getElementById('lanzFileInput');
+const dropZone = document.getElementById('lanzDropZone');
+
+fileInput.addEventListener('change', () => { if (fileInput.files.length) showPreview(fileInput.files[0]); });
+
+['dragover','dragenter'].forEach(e => {
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); });
+});
+['dragleave','drop'].forEach(e => {
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); });
+});
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) { const dt = new DataTransfer(); dt.items.add(f); fileInput.files = dt.files; showPreview(f); }
+});
+
+function showPreview(file) {
+  document.getElementById('lanzDropContent').style.display = 'none';
+  document.getElementById('lanzFilePreview').style.display = 'block';
+  document.getElementById('lanzFileIcon').textContent = file.type.startsWith('image/') ? '🖼️' : '🎥';
+  document.getElementById('lanzFileName').textContent = file.name;
+  document.getElementById('lanzFileSize').textContent = (file.size/1024/1024).toFixed(1) + ' MB';
+  checkSubmit();
+}
+
+function checkSubmit() {
+  const ok = document.getElementById('lanzVendorInput').value.trim() && fileInput.files.length > 0;
+  document.getElementById('lanzSubmitBtn').disabled = !ok;
+}
+
+document.getElementById('lanzForm').addEventListener('submit', () => {
+  const btn = document.getElementById('lanzSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Subiendo...';
+});
+
+// ── Feedback modal ─────────────────────────────────────────────────────────
+let _rawFeedback = '';
+let _currentFileId = '';
+
+function openFeedback(fileId, vendorName) {
+  const raw = document.getElementById('fbdata-' + fileId);
+  if (!raw) return;
+  _rawFeedback = raw.textContent;
+  _currentFileId = fileId;
+
+  document.getElementById('feedbackModalTitle').textContent = 'Feedback — ' + vendorName;
+  document.getElementById('feedbackModalSub').textContent = 'Lanzamiento 21 días · Proceso de venta conversacional por WhatsApp';
+
+  const body = document.getElementById('feedbackModalBody');
+  body.innerHTML = '<div class="feedback-rendered">' + renderMarkdown(_rawFeedback) + '</div>';
+
+  new bootstrap.Modal(document.getElementById('feedbackModal')).show();
+}
+
+function renderMarkdown(text) {
+  let h = text
+    // Escape HTML
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+    // Bold + italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // HR
+    .replace(/^---+$/gm, '<hr>')
+    // Checkmarks / bullets with color
+    .replace(/^✓ (.+)$/gm, '<li style="color:#2d6a4f;">✓ $1</li>')
+    .replace(/^✗ (.+)$/gm, '<li style="color:#8b1a2b;">✗ $1</li>')
+    // Standard bullets
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    // Numbered list
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li[^>]*>.*?<\/li>\n?)+/gs, m => '<ul>' + m + '</ul>')
+    // Blockquote: lines starting with >
+    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+    // Double newline → paragraph break
+    .replace(/\n{2,}/g, '\n\n')
+    // Single newline inside paragraph
+    .replace(/([^\n])\n([^\n])/g, '$1<br>$2');
+
+  // Wrap paragraphs
+  const blocks = h.split(/\n{2}/);
+  h = blocks.map(b => {
+    b = b.trim();
+    if (!b) return '';
+    if (/^<(h[234]|ul|hr|blockquote)/.test(b)) return b;
+    return '<p>' + b + '</p>';
+  }).join('\n');
+
+  return h;
+}
+
+function copyFeedback() {
+  if (!_rawFeedback) return;
+  navigator.clipboard.writeText(_rawFeedback).then(() => {
+    const btns = document.querySelectorAll('#feedbackModal .modal-footer .btn');
+    const btn = btns[1]; // second button = copy
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check me-1"></i>Copiado!';
+    btn.style.background = '#2d6a4f';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = '#3d0f1e'; }, 2000);
+  });
+}
+
+function openPrintPage() {
+  if (!_currentFileId) return;
+  window.open('/lanzamiento/print/' + _currentFileId, '_blank');
+}
+
+// ── Auto-poll ──────────────────────────────────────────────────────────────
+const processingIds = [
+  {% for s in submissions if s.status == 'processing' %}"{{ s.file_id }}"{% if not loop.last %},{% endif %}{% endfor %}
+];
+
+function pollCard(id) {
+  fetch('/lanzamiento/feedback/' + id)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'done' || data.status === 'error') {
+        location.reload();
+      } else {
+        setTimeout(() => pollCard(id), 8000);
+      }
+    })
+    .catch(() => setTimeout(() => pollCard(id), 12000));
+}
+
+processingIds.forEach(id => setTimeout(() => pollCard(id), 6000));
+</script>
+{% endblock %}

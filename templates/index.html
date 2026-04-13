@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard – Feedback VH{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Metric cards */
+  .metric-card {
+    background:#fff;border-radius:14px;border:1px solid #e9ecef;
+    padding:20px 22px;height:100%;
+  }
+  .metric-icon {
+    width:42px;height:42px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;font-size:19px;
+    margin-bottom:12px;flex-shrink:0;
+  }
+  .metric-value { font-size:30px;font-weight:900;line-height:1;color:#1e2235; }
+  .metric-label { font-size:12px;color:#6b7280;margin-top:4px;font-weight:500; }
+
+  /* Upload card */
+  .upload-zone {
+    border:2px dashed #d1d5db;border-radius:12px;padding:24px;
+    text-align:center;transition:border-color 0.2s,background 0.2s;cursor:pointer;
+  }
+  .upload-zone:hover,.upload-zone.drag-over {
+    border-color:#667eea;background:#f8f9ff;
+  }
+
+  /* Vendor picker grid */
+  .vendor-picker {
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;
+    margin-bottom:20px;
+  }
+  .vendor-pick-btn {
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:12px 8px;border-radius:12px;border:2px solid #e9ecef;
+    background:#fff;cursor:pointer;transition:all 0.15s;
+    text-align:center;
+  }
+  .vendor-pick-btn:hover { border-color:#667eea;background:#f8f9ff; }
+  .vendor-pick-btn.selected {
+    border-color:#667eea;background:linear-gradient(135deg,rgba(102,126,234,0.12),rgba(118,75,162,0.08));
+    box-shadow:0 0 0 3px rgba(102,126,234,0.15);
+  }
+  .vendor-pick-avatar {
+    width:48px;height:48px;border-radius:50%;object-fit:cover;
+    border:2px solid #e9ecef;
+  }
+  .vendor-pick-initials {
+    width:48px;height:48px;border-radius:50%;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:800;color:#fff;border:2px solid transparent;
+  }
+  .vendor-pick-name {
+    font-size:11px;font-weight:700;color:#1e2235;
+    line-height:1.2;max-width:110px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;
+  }
+
+  /* Table delete btn */
+  .btn-delete-row {
+    border:none;background:none;color:#d1d5db;cursor:pointer;
+    font-size:15px;padding:2px 4px;border-radius:4px;
+    transition:color 0.15s,background 0.15s;
+  }
+  .btn-delete-row:hover { color:#ef4444;background:rgba(239,68,68,0.08); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if missing_configs %}
+<div class="alert alert-warning d-flex align-items-start gap-2" style="border-radius:8px;">
+  <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>Configuración incompleta.</strong> Variables faltantes en <code>.env</code>:
+    <code>{{ missing_configs | join(', ') }}</code>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── MÉTRICAS ── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-icon" style="background:#ede9fe;">
+        <i class="bi bi-camera-video-fill" style="color:#7c3aed;"></i>
+      </div>
+      <div class="metric-value">{{ total_roleplays }}</div>
+      <div class="metric-label">Roleplays analizados</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-icon" style="background:#d1fae5;">
+        <i class="bi bi-bar-chart-fill" style="color:#059669;"></i>
+      </div>
+      <div class="metric-value">{{ avg_score or '—' }}</div>
+      <div class="metric-label">Score promedio global</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-icon" style="background:#dbeafe;">
+        <i class="bi bi-person-video3" style="color:#2563eb;"></i>
+      </div>
+      <div class="metric-value">{{ avg_roleplays or '—' }}</div>
+      <div class="metric-label">Promedio por vendedor</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="metric-card d-flex flex-column justify-content-between">
+      <div class="metric-icon" style="background:#fef3c7;">
+        <i class="bi bi-trophy-fill" style="color:#d97706;"></i>
+      </div>
+      {% if best_vendor_name %}
+        <div class="metric-value" style="font-size:18px;font-weight:800;line-height:1.2;">{{ best_vendor_name }}</div>
+        <div class="metric-label">Mejor promedio — <strong style="color:#d97706;">{{ best_vendor_score }}</strong></div>
+      {% else %}
+        <div class="metric-value">—</div>
+        <div class="metric-label">Mejor vendedor</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── UPLOAD ── -->
+<div class="card mb-4" style="border-radius:14px;border:1px solid #e9ecef;">
+  <div class="card-header" style="border-radius:14px 14px 0 0;background:#fff;border-bottom:1px solid #e9ecef;padding:18px 24px;">
+    <span style="font-weight:700;color:#1e2235;font-size:15px;">
+      <i class="bi bi-cloud-arrow-up me-2" style="color:#667eea;"></i>Subir roleplay para analizar
+    </span>
+  </div>
+  <div class="card-body p-4">
+    {% if vendors %}
+    <!-- Vendor picker (shared) -->
+    <p style="font-size:12px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:12px;">
+      1. Seleccioná el vendedor
+    </p>
+    <div class="vendor-picker" id="vendor-picker">
+      {% for v in vendors %}
+      <div class="vendor-pick-btn" onclick="selectVendor('{{ v.name }}', this)" data-name="{{ v.name }}">
+        {% if v.photo_path %}
+          <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}" class="vendor-pick-avatar" alt="{{ v.name }}">
+        {% else %}
+          <div class="vendor-pick-initials">{{ v.name[0].upper() }}</div>
+        {% endif %}
+        <span class="vendor-pick-name">{{ v.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p style="font-size:12px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:12px;">
+      2. Elegí el origen del video
+    </p>
+
+    <!-- Tabs -->
+    <div class="d-flex gap-2 mb-3">
+      <button class="upload-tab-btn active" id="tab-local" onclick="switchTab('local')"
+              style="padding:8px 18px;border-radius:8px;border:2px solid #667eea;background:#667eea;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;">
+        <i class="bi bi-laptop me-1"></i>Mi computadora
+      </button>
+      <button class="upload-tab-btn" id="tab-drive" onclick="switchTab('drive')"
+              style="padding:8px 18px;border-radius:8px;border:2px solid #e5e7eb;background:#fff;color:#6b7280;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;">
+        <i class="bi bi-google me-1"></i>Link de Google Drive
+      </button>
+    </div>
+
+    <!-- Tab: Local -->
+    <div id="panel-local">
+      <form method="POST" action="/upload" enctype="multipart/form-data" id="upload-form">
+        <input type="hidden" name="vendor_name" id="vendor-hidden" required>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('video-input').click()">
+          <i class="bi bi-film" style="font-size:36px;color:#d1d5db;display:block;margin-bottom:10px;"></i>
+          <div style="font-weight:600;color:#374151;margin-bottom:4px;" id="file-name-label">
+            Arrastrá el video acá o hacé clic para seleccionar
+          </div>
+          <div style="font-size:12px;color:#9ca3af;">MP4, MOV, AVI, MKV — máx. 5 GB</div>
+        </div>
+        <input type="file" name="video" id="video-input" accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.wmv,.flv,.3gp"
+               style="display:none" onchange="onFileSelected(this)">
+        <div id="upload-progress" class="mt-3" style="display:none;">
+          <div class="d-flex justify-content-between mb-1" style="font-size:12px;color:#6c757d;">
+            <span id="progress-label">Subiendo archivo...</span>
+            <span id="progress-pct">0%</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:4px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="progress-bar"
+                 style="width:0%;background:linear-gradient(90deg,#667eea,#764ba2);"></div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3 px-4" id="upload-btn" disabled style="border-radius:8px;font-weight:700;">
+          <i class="bi bi-send me-2"></i>Analizar y generar feedback
+        </button>
+      </form>
+    </div>
+
+    <!-- Tab: Drive -->
+    <div id="panel-drive" style="display:none;">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#166534;">
+        <i class="bi bi-info-circle me-2"></i>
+        El video debe estar compartido con <strong>"Cualquiera con el link"</strong> en Google Drive.
+        Copiá el link desde Drive → botón "Compartir" → "Copiar link".
+      </div>
+      <div style="position:relative;">
+        <i class="bi bi-link-45deg" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:18px;"></i>
+        <input type="text" id="drive-url-input" placeholder="https://drive.google.com/file/d/..."
+               style="width:100%;padding:12px 14px 12px 38px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;transition:border-color 0.15s;"
+               oninput="checkDriveReady()"
+               onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e5e7eb'">
+      </div>
+      <div id="drive-progress" class="mt-3" style="display:none;">
+        <div class="d-flex justify-content-between mb-1" style="font-size:12px;color:#6c757d;">
+          <span id="drive-progress-label">Descargando desde Drive...</span>
+          <span class="spinner-border spinner-border-sm text-primary"></span>
+        </div>
+        <div class="progress" style="height:8px;border-radius:4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               style="width:100%;background:linear-gradient(90deg,#667eea,#764ba2);"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary mt-3 px-4" id="drive-btn" disabled onclick="uploadFromDrive()"
+              style="border-radius:8px;font-weight:700;">
+        <i class="bi bi-cloud-download me-2"></i>Descargar y analizar
+      </button>
+    </div>
+
+    {% else %}
+    <div class="text-center py-3 text-muted">
+      <i class="bi bi-person-plus" style="font-size:32px;opacity:0.3;"></i>
+      <p class="mt-2 mb-2">No hay vendedores registrados.</p>
+      <a href="{{ url_for('vendors') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-lg me-1"></i>Agregar vendedor
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── HISTORIAL ── -->
+<div class="card" style="border-radius:14px;border:1px solid #e9ecef;">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2"
+       style="background:#fff;border-radius:14px 14px 0 0;border-bottom:1px solid #e9ecef;padding:16px 20px;">
+    <span style="font-weight:700;color:#1e2235;">
+      <i class="bi bi-table me-2" style="color:#667eea;"></i>Historial de roleplays
+    </span>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div style="position:relative;">
+        <i class="bi bi-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;"></i>
+        <input type="text" id="table-search" placeholder="Buscar..."
+               style="padding:6px 10px 6px 28px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;width:200px;outline:none;">
+      </div>
+      <select id="filter-vendor" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;">
+        <option value="">Todos los vendedores</option>
+        {% for v in vendors %}
+        <option value="{{ v.name }}">{{ v.name }}</option>
+        {% endfor %}
+      </select>
+      <select id="filter-status" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;">
+        <option value="">Todos</option>
+        <option value="done">Listo</option>
+        <option value="processing">En proceso</option>
+        <option value="error">Error</option>
+      </select>
+      <span class="badge bg-secondary" id="visible-count">{{ records | length }}</span>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    {% if records %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size:13px;" id="records-table">
+        <thead style="background:#f8f9fa;">
+          <tr>
+            <th class="ps-4" style="width:88px;cursor:pointer;" onclick="sortTable('status')">
+              Estado <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+            </th>
+            <th style="cursor:pointer;" onclick="sortTable('vendor')">
+              Vendedor <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+            </th>
+            <th>Archivo</th>
+            <th style="cursor:pointer;width:130px;" onclick="sortTable('date')">
+              Fecha <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+            </th>
+            <th style="cursor:pointer;width:72px;text-align:center;" onclick="sortTable('score')">
+              Score <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+            </th>
+            <th style="width:80px;">Feedback</th>
+            <th style="width:72px;">Video</th>
+            <th style="width:72px;text-align:center;">Perfil</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody">
+          {% for rec in records %}
+          <tr data-vendor="{{ rec.vendor_name }}" data-status="{{ rec.status }}"
+              data-date="{{ rec.processed_at or '' }}" data-score="{{ rec.score or 0 }}"
+              id="row-{{ rec.file_id }}">
+            <td class="ps-4">
+              {% if rec.status == 'done' %}
+                <span class="badge badge-done px-2 py-1"><i class="bi bi-check-circle me-1"></i>Listo</span>
+              {% elif rec.status == 'processing' %}
+                <span class="badge badge-processing px-2 py-1"><i class="bi bi-hourglass-split me-1"></i>Proceso</span>
+              {% else %}
+                <span class="badge badge-error px-2 py-1"><i class="bi bi-x-circle me-1"></i>Error</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if rec.vendor_id %}
+                <a href="{{ url_for('vendor_profile', vendor_id=rec.vendor_id) }}"
+                   style="font-weight:700;color:#1e2235;text-decoration:none;"
+                   onmouseover="this.style.color='#667eea'" onmouseout="this.style.color='#1e2235'">
+                  {{ rec.vendor_name }}
+                </a>
+              {% else %}
+                <span class="fw-semibold">{{ rec.vendor_name }}</span>
+              {% endif %}
+            </td>
+            <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="{{ rec.file_name }}">{{ rec.file_name }}</td>
+            <td class="text-muted" style="white-space:nowrap;">
+              {% if rec.processed_at %}{{ rec.processed_at[:16].replace('T',' ') }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+              {% if rec.score %}
+                {% set s = rec.score | int %}
+                <span style="display:inline-flex;align-items:center;justify-content:center;
+                             width:36px;height:36px;border-radius:8px;font-weight:800;font-size:13px;
+                             background:{% if s >= 8 %}#d1fae5{% elif s >= 5 %}#fef3c7{% else %}#fee2e2{% endif %};
+                             color:{% if s >= 8 %}#065f46{% elif s >= 5 %}#92400e{% else %}#991b1b{% endif %};">
+                  {{ "%.1f"|format(rec.score) }}
+                </span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if rec.feedback_text %}
+                <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:12px;"
+                        onclick="loadFeedback('{{ rec.file_id }}')">
+                  <i class="bi bi-eye me-1"></i>Ver
+                </button>
+              {% elif rec.error_message %}
+                <span class="text-danger" style="font-size:11px;" title="{{ rec.error_message }}">
+                  <i class="bi bi-exclamation-circle me-1"></i>{{ rec.error_message[:40] }}{% if rec.error_message|length > 40 %}…{% endif %}
+                </span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              <button class="btn btn-sm py-0 px-2" style="font-size:12px;background:#1e2235;color:#fff;border:none;border-radius:6px;"
+                      onclick="playVideo('{{ rec.file_id }}', '{{ rec.vendor_name | replace("'", "\\'") | e }}', '{{ rec.file_name | replace("'", "\\'") | e }}')">
+                <i class="bi bi-play-circle me-1"></i>Ver
+              </button>
+            </td>
+            <td style="text-align:center;">
+              {% if rec.vendor_id %}
+                <a href="{{ url_for('vendor_profile', vendor_id=rec.vendor_id) }}"
+                   class="btn btn-sm py-0 px-2"
+                   style="font-size:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:6px;">
+                  <i class="bi bi-person-lines-fill"></i>
+                </a>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td style="text-align:center;">
+              <button class="btn-delete-row" title="Eliminar registro"
+                      onclick="deleteRecord('{{ rec.file_id }}', '{{ rec.vendor_name | replace("'","\\'")|e }}')">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox" style="font-size:40px;opacity:0.3;"></i>
+      <p class="mt-3 mb-0 fw-semibold">No hay roleplays procesados todavía.</p>
+      <p class="small">Subí el primer video usando el formulario de arriba.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Feedback modal -->
+<div class="modal fade" id="feedbackModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:14px 14px 0 0;border:none;">
+        <h5 class="modal-title" id="feedbackModalTitle">Feedback</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="white-space:pre-wrap;font-size:14px;line-height:1.7;" id="feedbackModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-secondary" onclick="copyFeedback()">
+          <i class="bi bi-clipboard me-1"></i>Copiar
+        </button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Video modal -->
+<div class="modal fade" id="videoModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none;background:#000;">
+      <div class="modal-header" style="background:#1e2235;color:#fff;border-radius:14px 14px 0 0;border:none;padding:12px 20px;">
+        <div>
+          <h6 class="modal-title mb-0 fw-bold" id="videoModalVendor"></h6>
+          <div style="font-size:11px;color:#a8b2d8;" id="videoModalFile"></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <video id="videoPlayer" controls style="width:100%;max-height:72vh;border-radius:0 0 14px 14px;background:#000;display:block;">
+          Tu navegador no soporta video HTML5.
+        </video>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal fade" id="deleteRecordModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-body p-4 text-center">
+        <i class="bi bi-trash3-fill text-danger" style="font-size:32px;"></i>
+        <p class="mt-3 mb-1 fw-semibold">Eliminar este roleplay</p>
+        <p class="text-muted mb-4" style="font-size:13px;" id="delete-record-label">¿Estás seguro?</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-secondary flex-grow-1" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-danger flex-grow-1" id="confirm-delete-record-btn">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Tabs ──
+  function switchTab(tab) {
+    const isLocal = tab === 'local';
+    document.getElementById('panel-local').style.display = isLocal ? '' : 'none';
+    document.getElementById('panel-drive').style.display = isLocal ? 'none' : '';
+    const btnLocal = document.getElementById('tab-local');
+    const btnDrive = document.getElementById('tab-drive');
+    if (isLocal) {
+      btnLocal.style.background = '#667eea'; btnLocal.style.color = '#fff'; btnLocal.style.borderColor = '#667eea';
+      btnDrive.style.background = '#fff'; btnDrive.style.color = '#6b7280'; btnDrive.style.borderColor = '#e5e7eb';
+    } else {
+      btnDrive.style.background = '#667eea'; btnDrive.style.color = '#fff'; btnDrive.style.borderColor = '#667eea';
+      btnLocal.style.background = '#fff'; btnLocal.style.color = '#6b7280'; btnLocal.style.borderColor = '#e5e7eb';
+    }
+  }
+
+  // ── Vendor picker ──
+  let _selectedVendor = '';
+  function selectVendor(name, el) {
+    document.querySelectorAll('.vendor-pick-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    _selectedVendor = name;
+    document.getElementById('vendor-hidden').value = name;
+    checkUploadReady();
+    checkDriveReady();
+  }
+
+  let _fileSelected = false;
+  function onFileSelected(input) {
+    if (input.files.length) {
+      _fileSelected = true;
+      document.getElementById('file-name-label').textContent = input.files[0].name;
+      document.getElementById('upload-zone').style.borderColor = '#667eea';
+    }
+    checkUploadReady();
+  }
+
+  function checkUploadReady() {
+    document.getElementById('upload-btn').disabled = !(_selectedVendor && _fileSelected);
+  }
+
+  // Drag & drop
+  const zone = document.getElementById('upload-zone');
+  if (zone) {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const input = document.getElementById('video-input');
+      input.files = e.dataTransfer.files;
+      onFileSelected(input);
+    });
+  }
+
+  // ── Upload with progress ──
+  const form = document.getElementById('upload-form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (!_selectedVendor) {
+        showToast('Seleccioná un vendedor primero.', 'danger');
+        e.preventDefault(); return;
+      }
+      const fileInput = document.getElementById('video-input');
+      if (!fileInput.files.length) { e.preventDefault(); return; }
+      if (fileInput.files[0].size > 5 * 1024 * 1024 * 1024) {
+        showToast('El archivo supera los 5 GB.', 'danger');
+        e.preventDefault(); return;
+      }
+      e.preventDefault();
+
+      const btn = document.getElementById('upload-btn');
+      const progressDiv = document.getElementById('upload-progress');
+      const progressBar = document.getElementById('progress-bar');
+      const progressLabel = document.getElementById('progress-label');
+      const progressPct = document.getElementById('progress-pct');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Subiendo...';
+      progressDiv.style.display = 'block';
+
+      const formData = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', evt => {
+        if (evt.lengthComputable) {
+          const pct = Math.round(evt.loaded / evt.total * 100);
+          progressBar.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+          if (pct === 100) progressLabel.textContent = 'Procesando con Gemini... (puede tardar varios minutos)';
+        }
+      });
+      xhr.addEventListener('load', () => { window.location.href = '/'; });
+      xhr.addEventListener('error', () => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-2"></i>Analizar y generar feedback';
+        progressDiv.style.display = 'none';
+        showToast('Error de red. Intentá de nuevo.', 'danger');
+      });
+      xhr.timeout = 0;
+      xhr.open('POST', '/upload');
+      xhr.send(formData);
+    });
+  }
+
+  // ── Video modal ──
+  const _videoModal = new bootstrap.Modal(document.getElementById('videoModal'));
+  const _videoPlayer = document.getElementById('videoPlayer');
+
+  function playVideo(fileId, vendorName, fileName) {
+    document.getElementById('videoModalVendor').textContent = vendorName;
+    document.getElementById('videoModalFile').textContent = fileName;
+    _videoPlayer.load();
+    _videoPlayer.src = '/uploads/video/' + fileId;
+    _videoPlayer.load();
+    _videoModal.show();
+    _videoPlayer.play().catch(() => {});
+  }
+
+  document.getElementById('videoModal').addEventListener('hidden.bs.modal', () => {
+    _videoPlayer.pause();
+    _videoPlayer.src = '';
+  });
+
+  // ── Feedback modal ──
+  let _currentFeedback = '';
+  async function loadFeedback(fileId) {
+    try {
+      const resp = await fetch('/feedback/' + fileId);
+      const data = await resp.json();
+      _currentFeedback = data.feedback || '';
+      document.getElementById('feedbackModalTitle').textContent = 'Feedback — ' + (data.vendor_name || '');
+      document.getElementById('feedbackModalBody').textContent = _currentFeedback;
+      new bootstrap.Modal(document.getElementById('feedbackModal')).show();
+    } catch { showToast('Error al cargar el feedback.', 'danger'); }
+  }
+  function copyFeedback() {
+    navigator.clipboard.writeText(_currentFeedback).then(() => showToast('Copiado.', 'success'));
+  }
+
+  // ── Delete record ──
+  let _pendingDeleteId = null;
+  const _deleteRecordModal = new bootstrap.Modal(document.getElementById('deleteRecordModal'));
+
+  function deleteRecord(fileId, vendorName) {
+    _pendingDeleteId = fileId;
+    document.getElementById('delete-record-label').textContent = 'Roleplay de ' + vendorName;
+    _deleteRecordModal.show();
+  }
+
+  document.getElementById('confirm-delete-record-btn').addEventListener('click', async () => {
+    if (!_pendingDeleteId) return;
+    const id = _pendingDeleteId;
+    _deleteRecordModal.hide();
+    try {
+      const resp = await fetch('/records/' + id, { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) {
+        const row = document.getElementById('row-' + id);
+        if (row) { row.style.transition = 'opacity 0.3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+        showToast('Registro eliminado.', 'success');
+      } else { showToast('Error: ' + (data.error || 'desconocido'), 'danger'); }
+    } catch { showToast('Error de red.', 'danger'); }
+    _pendingDeleteId = null;
+  });
+
+  // ── Drive upload ──
+  function checkDriveReady() {
+    const url = (document.getElementById('drive-url-input')?.value || '').trim();
+    const btn = document.getElementById('drive-btn');
+    if (btn) btn.disabled = !(url && _selectedVendor);
+  }
+
+  async function uploadFromDrive() {
+    const url   = document.getElementById('drive-url-input').value.trim();
+    const btn   = document.getElementById('drive-btn');
+    const prog  = document.getElementById('drive-progress');
+    const label = document.getElementById('drive-progress-label');
+
+    if (!_selectedVendor) { showToast('Seleccioná un vendedor primero.', 'danger'); return; }
+    if (!url) { showToast('Pegá el link de Google Drive.', 'danger'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    prog.style.display = 'block';
+    label.textContent = 'Descargando desde Drive y procesando... (puede tardar varios minutos)';
+
+    try {
+      const form = new FormData();
+      form.append('vendor_name', _selectedVendor);
+      form.append('drive_url', url);
+      const resp = await fetch('/upload_drive', { method: 'POST', body: form });
+      const data = await resp.json();
+      if (data.ok) {
+        showToast(data.message, 'success');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        prog.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download me-2"></i>Descargar y analizar';
+        showToast(data.error || 'Error desconocido.', 'danger');
+      }
+    } catch(e) {
+      prog.style.display = 'none';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-cloud-download me-2"></i>Descargar y analizar';
+      showToast('Error de red: ' + e.message, 'danger');
+    }
+  }
+
+  // ── Auto-refresh si hay en proceso ──
+  const pendingCount = {{ pending_count }};
+  const queueSize   = {{ queue_size }};
+  if (pendingCount > 0 || queueSize > 0) setTimeout(() => window.location.reload(), 15000);
+
+  // ── Search / filter / sort ──
+  let _sortCol = 'date', _sortDir = -1;
+
+  function filterAndSort() {
+    const search = (document.getElementById('table-search')?.value || '').toLowerCase();
+    const vendor = (document.getElementById('filter-vendor')?.value || '').toLowerCase();
+    const status = (document.getElementById('filter-status')?.value || '').toLowerCase();
+    const tbody  = document.getElementById('records-tbody');
+    if (!tbody) return;
+    let visible = 0;
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+      const rv = (row.dataset.vendor || '').toLowerCase();
+      const rs = (row.dataset.status || '').toLowerCase();
+      const rf = (row.querySelector('td:nth-child(3)')?.textContent || '').toLowerCase();
+      const ok = (!search || rv.includes(search) || rf.includes(search))
+              && (!vendor || rv === vendor)
+              && (!status || rs === status);
+      row.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    });
+    document.getElementById('visible-count').textContent = visible;
+    sortVisible();
+  }
+
+  function sortTable(col) {
+    _sortDir = _sortCol === col ? _sortDir * -1 : (col === 'date' ? -1 : 1);
+    _sortCol = col;
+    sortVisible();
+  }
+
+  function sortVisible() {
+    const tbody = document.getElementById('records-tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none');
+    rows.sort((a, b) => {
+      let va, vb;
+      if (_sortCol === 'score') {
+        return (parseFloat(a.dataset.score||0) - parseFloat(b.dataset.score||0)) * _sortDir;
+      }
+      va = (_sortCol === 'vendor' ? a.dataset.vendor : _sortCol === 'date' ? a.dataset.date : a.dataset.status) || '';
+      vb = (_sortCol === 'vendor' ? b.dataset.vendor : _sortCol === 'date' ? b.dataset.date : b.dataset.status) || '';
+      return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  document.getElementById('table-search')?.addEventListener('input', filterAndSort);
+  document.getElementById('filter-vendor')?.addEventListener('change', filterAndSort);
+  document.getElementById('filter-status')?.addEventListener('change', filterAndSort);
+</script>
+{% endblock %}

@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics VH{% endblock %}
+{% block page_title %}Analytics — Habilidades y Progreso{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  .kpi-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 24px;
+    border: 1px solid #e9ecef;
+    text-align: center;
+  }
+  .kpi-card .kpi-val {
+    font-size: 36px;
+    font-weight: 800;
+    color: #1e2235;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-card .kpi-lbl {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+  }
+  .section-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e2235;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 20px;
+  }
+  .vendor-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .vendor-row:last-child { border-bottom: none; }
+  .vendor-rank {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .vendor-rank.rank-1 { background: linear-gradient(135deg,#f59e0b,#d97706); }
+  .vendor-rank.rank-2 { background: linear-gradient(135deg,#9ca3af,#6b7280); }
+  .vendor-rank.rank-3 { background: linear-gradient(135deg,#cd7f32,#a0522d); }
+  .score-bar-wrap { flex: 1; }
+  .score-bar-bg { background: #f3f4f6; border-radius: 4px; height: 8px; overflow: hidden; }
+  .score-bar-fill { height: 8px; border-radius: 4px; transition: width 0.6s ease; }
+  .skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 4px;
+  }
+  .skill-high  { background: #d1fae5; color: #065f46; }
+  .skill-mid   { background: #fef3c7; color: #92400e; }
+  .skill-low   { background: #fee2e2; color: #991b1b; }
+  .trend-up    { color: #10b981; }
+  .trend-down  { color: #ef4444; }
+  .trend-equal { color: #f59e0b; }
+  .heatmap-table th, .heatmap-table td {
+    font-size: 12px;
+    padding: 8px 12px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .heatmap-table th { background: #f8f9fa; font-weight: 700; color: #374151; }
+  .heatmap-cell {
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if total_vendors == 0 %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-bar-chart-line" style="font-size:48px;opacity:0.2;display:block;margin-bottom:16px;"></i>
+  <p>Todavía no hay sesiones procesadas. Subí el primer video desde el <a href="{{ url_for('index') }}">Dashboard</a>.</p>
+</div>
+{% else %}
+
+<!-- KPIs globales -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="kpi-card">
+      <div class="kpi-val">{{ total_vendors }}</div>
+      <div class="kpi-lbl">Vendedores activos</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="kpi-card">
+      <div class="kpi-val">{{ total_sessions }}</div>
+      <div class="kpi-lbl">Sesiones totales</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:{% if global_avg >= 8 %}#059669{% elif global_avg >= 5 %}#d97706{% else %}#dc2626{% endif %};">
+        {{ global_avg }}
+      </div>
+      <div class="kpi-lbl">Promedio general</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="kpi-card">
+      {% set best_vendor = vendors | sort(attribute='avg_score', reverse=True) | first %}
+      <div class="kpi-val" style="font-size:20px;padding-top:4px;">{{ best_vendor.name }}</div>
+      <div class="kpi-lbl">Top vendedor</div>
+    </div>
+  </div>
+</div>
+
+<!-- Ranking + Habilidades globales -->
+<div class="row g-4 mb-4">
+
+  <!-- Ranking de vendedores -->
+  <div class="col-lg-5">
+    <div class="section-card" style="height:100%;">
+      <div class="section-title"><i class="bi bi-trophy me-2" style="color:#f59e0b;"></i>Ranking de vendedores</div>
+      {% for v in vendors %}
+      <div class="vendor-row">
+        <div class="vendor-rank rank-{{ loop.index }}">{{ loop.index }}</div>
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <a href="{{ url_for('vendor_profile', vendor_id=v.vendor_id) if v.vendor_id else '#' }}"
+               style="font-weight:700;font-size:13px;color:#1e2235;text-decoration:none;">
+              {{ v.name }}
+            </a>
+            <div class="d-flex align-items-center gap-2">
+              {% if v.trend == 'up' %}
+                <i class="bi bi-arrow-up-short trend-up" style="font-size:16px;"></i>
+              {% elif v.trend == 'down' %}
+                <i class="bi bi-arrow-down-short trend-down" style="font-size:16px;"></i>
+              {% elif v.trend == 'equal' %}
+                <i class="bi bi-dash trend-equal" style="font-size:14px;"></i>
+              {% endif %}
+              <span style="font-weight:800;font-size:15px;
+                color:{% if v.avg_score >= 8 %}#059669{% elif v.avg_score >= 5 %}#d97706{% else %}#dc2626{% endif %};">
+                {{ v.avg_score }}
+              </span>
+            </div>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill"
+                 style="width:{{ (v.avg_score / 10 * 100)|int }}%;
+                        background:{% if v.avg_score >= 8 %}linear-gradient(90deg,#10b981,#059669){% elif v.avg_score >= 5 %}linear-gradient(90deg,#f59e0b,#d97706){% else %}linear-gradient(90deg,#ef4444,#dc2626){% endif %};">
+            </div>
+          </div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:3px;">
+            {{ v.sessions }} sesión{{ 'es' if v.sessions != 1 else '' }} · Mejor: {{ v.best_score }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Habilidades globales promedio (barras horizontales) -->
+  <div class="col-lg-7">
+    <div class="section-card" style="height:100%;">
+      <div class="section-title"><i class="bi bi-stars me-2" style="color:#667eea;"></i>Habilidades VH — Promedio global</div>
+      <canvas id="skillsBarChart" style="max-height:300px;"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Evolución de todos los vendedores (línea) -->
+<div class="section-card mb-4">
+  <div class="section-title"><i class="bi bi-graph-up-arrow me-2" style="color:#10b981;"></i>Evolución de puntajes por vendedor</div>
+  <canvas id="evolutionChart" style="max-height:280px;"></canvas>
+</div>
+
+<!-- Heatmap de habilidades por vendedor -->
+<div class="section-card mb-4">
+  <div class="section-title"><i class="bi bi-grid-3x3-gap me-2" style="color:#764ba2;"></i>Mapa de habilidades por vendedor</div>
+  <div class="table-responsive">
+    <table class="table heatmap-table align-middle mb-0">
+      <thead>
+        <tr>
+          <th style="text-align:left;min-width:160px;">Vendedor</th>
+          <th>Diag.</th>
+          <th>Descub.</th>
+          <th>Empatía</th>
+          <th>Preguntas</th>
+          <th>Creencias</th>
+          <th>Story</th>
+          <th>Pitch</th>
+          <th>Mentalidad</th>
+          <th>Promedio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vendors %}
+        <tr>
+          <td style="text-align:left;font-weight:600;">
+            <a href="{{ url_for('vendor_profile', vendor_id=v.vendor_id) if v.vendor_id else '#' }}"
+               style="color:#1e2235;text-decoration:none;">{{ v.name }}</a>
+          </td>
+          {% set sk = ['diagnostico_desapego','descubrimiento_acuerdos','empatia_escucha','ingenieria_preguntas','gestion_creencias','storytelling','pitch_personalizado','mentalidad'] %}
+          {% for k in sk %}
+            {% set val = v.section_avgs.get(k, 0) %}
+            {% if val >= 8 %}{% set bg = '#d1fae5' %}{% set fg = '#065f46' %}
+            {% elif val >= 6 %}{% set bg = '#fef3c7' %}{% set fg = '#92400e' %}
+            {% elif val > 0 %}{% set bg = '#fee2e2' %}{% set fg = '#991b1b' %}
+            {% else %}{% set bg = '#f9fafb' %}{% set fg = '#9ca3af' %}{% endif %}
+            <td><span class="heatmap-cell" style="background:{{ bg }};color:{{ fg }};padding:4px 8px;border-radius:6px;display:inline-block;">
+              {{ "%.1f"|format(val) if val > 0 else '—' }}
+            </span></td>
+          {% endfor %}
+          {% set avg = v.avg_score %}
+          {% if avg >= 8 %}{% set bg2 = '#1e2235' %}{% set fg2 = '#fff' %}
+          {% elif avg >= 6 %}{% set bg2 = '#374151' %}{% set fg2 = '#fff' %}
+          {% else %}{% set bg2 = '#6b7280' %}{% set fg2 = '#fff' %}{% endif %}
+          <td><span class="heatmap-cell" style="background:{{ bg2 }};color:{{ fg2 }};padding:4px 10px;border-radius:6px;display:inline-block;font-size:14px;">
+            {{ avg }}
+          </span></td>
+        </tr>
+        {% endfor %}
+        <!-- Fila de promedios globales -->
+        <tr style="background:#f8f9fa;font-style:italic;">
+          <td style="text-align:left;font-weight:700;color:#374151;">Promedio grupo</td>
+          {% for k in ['diagnostico_desapego','descubrimiento_acuerdos','empatia_escucha','ingenieria_preguntas','gestion_creencias','storytelling','pitch_personalizado','mentalidad'] %}
+            {% set val = global_section_avgs.get(k, 0) %}
+            <td><strong>{{ "%.1f"|format(val) if val > 0 else '—' }}</strong></td>
+          {% endfor %}
+          <td><strong>{{ global_avg }}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Fortalezas y debilidades del grupo -->
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="section-card">
+      <div class="section-title"><i class="bi bi-hand-thumbs-up me-2" style="color:#10b981;"></i>Fortalezas del grupo</div>
+      {% set skill_labels = {
+        'diagnostico_desapego': 'Diagnóstico y Desapego',
+        'descubrimiento_acuerdos': 'Descubrimiento y Acuerdos',
+        'empatia_escucha': 'Empatía y Escucha',
+        'ingenieria_preguntas': 'Ingeniería de Preguntas',
+        'gestion_creencias': 'Gestión de Creencias',
+        'storytelling': 'Storytelling',
+        'pitch_personalizado': 'Pitch Personalizado',
+        'mentalidad': 'Mentalidad'
+      } %}
+      {% for k in section_keys %}
+        {% if global_section_avgs.get(k, 0) >= 8 %}
+          <span class="skill-chip skill-high">
+            <i class="bi bi-check-circle-fill"></i>
+            {{ skill_labels[k] }} — {{ "%.1f"|format(global_section_avgs[k]) }}
+          </span>
+        {% endif %}
+      {% endfor %}
+      {% set has_strengths = namespace(val=false) %}
+      {% for k in section_keys %}{% if global_section_avgs.get(k, 0) >= 8 %}{% set has_strengths.val = true %}{% endif %}{% endfor %}
+      {% if not has_strengths.val %}
+        <p class="text-muted mb-0" style="font-size:13px;">Todavía no hay habilidades con promedio ≥ 8.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="section-card">
+      <div class="section-title"><i class="bi bi-exclamation-triangle me-2" style="color:#ef4444;"></i>Áreas a trabajar</div>
+      {% for k in section_keys %}
+        {% set val = global_section_avgs.get(k, 0) %}
+        {% if val > 0 and val < 7 %}
+          <span class="skill-chip skill-low">
+            <i class="bi bi-arrow-up-circle"></i>
+            {{ skill_labels[k] }} — {{ "%.1f"|format(val) }}
+          </span>
+        {% endif %}
+      {% endfor %}
+      {% set has_weak = namespace(val=false) %}
+      {% for k in section_keys %}{% set val = global_section_avgs.get(k,0) %}{% if val > 0 and val < 7 %}{% set has_weak.val = true %}{% endif %}{% endfor %}
+      {% if not has_weak.val %}
+        <p class="text-muted mb-0" style="font-size:13px;">¡Todas las habilidades están por encima de 7!</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total_vendors > 0 %}
+<script>
+  const skillLabels = ['Diagnóstico\nDesapego','Descubrim.\nAcuerdos','Empatía\nEscucha','Ing.\nPreguntas','Gestión\nCreencias','Story-\ntelling','Pitch\nPersonal.','Mentalidad'];
+  const globalSkills = {{ global_section_avgs.values() | list | tojson }};
+
+  // ── Barras horizontales: habilidades globales ──
+  new Chart(document.getElementById('skillsBarChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Diag. Desapego','Descub. Acuerdos','Empatía Escucha','Ing. Preguntas','Gestión Creencias','Storytelling','Pitch Personal.','Mentalidad'],
+      datasets: [{
+        data: globalSkills,
+        backgroundColor: globalSkills.map(v =>
+          v >= 8 ? 'rgba(16,185,129,0.8)' : v >= 6 ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)'
+        ),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      scales: {
+        x: { min: 0, max: 10, ticks: { stepSize: 2 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { font: { size: 12 } }, grid: { display: false } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.x.toFixed(1) + ' / 10' } }
+      },
+      maintainAspectRatio: true,
+    }
+  });
+
+  // ── Evolución por vendedor ──
+  const palette = ['#667eea','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#6366f1'];
+  const vendorData = {{ vendors | tojson }};
+
+  const evolutionDatasets = vendorData.map((v, i) => ({
+    label: v.name,
+    data: v.scores,
+    labels: v.dates,
+    borderColor: palette[i % palette.length],
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    pointRadius: 4,
+    pointHoverRadius: 7,
+    tension: 0.3,
+    spanGaps: true,
+  }));
+
+  // Use max length for x axis
+  const maxLen = Math.max(...vendorData.map(v => v.dates.length));
+  const xLabels = vendorData.reduce((best, v) => v.dates.length >= best.length ? v.dates : best, []);
+
+  new Chart(document.getElementById('evolutionChart'), {
+    type: 'line',
+    data: { labels: xLabels, datasets: evolutionDatasets },
+    options: {
+      scales: {
+        y: { min: 0, max: 10, ticks: { stepSize: 2 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14, padding: 16 } }
+      },
+      maintainAspectRatio: true,
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

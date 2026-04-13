@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Acceso Productor — VH{% endblock %}
+{% block page_title %}Acceso Productor{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+  <div class="card border-0 shadow" style="width:100%;max-width:380px;border-radius:16px;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:36px 32px 28px;">
+      <div class="text-center mb-2">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#c9a066,#8b5a2b);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+          <i class="bi bi-shield-lock-fill" style="font-size:24px;color:#fff;"></i>
+        </div>
+        <h5 class="mb-0 fw-bold text-white">Área Productor</h5>
+        <p style="color:#c9a066;font-size:13px;margin-top:4px;">Ventas Lanzamiento · Análisis de Compradores</p>
+      </div>
+    </div>
+    <div class="card-body p-4">
+      {% if error %}
+        <div class="alert alert-danger py-2 mb-3" style="font-size:13px;">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+        <div class="mb-4">
+          <label class="form-label fw-semibold" style="font-size:13px;">Contraseña</label>
+          <input type="password" name="password" class="form-control" placeholder="Contraseña del productor"
+                 required autofocus style="border-radius:8px;">
+        </div>
+        <button type="submit" class="btn w-100 fw-bold"
+                style="background:linear-gradient(135deg,#c9a066,#8b5a2b);color:#fff;border:none;border-radius:8px;padding:10px;">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Ingresar
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

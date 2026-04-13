@@ -1,0 +1,575 @@
+{% extends "base.html" %}
+{% block title %}Análisis de Compradores — VH{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:#1a0810;">Análisis Profundo de Compradores</h4>
+    <p class="text-muted mb-0" style="font-size:13px;">
+      {{ data.meta.total_chats if data.meta else '18' }} conversaciones reales analizadas — {{ data.meta.fecha_analisis if data.meta else 'Abril 2026' }}
+    </p>
+  </div>
+  <span class="badge" style="background:linear-gradient(135deg,#3d0f1e,#c9a066);font-size:12px;padding:8px 14px;">
+    <i class="bi bi-stars me-1"></i>Avatar Deep Analysis
+  </span>
+</div>
+
+{% if not data %}
+<div class="alert alert-warning">No hay datos de análisis disponibles. Ejecutá <code>analyze_chats.py</code> para generar el análisis.</div>
+{% else %}
+
+{% set av = data.avatar_principal %}
+{% set demo = av.datos_demograficos if av.datos_demograficos else {} %}
+{% set est = data.estrategia_lanzamiento %}
+
+<!-- ══ 1. RESUMEN EJECUTIVO ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:22px 28px;">
+    <div class="d-flex align-items-start gap-3">
+      <div style="font-size:30px;flex-shrink:0;margin-top:2px;">🎯</div>
+      <div>
+        <div style="font-size:11px;color:#c9a066;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Resumen Ejecutivo</div>
+        <p style="color:#f5ede0;font-size:15px;line-height:1.7;margin:0;">{{ data.resumen_ejecutivo }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2. AVATAR PRINCIPAL ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-0">
+    <div class="row g-0">
+      <!-- Perfil visual -->
+      <div class="col-md-3" style="background:linear-gradient(160deg,#2d0f1a,#3d1f2e);border-radius:12px 0 0 12px;padding:28px 20px;text-align:center;">
+        <div style="width:72px;height:72px;background:rgba(201,160,102,0.2);border:3px solid #c9a066;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:32px;">
+          👤
+        </div>
+        <div style="font-size:18px;font-weight:800;color:#f5ede0;margin-bottom:4px;">{{ av.nombre_ficticio }}</div>
+        <div style="font-size:11px;color:#c9a066;margin-bottom:20px;">Avatar del comprador VH</div>
+        <div style="text-align:left;">
+          {% if demo.edad_rango %}
+          <div style="font-size:11px;color:rgba(245,237,224,.7);margin-bottom:6px;"><i class="bi bi-calendar3 me-2" style="color:#c9a066;"></i>{{ demo.edad_rango }}</div>
+          {% endif %}
+          {% if demo.genero_predominante %}
+          <div style="font-size:11px;color:rgba(245,237,224,.7);margin-bottom:6px;"><i class="bi bi-gender-ambiguous me-2" style="color:#c9a066;"></i>{{ demo.genero_predominante }}</div>
+          {% endif %}
+          {% if demo.situacion_laboral %}
+          <div style="font-size:11px;color:rgba(245,237,224,.7);margin-bottom:6px;"><i class="bi bi-briefcase me-2" style="color:#c9a066;"></i>{{ demo.situacion_laboral }}</div>
+          {% endif %}
+          {% if demo.situacion_familiar %}
+          <div style="font-size:11px;color:rgba(245,237,224,.7);margin-bottom:6px;"><i class="bi bi-house-heart me-2" style="color:#c9a066;"></i>{{ demo.situacion_familiar }}</div>
+          {% endif %}
+          {% if demo.nivel_digital %}
+          <div style="font-size:11px;color:rgba(245,237,224,.7);"><i class="bi bi-phone me-2" style="color:#c9a066;"></i>{{ demo.nivel_digital }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <!-- Situación actual -->
+      <div class="col-md-9" style="padding:28px;">
+        <div style="font-size:11px;color:#c9a066;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Su vida hoy (antes de VH)</div>
+        <p style="font-size:14px;color:#333;line-height:1.7;margin-bottom:20px;">{{ av.situacion_actual }}</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div style="background:#faf4ee;border-radius:10px;padding:14px;height:100%;border-top:3px solid #c9a066;">
+              <div style="font-size:10px;font-weight:700;color:#8b6914;text-transform:uppercase;margin-bottom:6px;">Razón lógica</div>
+              <div style="font-size:12px;color:#444;">{{ av.razon_logica }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div style="background:#faf4ee;border-radius:10px;padding:14px;height:100%;border-top:3px solid #c9a066;">
+              <div style="font-size:10px;font-weight:700;color:#8b6914;text-transform:uppercase;margin-bottom:6px;">Razón emocional</div>
+              <div style="font-size:12px;color:#444;">{{ av.razon_emocional }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div style="background:#3d0f1e;border-radius:10px;padding:14px;height:100%;border-top:3px solid #c9a066;">
+              <div style="font-size:10px;font-weight:700;color:#c9a066;text-transform:uppercase;margin-bottom:6px;">Detonante final</div>
+              <div style="font-size:12px;color:#f5ede0;">{{ av.detonante_final }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3. CAPAS DE DESEO ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-layers me-2" style="color:#c9a066;"></i>Las 3 Capas de Deseo
+    </h5>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div style="background:#e8f4fd;border-radius:10px;padding:20px;text-align:center;height:100%;border:2px solid #a8d4f5;">
+          <div style="font-size:24px;margin-bottom:8px;">💬</div>
+          <div style="font-size:10px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">1. Lo que dice querer</div>
+          <p style="font-size:13px;color:#1a3a5c;font-weight:500;margin:0;">{{ av.deseo_superficial }}</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div style="background:#eaf7ee;border-radius:10px;padding:20px;text-align:center;height:100%;border:2px solid #82d49a;">
+          <div style="font-size:24px;margin-bottom:8px;">💡</div>
+          <div style="font-size:10px;font-weight:700;color:#1a5232;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">2. Lo que realmente quiere</div>
+          <p style="font-size:13px;color:#1a3d26;font-weight:500;margin:0;">{{ av.deseo_real }}</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);border-radius:10px;padding:20px;text-align:center;height:100%;border:2px solid #c9a066;">
+          <div style="font-size:24px;margin-bottom:8px;">🔥</div>
+          <div style="font-size:10px;font-weight:700;color:#c9a066;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">3. Deseo oculto (nunca dicho)</div>
+          <p style="font-size:13px;color:#f5ede0;font-weight:600;margin:0;">{{ av.deseo_oculto }}</p>
+        </div>
+      </div>
+    </div>
+    {% if av.vision_vida_ideal %}
+    <div style="background:#faf8f5;border-radius:10px;padding:16px;border-left:4px solid #c9a066;">
+      <div style="font-size:11px;font-weight:700;color:#8b6914;text-transform:uppercase;margin-bottom:6px;">Visión de vida ideal (si todo sale bien)</div>
+      <p style="font-size:13px;color:#444;margin:0;font-style:italic;">{{ av.vision_vida_ideal }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ 4. DOLORES PROFUNDOS ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-heartbreak me-2" style="color:#c9a066;"></i>Dolores Profundos
+    </h5>
+    <div class="row g-3">
+      {% for d in av.dolores_profundos %}
+      <div class="col-md-6">
+        <div style="border-radius:10px;padding:16px;height:100%;border:1px solid #f0e0d6;background:#fff9f7;">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div style="width:26px;height:26px;background:#8b1a2b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;">{{ loop.index }}</div>
+            <div style="font-size:14px;font-weight:700;color:#1a0810;">{{ d.dolor }}</div>
+          </div>
+          <p style="font-size:12px;color:#555;margin-bottom:8px;">{{ d.descripcion }}</p>
+          {% if d.evidencia_real %}
+          <div style="background:#fff;border-left:3px solid #c9a066;padding:7px 10px;font-size:11px;color:#555;font-style:italic;border-radius:0 6px 6px 0;">
+            "{{ d.evidencia_real }}"
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 5. MIEDOS ESPECÍFICOS ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-shield-x me-2" style="color:#c9a066;"></i>Miedos Específicos
+    </h5>
+    <div class="row g-3">
+      {% set miedo_icons = ['😰', '😨', '😟', '😱', '😬'] %}
+      {% for m in av.miedos_especificos %}
+      <div class="col-md-6">
+        <div style="border-radius:10px;padding:16px;height:100%;border:1px solid #e0e8f0;background:#f7f9fc;">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="font-size:20px;">{{ miedo_icons[loop.index0 % 5] }}</span>
+            <div style="font-size:14px;font-weight:700;color:#1a2a3d;">{{ m.miedo }}</div>
+          </div>
+          <p style="font-size:12px;color:#555;margin-bottom:8px;">{{ m.descripcion }}</p>
+          {% if m.evidencia_real %}
+          <div style="background:#fff;border-left:3px solid #6b8abf;padding:7px 10px;font-size:11px;color:#444;font-style:italic;border-radius:0 6px 6px 0;">
+            "{{ m.evidencia_real }}"
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 6. CREENCIAS LIMITANTES ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-lock me-2" style="color:#c9a066;"></i>Creencias Limitantes
+    </h5>
+    <div class="row g-3">
+      {% for c in av.creencias_limitantes %}
+      <div class="col-md-6">
+        <div style="border-radius:10px;padding:16px;height:100%;border:1px solid #e8e0f0;background:#faf8fc;">
+          <div style="font-size:13px;font-weight:700;color:#3d0f5e;margin-bottom:8px;">
+            <i class="bi bi-quote me-1"></i>{{ c.creencia }}
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <div style="font-size:10px;font-weight:700;color:#8b6914;margin-bottom:3px;">Origen</div>
+              <div style="font-size:11px;color:#555;">{{ c.origen }}</div>
+            </div>
+            <div class="col-6">
+              <div style="font-size:10px;font-weight:700;color:#8b1a2b;margin-bottom:3px;">Cómo bloquea</div>
+              <div style="font-size:11px;color:#555;">{{ c.como_bloquea }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 7. FRUSTRACIONES + VERGÜENZAS ══════════════════════════════════════════════ -->
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-emoji-frown me-2" style="color:#c9a066;"></i>Frustraciones del Día a Día
+        </h5>
+        {% for f in av.frustraciones_cotidianas %}
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8e0;">
+          <div style="width:22px;height:22px;background:#f5e6d0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#8b6914;flex-shrink:0;margin-top:1px;">{{ loop.index }}</div>
+          <div style="font-size:13px;color:#444;">{{ f }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-eye-slash me-2" style="color:#c9a066;"></i>Lo que Sienten pero No Dicen
+        </h5>
+        {% for v in av.vergüenzas_no_dichas %}
+        <div style="background:#f7f4ff;border-radius:8px;padding:10px 14px;margin-bottom:8px;border-left:3px solid #8b5cf6;">
+          <div style="font-size:12px;color:#3d1f7a;">{{ v }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 8. PALABRAS PROPIAS + FACTORES CONFIANZA ══════════════════════════════════════════════ -->
+<div class="row g-4 mb-4">
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-chat-text me-2" style="color:#c9a066;"></i>En Sus Propias Palabras
+        </h5>
+        <p class="text-muted mb-3" style="font-size:12px;">Frases textuales copiadas de los chats reales:</p>
+        {% for frase in av.palabras_propias %}
+        <div style="background:#faf8f5;border-radius:8px;padding:12px 16px;margin-bottom:8px;border-left:4px solid #c9a066;position:relative;">
+          <div style="font-size:13px;color:#333;font-style:italic;">"{{ frase }}"</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-shield-check me-2" style="color:#c9a066;"></i>Factores que Generaron Confianza
+        </h5>
+        {% set ct_icons = ['🤝', '📚', '💳', '⏱️', '🎯'] %}
+        {% for ct in av.factores_confianza %}
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8e0;">
+          <span style="font-size:16px;flex-shrink:0;">{{ ct_icons[loop.index0 % 5] }}</span>
+          <div style="font-size:12px;color:#444;">{{ ct }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 9. ESTRATEGIA DE LANZAMIENTO ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:20px 28px;">
+    <h5 class="fw-bold mb-0 text-white">
+      <i class="bi bi-rocket me-2" style="color:#c9a066;"></i>Estrategia para el Próximo Lanzamiento
+    </h5>
+  </div>
+  <div class="card-body p-4">
+    <!-- Mensaje central -->
+    {% if est.mensaje_central %}
+    <div style="background:linear-gradient(135deg,#faf4ee,#fff9f0);border-radius:10px;padding:20px;margin-bottom:20px;border:2px solid #c9a066;text-align:center;">
+      <div style="font-size:10px;font-weight:700;color:#8b6914;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Mensaje Central</div>
+      <p style="font-size:16px;font-weight:700;color:#1a0810;margin:0;line-height:1.5;">{{ est.mensaje_central }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Ángulos de comunicación -->
+    {% if est.angulos %}
+    <div style="font-size:12px;font-weight:700;color:#3d0f1e;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Ángulos de Comunicación</div>
+    <div class="row g-3 mb-4">
+      {% set ang_colors = ['#1a3a6a', '#1a5232', '#6a1a1a', '#3d1f6a'] %}
+      {% for a in est.angulos %}
+      <div class="col-md-6">
+        <div style="border-radius:10px;overflow:hidden;height:100%;">
+          <div style="background:{{ ang_colors[loop.index0 % 4] }};padding:12px 16px;">
+            <div style="font-size:13px;font-weight:700;color:#fff;">{{ a.angulo }}</div>
+            {% if a.cuando_usar %}
+            <div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;">Usar: {{ a.cuando_usar }}</div>
+            {% endif %}
+          </div>
+          <div style="background:#f7f8fa;padding:12px 16px;border:1px solid #eee;border-top:none;">
+            <p style="font-size:12px;color:#444;margin-bottom:8px;">{{ a.descripcion }}</p>
+            {% if a.copy %}
+            <div style="background:#fff;border-left:3px solid #c9a066;padding:8px 10px;font-size:11px;color:#333;font-style:italic;border-radius:0 4px 4px 0;">
+              {{ a.copy }}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Palabras prohibidas y poderosas -->
+    <div class="row g-4 mb-4">
+      {% if est.palabras_prohibidas %}
+      <div class="col-md-6">
+        <div style="font-size:12px;font-weight:700;color:#8b1a2b;margin-bottom:10px;"><i class="bi bi-x-circle me-1"></i>Palabras/Frases a EVITAR</div>
+        {% for p in est.palabras_prohibidas %}
+        <span style="display:inline-block;background:#ffebee;color:#8b1a2b;border:1px solid #f5a0a0;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;margin:0 4px 6px 0;">{{ p }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if est.palabras_poderosas %}
+      <div class="col-md-6">
+        <div style="font-size:12px;font-weight:700;color:#2d6a4f;margin-bottom:10px;"><i class="bi bi-check-circle me-1"></i>Palabras que RESUENAN</div>
+        {% for p in est.palabras_poderosas %}
+        <span style="display:inline-block;background:#e8f5e9;color:#2d6a4f;border:1px solid #80c893;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;margin:0 4px 6px 0;">{{ p }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Oferta ideal -->
+    {% if est.oferta_ideal %}
+    <div style="background:#1a0810;border-radius:10px;padding:16px 20px;">
+      <div style="font-size:10px;font-weight:700;color:#c9a066;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;"><i class="bi bi-tag me-1"></i>Oferta Ideal</div>
+      <p style="font-size:14px;color:#f5ede0;margin:0;font-weight:500;">{{ est.oferta_ideal }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ 10. INSIGHTS OCULTOS ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-lightbulb me-2" style="color:#c9a066;"></i>Insights Ocultos — Lo que Nadie Dice en Voz Alta
+    </h5>
+    <div class="row g-3">
+      {% set in_colors = ['#1a3a6a', '#1a5232', '#6a1a1a', '#3d1f6a', '#1a4a4a'] %}
+      {% for ins in data.insights_ocultos %}
+      <div class="col-md-6">
+        <div style="border-radius:10px;padding:18px;height:100%;border-left:4px solid {{ in_colors[loop.index0 % 5] }};background:#fafafa;">
+          <div style="font-size:14px;font-weight:700;color:#1a0810;margin-bottom:6px;">{{ ins.insight }}</div>
+          <p style="font-size:12px;color:#555;margin-bottom:8px;">{{ ins.descripcion }}</p>
+          {% if ins.implicancia %}
+          <div style="background:#e8f0fe;border-radius:6px;padding:8px 10px;font-size:11px;color:#1a3a6a;font-weight:600;margin-bottom:8px;">
+            <i class="bi bi-arrow-right me-1"></i>{{ ins.implicancia }}
+          </div>
+          {% endif %}
+          {% if ins.evidencia %}
+          <div style="background:#fff;border-left:3px solid #c9a066;padding:6px 10px;font-size:11px;color:#555;font-style:italic;border-radius:0 4px 4px 0;">
+            "{{ ins.evidencia }}"
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 11. ETAPAS DEL PROCESO DE COMPRA ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-arrow-right-circle me-2" style="color:#c9a066;"></i>Etapas del Proceso de Compra
+    </h5>
+    <div class="row g-3">
+      {% for etapa in data.etapas_proceso_compra %}
+      <div class="col-md-6">
+        <div style="background:#faf8f5;border-radius:10px;padding:18px;height:100%;border-left:4px solid #c9a066;">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#3d0f1e,#c9a066);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;">{{ etapa.numero }}</div>
+            <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a0810;">{{ etapa.nombre }}</h6>
+          </div>
+          <p style="font-size:12px;color:#555;margin-bottom:8px;">{{ etapa.descripcion }}</p>
+          {% if etapa.duracion_tipica %}
+          <div style="font-size:11px;color:#c9a066;margin-bottom:8px;font-weight:600;">
+            <i class="bi bi-clock me-1"></i>{{ etapa.duracion_tipica }}
+          </div>
+          {% endif %}
+          {% if etapa.acciones_vendedor %}
+          <div style="font-size:11px;margin-bottom:4px;font-weight:600;color:#3d0f1e;">Acciones clave:</div>
+          <ul style="font-size:11px;color:#555;margin:0 0 8px;padding-left:16px;">
+            {% for a in etapa.acciones_vendedor[:4] %}<li>{{ a }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+          {% if etapa.ejemplos_reales %}
+          <div style="background:#fff;border:1px solid #e8ddd0;border-radius:6px;padding:8px;font-size:11px;color:#444;font-style:italic;">
+            "{{ etapa.ejemplos_reales[0] }}"
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 12. OBJECIONES FRECUENTES ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-shield-exclamation me-2" style="color:#c9a066;"></i>Objeciones Frecuentes y Cómo Manejarlas
+    </h5>
+    <div class="row g-3">
+      {% for obj in data.objeciones_frecuentes %}
+      <div class="col-md-6">
+        <div style="border:1px solid #eee;border-radius:10px;padding:16px;height:100%;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a0810;">{{ obj.objecion }}</h6>
+            <span class="badge" style="background:{% if obj.frecuencia == 'alta' %}#8b1a2b{% elif obj.frecuencia == 'media' %}#8b6914{% else %}#2d6a4f{% endif %};font-size:10px;">{{ obj.frecuencia }}</span>
+          </div>
+          {% if obj.ejemplos_reales %}
+          <div style="margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:#8b1a2b;margin-bottom:4px;">💬 Lo que dice el cliente:</div>
+            {% for ej in obj.ejemplos_reales[:2] %}
+            <div style="background:#fff5f5;border-radius:6px;padding:6px 10px;font-size:11px;color:#555;font-style:italic;margin-bottom:4px;">"{{ ej }}"</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if obj.respuestas_efectivas %}
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#2d6a4f;margin-bottom:4px;">✅ Respuesta efectiva:</div>
+            {% for resp in obj.respuestas_efectivas[:2] %}
+            <div style="background:#f0fff4;border-radius:6px;padding:6px 10px;font-size:11px;color:#555;font-style:italic;margin-bottom:4px;">"{{ resp }}"</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ 13. TRIGGERS + MEJORES PRÁCTICAS ══════════════════════════════════════════════ -->
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-lightning-charge me-2" style="color:#c9a066;"></i>Triggers de Compra
+        </h5>
+        {% set t_icons = ['⚡', '🎯', '💡', '🔥', '⏰'] %}
+        {% for t in data.triggers_de_compra %}
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8e0;">
+          <span style="font-size:18px;flex-shrink:0;">{{ t_icons[loop.index0 % 5] }}</span>
+          <div style="font-size:13px;color:#333;">{{ t }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3" style="color:#1a0810;">
+          <i class="bi bi-trophy me-2" style="color:#c9a066;"></i>Mejores Prácticas Detectadas
+        </h5>
+        {% for bp in data.mejores_practicas_detectadas %}
+        <div style="background:#f0fff4;border-radius:8px;padding:10px 14px;margin-bottom:8px;border-left:3px solid #2d6a4f;">
+          <div style="font-size:12px;color:#1a4a2a;">{{ bp }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 14. PATRONES LINGÜÍSTICOS ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-chat-quote me-2" style="color:#c9a066;"></i>Patrones Lingüísticos
+    </h5>
+    {% set pl = data.patrones_linguisticos %}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div style="background:#f0fff4;border-radius:10px;padding:16px;height:100%;">
+          <div style="font-size:12px;font-weight:700;color:#2d6a4f;margin-bottom:10px;">✅ Frases del vendedor que funcionaron</div>
+          {% for f in pl.frases_vendedor_que_funcionaron %}
+          <div style="background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;color:#333;font-style:italic;border-left:2px solid #2d6a4f;">
+            "{{ f }}"
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div style="background:#fff9e6;border-radius:10px;padding:16px;height:100%;">
+          <div style="font-size:12px;font-weight:700;color:#8b6914;margin-bottom:10px;">🟡 Señales de interés del cliente</div>
+          {% for f in pl.frases_cliente_que_indican_interes %}
+          <div style="background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;color:#333;font-style:italic;border-left:2px solid #c9a066;">
+            "{{ f }}"
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 15. ANÁLISIS POR VENDEDOR ══════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-4" style="color:#1a0810;">
+      <i class="bi bi-people me-2" style="color:#c9a066;"></i>Análisis por Vendedor
+    </h5>
+    <div class="row g-3">
+      {% set vend_colors = ['#3d0f1e', '#1a3a2a', '#1a2a3a'] %}
+      {% for v in data.analisis_por_vendedor %}
+      <div class="col-md-4">
+        <div style="border-radius:10px;overflow:hidden;border:1px solid #eee;height:100%;">
+          <div style="background:{{ vend_colors[loop.index0 % 3] }};padding:16px;text-align:center;">
+            <div style="width:48px;height:48px;background:rgba(201,160,102,0.2);border:2px solid #c9a066;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#c9a066;font-size:20px;font-weight:700;">
+              {{ v.vendedor[0] if v.vendedor else '?' }}
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#fff;">{{ v.vendedor }}</div>
+            <div style="font-size:11px;color:#c9a066;margin-top:2px;">{{ v.estilo }}</div>
+            {% if v.tasa_cierre_estimada %}
+            <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px;">
+              <i class="bi bi-percent me-1"></i>Cierre: {{ v.tasa_cierre_estimada }}
+            </div>
+            {% endif %}
+          </div>
+          <div style="padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:#2d6a4f;margin-bottom:4px;">Fortalezas</div>
+            {% for f in v.fortalezas[:3] %}
+            <div style="font-size:11px;color:#555;padding:2px 0;">✓ {{ f }}</div>
+            {% endfor %}
+            <div style="font-size:11px;font-weight:700;color:#8b1a2b;margin-top:8px;margin-bottom:4px;">Áreas de mejora</div>
+            {% for a in v.areas_mejora[:3] %}
+            <div style="font-size:11px;color:#555;padding:2px 0;">→ {{ a }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

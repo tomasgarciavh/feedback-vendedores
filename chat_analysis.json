@@ -1,0 +1,411 @@
+{
+  "meta": {
+    "total_chats": 18,
+    "fecha_analisis": "Abril 2026"
+  },
+  "resumen_ejecutivo": "Elena es una profesional activa que se siente estancada en su trabajo actual, buscando independencia y flexibilidad económica. Aspira a mejorar su calidad de vida y tener control sobre sus ingresos.",
+  "avatar_principal": {
+    "nombre_ficticio": "Elena, la Ambiciosa",
+    "datos_demograficos": {
+      "edad_rango": "30-45 años",
+      "genero_predominante": "Femenino",
+      "situacion_laboral": "Es empleada (pública o privada) o tiene pequeños emprendimientos y busca un cambio significativo.",
+      "situacion_familiar": "Puede tener pareja e hijos, buscando asegurar un futuro mejor o realizar proyectos conjuntos.",
+      "nivel_digital": "Intermedio: Usa WhatsApp, YouTube y Google Drive, pero necesita guía para funciones específicas."
+    },
+    "situacion_actual": "Se siente limitada por la falta de libertad y el techo salarial de su empleo, anhelando trabajar remotamente y generar ingresos en dólares.",
+    "deseo_superficial": "adquirir algunas herramientas q me puedan ayudar",
+    "deseo_real": "Alcanzar independencia laboral y financiera.",
+    "deseo_oculto": "Dejar atrás la frustración y el estancamiento de un empleo insatisfactorio.",
+    "vision_vida_ideal": "Un futuro donde es dueño de su propio negocio/carrera, trabajando con éxito de forma remota.",
+    "razon_logica": "El programa ofrece herramientas y métodos probados para trabajar online y vender.",
+    "razon_emocional": "El hastío y la búsqueda de liberación de un trabajo que no le satisface.",
+    "detonante_final": "me darias info de VH?",
+    "dolores_profundos": [
+      {
+        "dolor": "Dependencia laboral y falta de autonomía",
+        "descripcion": "Sienten que su trabajo actual los limita y les impide ser dueños de su propio progreso y tiempo.",
+        "evidencia_real": "\"ya no qiero depender más de éso\""
+      },
+      {
+        "dolor": "Inestabilidad financiera y búsqueda de mejores ingresos",
+        "descripcion": "Desean mejorar su poder adquisitivo y asegurar su futuro económico, con un fuerte interés en cobrar en dólares.",
+        "evidencia_real": "\"Si puedo cobrar en dólares mejor\""
+      },
+      {
+        "dolor": "Restricción geográfica y horaria",
+        "descripcion": "Aspiran a la libertad de trabajar desde cualquier lugar del mundo y gestionar su propio tiempo, liberándose de un espacio físico limitado.",
+        "evidencia_real": "\"no quiero estar limitado a un solo espacio principalmente.\""
+      },
+      {
+        "dolor": "Carencia de habilidades prácticas para el mundo digital",
+        "descripcion": "Necesitan adquirir conocimientos y herramientas específicas para iniciar un trabajo online exitoso o para escalar sus propios emprendimientos.",
+        "evidencia_real": "\"adquirir algunas herramientas q me puedan ayudar\""
+      },
+      {
+        "dolor": "Miedo a perder oportunidades valiosas o información clave",
+        "descripcion": "Preocupación por no poder acceder a todo el contenido importante del programa o por quedarse fuera de futuros lanzamientos que podrían cambiar su situación.",
+        "evidencia_real": "\"Me avisas por favor si realizan un nuevo lanzamiento?\""
+      }
+    ],
+    "miedos_especificos": [
+      {
+        "miedo": "Miedo a la dependencia y falta de control laboral",
+        "descripcion": "Expresa insatisfacción con su trabajo actual y el deseo de autonomía.",
+        "evidencia_real": "\"Trabajo para el estado y ya no qiero depender más de éso\""
+      },
+      {
+        "miedo": "Miedo a la inestabilidad económica y bajos ingresos",
+        "descripcion": "Manifiesta la necesidad de obtener ingresos en una moneda más fuerte o de mejorar su situación financiera.",
+        "evidencia_real": "\"Si puedo cobrar en dólares mejor\""
+      },
+      {
+        "miedo": "Miedo a perder la oportunidad de acceso al programa",
+        "descripcion": "Pregunta explícitamente sobre futuros lanzamientos tras haber perdido una clase clave.",
+        "evidencia_real": "\"Me avisas por favor si realizan un nuevo lanzamiento?\""
+      },
+      {
+        "miedo": "Miedo a la falta de habilidades o herramientas para el éxito",
+        "descripcion": "Busca activamente conocimientos y capacidades que le permitan mejorar su rendimiento o emprender.",
+        "evidencia_real": "\"me sumé para adquirir algunas herramientas q me puedan ayudar\""
+      },
+      {
+        "miedo": "Miedo a la falta de soporte y oportunidades post-formación",
+        "descripcion": "Consulta sobre la duración del acceso a recursos clave como la bolsa de trabajo.",
+        "evidencia_real": "\"Por cuanto tiempo se tiene acceso a la bolsa de trabajo?\""
+      }
+    ],
+    "creencias_limitantes": [
+      {
+        "creencia": "Estoy atascado en mi trabajo actual (estatal) y no sé cómo salir de él para buscar mi propia independencia.",
+        "origen": "Su empleo actual en el estado, del cual expresa un fuerte deseo de no \"depender más\".",
+        "como_bloquea": "Le impide tomar acción para cambiar su situación laboral, manteniéndolo en un entorno que no desea y limitando su crecimiento profesional y personal."
+      },
+      {
+        "creencia": "El programa de ventas (VH) solo me ofrecerá habilidades de venta, no un camino profesional más amplio o integral.",
+        "origen": "Falta de claridad o percepción limitada sobre el alcance de la formación de Vendedores Humanos y la academia en general.",
+        "como_bloquea": "Genera dudas sobre el valor a largo plazo de la inversión si no percibe oportunidades más allá de la venta directa, lo que podría reducir su motivación para inscribirse."
+      },
+      {
+        "creencia": "Necesitaré apoyo continuo y externo para conseguir empleo o clientes, y no seré capaz de hacerlo por mi cuenta a largo plazo.",
+        "origen": "Incertidumbre sobre la autosuficiencia post-programa y la duración del soporte para la empleabilidad (pregunta sobre la \"bolsa de trabajo\").",
+        "como_bloquea": "Si el acceso a la bolsa de trabajo es limitado, podría percibir que el programa no le proporciona las herramientas para ser autosuficiente, generando inseguridad y desconfianza en su capacidad de generar ingresos de forma independiente."
+      },
+      {
+        "creencia": "Mi situación laboral actual (física y en moneda local) me limita geográficamente y económicamente, y no tengo el control para cambiarlo.",
+        "origen": "Su experiencia actual de trabajo que le impone restricciones de ubicación (\"limitado a un solo espacio\") y una remuneración en moneda local que considera insuficiente (\"cobrar en dólares mejor\").",
+        "como_bloquea": "La mantiene en un puesto de trabajo que no satisface sus deseos de libertad geográfica y mejor compensación económica, impidiéndole proyectarse hacia un futuro laboral más deseable."
+      }
+    ],
+    "frustraciones_cotidianas": [
+      "Conflictos de horario que impiden asistir a eventos o formaciones en vivo importantes.",
+      "La dependencia de un empleo tradicional que limita su autonomía y desarrollo profesional.",
+      "La necesidad de generar ingresos más estables o en una moneda fuerte para mejorar su calidad de vida.",
+      "Dificultad para escalar o monetizar eficazmente sus emprendimientos actuales por falta de habilidades de venta.",
+      "La falta de un camino claro o herramientas concretas para transicionar hacia un trabajo online con resultados tangibles."
+    ],
+    "vergüenzas_no_dichas": [
+      "\"Siento que me estoy quedando atrás en esta nueva economía digital y no sé por dónde empezar para no ser obsoleto.\"",
+      "\"Me avergüenza admitir que, a pesar de mi experiencia o edad, aún no sé cómo vender o generar ingresos realmente por mi cuenta.\"",
+      "\"Me siento presionado por no estar generando los ingresos que creo que merezco o que mi familia necesita.\"",
+      "\"Tengo miedo de invertir mi dinero y mi tiempo en otra solución que no funcione y terminar sintiéndome ingenuo o estafado.\""
+    ],
+    "palabras_propias": [
+      "Hola Giani me decis como anclar oara enterarme de los curiosos de tomy?",
+      "Dani",
+      "Hola buenas tardes, sisi compartilo",
+      "Trabajo para el estado y ya no qiero depender más de éso, me sumé para adquirir algunas herramientas q me puedan ayudar, además tengo 2 emprendimientos con mi sra y pensé q también me podría ayudar a vender lo q hacemos",
+      "Quería saber si me podes pasar la actividad previa y el acceso a los podcast",
+      "me darias info de VH?",
+      "Por cuanto tiempo se tiene acceso a la bolsa de trabajo?",
+      "La verdad porque quiero cambiar de trabajo. Si puedo cobrar en dólares mejor y si encima es virtual 10 puntos"
+    ],
+    "factores_confianza": [
+      "Soporte y acompañamiento personalizado por parte de los asesores.",
+      "Provisión proactiva y acceso fácil a contenido valioso (clases, podcasts, actividades).",
+      "Interés genuino y validación de las motivaciones y aspiraciones personales de los compradores.",
+      "Transparencia y flexibilidad en las opciones de pago, incluyendo el pago con comisiones generadas.",
+      "Prueba social a través de referencias personales y conexiones previas con el equipo o el instructor."
+    ]
+  },
+  "estrategia_lanzamiento": {
+    "mensaje_central": "Desbloquea la libertad financiera y geográfica: aprende a vender online, cobra en dólares y sé el dueño de tu propio progreso.",
+    "angulos": [
+      {
+        "angulo": "Libertad y Autonomía",
+        "descripcion": "Enfatiza el control sobre la carrera y la independencia de horarios o ubicación.",
+        "copy": "Cansado de la rutina y depender de un solo ingreso? Con VH, toma las riendas de tu futuro, logra independencia y sé el dueño de tu propio progreso.",
+        "cuando_usar": "Para personas que expresan insatisfacción con su empleo actual, buscan cambio, autonomía o mayor control."
+      },
+      {
+        "angulo": "Ingresos en Dólares",
+        "descripcion": "Destaca la estabilidad financiera y el poder adquisitivo de cobrar en una moneda fuerte.",
+        "copy": "Imagina un sueldo que no pierde valor. Aprende a cobrar en dólares y asegura tu futuro financiero, transformando tu capacidad de ahorro y consumo.",
+        "cuando_usar": "Al abordar motivaciones financieras, cuando el cliente menciona deseo de \"cobrar en dólares\" o preocupaciones económicas."
+      },
+      {
+        "angulo": "Habilidades Aplicables y Emprendimiento",
+        "descripcion": "Resalta las herramientas prácticas y cómo se pueden usar para un nuevo trabajo o para potenciar negocios existentes.",
+        "copy": "Adquiere las herramientas de venta online más potentes y aplícalas inmediatamente. Impulsa tus emprendimientos o encuentra un trabajo remoto de alto valor.",
+        "cuando_usar": "Para quienes tienen proyectos propios (emprendedores), buscan \"herramientas\" o \"skills\" concretas, o desean un \"trabajo online\" con impacto."
+      },
+      {
+        "angulo": "Flexibilidad y Acceso Total",
+        "descripcion": "Aborda la preocupación por la falta de tiempo, destacando la disponibilidad de grabaciones y el soporte constante.",
+        "copy": "Tu tiempo es valioso, por eso nuestras clases se adaptan a ti. Accede a grabaciones y una comunidad de soporte para nunca perder el hilo de tu aprendizaje.",
+        "cuando_usar": "Cuando los prospectos mencionan falta de tiempo, conflictos de horario, o preguntan sobre la disponibilidad de materiales."
+      }
+    ],
+    "palabras_prohibidas": [
+      "no quedan grabadas",
+      "pudiste ver el vídeo de instrucciones?",
+      "si no es molestia",
+      "dudas en aplicar correctamente",
+      "tu primer trabajo online (al vender VH)"
+    ],
+    "palabras_poderosas": [
+      "Dólares",
+      "Independencia",
+      "Libertad",
+      "Virtual",
+      "Herramientas",
+      "Progreso",
+      "Potencial",
+      "Comisiones"
+    ],
+    "oferta_ideal": "USD 1000 total. Opción de ingreso inicial: USD 500 (valor en pesos: $745.000, con posibilidad de 2, 3 o 6 cuotas con Mercado Pago). Los otros USD 500 se pagan con las comisiones generadas."
+  },
+  "insights_ocultos": [
+    {
+      "insight": "El Asincrónico Consciente",
+      "descripcion": "Los compradores, aunque ocupados y perdiendo contenido en vivo, demuestran un alto interés al perseguir activamente grabaciones y materiales, indicando una preferencia por el consumo asincrónico y un valor subyacente al contenido.",
+      "implicancia": "Ofrecer de forma proactiva y accesible todas las grabaciones y resúmenes, eliminando fricciones para que los leads ocupados puedan ponerse al día y mantener su interés a su propio ritmo.",
+      "evidencia": "\"Pero bueno la de juan queda grabada / Y la de tomy no 😌 / Prioridades\""
+    },
+    {
+      "insight": "El Buscador de Ecosistemas",
+      "descripcion": "Los prospectos no se limitan a la propuesta de valor principal; indagan sobre características específicas y beneficios complementarios a largo plazo (ej. bolsa de trabajo, acceso a más áreas), revelando aspiraciones más profundas y complejas.",
+      "implicancia": "Estar preparado para detallar el ecosistema completo de beneficios (más allá del entrenamiento principal) al inicio de la conversación, para abordar las necesidades matizadas y las ambiciones de valor a largo plazo.",
+      "evidencia": "\"En el primer encuentro dijeron que podriamos entrar en distintas cosas de la academia no? O solamente en ventas? Por cuanto tiempo se tiene acceso a la bolsa de trabajo?\""
+    },
+    {
+      "insight": "El Interesado con Timing Diferente",
+      "descripcion": "Aquellos compradores que, tras perder la oportunidad actual, preguntan directamente por \"nuevos lanzamientos\", no han perdido el interés, sino que su momento personal o profesional no se alinea con la oferta presente.",
+      "implicancia": "Crear un circuito de nutrición específico para estos \"leads de futuro lanzamiento\", que capture sus necesidades de tiempo y mantenga el engagement sin forzar una conversión inoportuna.",
+      "evidencia": "\"Lamentablemente no pude participar / Me avisas por favor si realizan un nuevo lanzamiento?\""
+    },
+    {
+      "insight": "El Ancla Emocional de la Visión",
+      "descripcion": "La motivación de los compradores va más allá de las herramientas; buscan validación para sus dolores (ej. dependencia laboral) y una guía para visualizar su futuro ideal (ej. libertad, ingresos en dólares), conectando emocionalmente con la oferta.",
+      "implicancia": "Preguntar sistemáticamente por el \"por qué\" para descubrir motivaciones profundas, validar esas emociones y usar preguntas de \"future-pacing\" para ayudarles a visualizar el éxito.",
+      "evidencia": "\"Trabajo para el estado y ya no qiero depender más de éso\""
+    },
+    {
+      "insight": "El Referido Amplificado Personalmente",
+      "descripcion": "Los leads referidos, especialmente si buscaron activamente la conexión, llegan con un nivel de confianza elevado. Descubrir y aprovechar conexiones profundas (ej. conocido del creador) potencia significativamente la confianza y el valor percibido.",
+      "implicancia": "Indagar siempre sobre la fuente del referido y buscar activamente conexiones adicionales con el programa o sus creadores para personalizar la interacción y amplificar la propuesta de valor.",
+      "evidencia": "\"Me cansó tu contacto tu amigo Nehuén puede ser? / Sisi yo le pedí si me podía hacer la onda\""
+    }
+  ],
+  "etapas_proceso_compra": [
+    {
+      "numero": "1",
+      "nombre": "Onboarding y Familiarización",
+      "descripcion": "El comprador se inscribe en un taller/seminario gratuito que actúa como un lead magnet. El vendedor establece el primer contacto, se presenta y guía al comprador para acceder a los recursos iniciales del taller y asegurar su participación.",
+      "duracion_tipica": "1-3 días tras el contacto inicial",
+      "acciones_vendedor": [
+        "Saludar y presentarse",
+        "Explicar su rol de acompañamiento",
+        "Verificar si el comprador vio el video de instrucciones",
+        "Compartir enlaces a videos o actividades iniciales",
+        "Responder preguntas básicas sobre el funcionamiento del taller"
+      ],
+      "ejemplos_reales": [
+        "\"Holaa cómo va?? Soy Roque, te contacto de parte de Tomás del taller Tu Primer Trabajo Online, en el que estás participando Tuviste tiempo para ver el vídeo de instrucciones que enviamos al grupo??\""
+      ]
+    },
+    {
+      "numero": "2",
+      "nombre": "Exploración de Necesidades y Valor",
+      "descripcion": "El comprador interactúa más con el contenido del taller gratuito. El vendedor fomenta esta interacción, comparte recursos adicionales y comienza a indagar sobre las motivaciones, objetivos y puntos de dolor del comprador.",
+      "duracion_tipica": "3-7 días durante el taller gratuito",
+      "acciones_vendedor": [
+        "Compartir podcasts y enlaces a clases",
+        "Recordar próximas clases",
+        "Preguntar por qué se sumó al taller",
+        "Indagar sobre sus metas laborales o emprendimientos",
+        "Validar y empatizar con sus motivaciones"
+      ],
+      "ejemplos_reales": [
+        "\"Ya que estamos te consulto, por qué te sumaste a este taller??\""
+      ]
+    },
+    {
+      "numero": "3",
+      "nombre": "Consideración de la Solución",
+      "descripcion": "El comprador, habiendo encontrado valor en el taller gratuito o identificado una necesidad más profunda, muestra interés en la oferta de pago principal (Vendedores Humanos). El vendedor responde a esta inquietud o introduce proactivamente el programa VH, proporcionando una visión general de lo que abarca y sus beneficios.",
+      "duracion_tipica": "Días después del taller gratuito o al expresar interés",
+      "acciones_vendedor": [
+        "Preguntar si el comprador está interesado en conocer más sobre el programa avanzado (VH)",
+        "Compartir un \"roadmap\" o descripción general del programa",
+        "Aclarar el alcance del programa (ej. \"distintas cosas de la academia\" vs \"solo ventas\")"
+      ],
+      "ejemplos_reales": [
+        "\"me darias info de VH?\""
+      ]
+    },
+    {
+      "numero": "4",
+      "nombre": "Decisión y Cierre",
+      "descripcion": "El comprador ya conoce el programa VH y está evaluando las condiciones para unirse. Las conversaciones se centran en los aspectos logísticos y financieros. El vendedor proporciona los detalles de precio, las opciones de pago y responde a preguntas específicas sobre el acceso, la duración y los beneficios tangibles.",
+      "duracion_tipica": "1-3 días después de presentar la información de VH",
+      "acciones_vendedor": [
+        "Compartir información detallada de precios",
+        "Ofrecer planes de pago y cuotas",
+        "Aclarar dudas sobre el acceso y la duración de los beneficios (ej. bolsa de trabajo)",
+        "Detallar las condiciones de pago (ej. 500 USD ahora, 500 USD con comisiones)"
+      ],
+      "ejemplos_reales": [
+        "\"Podes pagar 500 usd ahora a valor pesos y luego los otros 500 con las comisiones generadas Podes pagar en cuotas con Mercado pago\""
+      ]
+    }
+  ],
+  "objeciones_frecuentes": [
+    {
+      "objecion": "Conflicto de Horarios/Disponibilidad en Vivo",
+      "frecuencia": "media",
+      "ejemplos_reales": [
+        "Pero interfiere en el mismo horario que son las clases de juan... Y la de tomy no 😌 Prioridades"
+      ],
+      "respuestas_efectivas": [
+        "Si justo es en el mismo horario lo que podes hacer durante el taller ver las clases de Juan grabadas o al finalizar ingresar a la de Tomi"
+      ]
+    },
+    {
+      "objecion": "Acceso a Contenido Perdido/Grabado",
+      "frecuencia": "alta",
+      "ejemplos_reales": [
+        "No, no pude, ahí alguna posibilidad de verlo?"
+      ],
+      "respuestas_efectivas": [
+        "Sisi por acá te comparto!"
+      ]
+    },
+    {
+      "objecion": "Incertidumbre sobre Alcance del Programa/Beneficios",
+      "frecuencia": "media",
+      "ejemplos_reales": [
+        "En el primer encuentro dijeron que podriamos entrar en distintas cosas de la academia no? O solamente en ventas? Por cuanto tiempo se tiene acceso a la bolsa de trabajo?"
+      ],
+      "respuestas_efectivas": [
+        "El programa VH se especializa en ventas, dándote las herramientas para dominar esa habilidad. La bolsa de trabajo es un beneficio continuo para nuestros egresados, sin límite de tiempo, para ayudarte a conseguir oportunidades reales."
+      ]
+    },
+    {
+      "objecion": "Costo del Programa/Opciones de Pago",
+      "frecuencia": "alta",
+      "ejemplos_reales": [
+        "(Implícito por oferta del vendedor)"
+      ],
+      "respuestas_efectivas": [
+        "Podes pagar 500 usd ahora a valor pesos y luego los otros 500 con las comisiones generadas. Podes pagar en cuotas con Mercado pago"
+      ]
+    },
+    {
+      "objecion": "Baja Disponibilidad/Compromiso Inicial (para el workshop)",
+      "frecuencia": "alta",
+      "ejemplos_reales": [
+        "No pude ver el video aún"
+      ],
+      "respuestas_efectivas": [
+        "Tranqui te lo dejo por acá también. Avísame cuando lo veas así te paso la primer actividad que es clave para que puedas aprovechar la clase del domingo 11 al máximo"
+      ]
+    }
+  ],
+  "triggers_de_compra": [
+    "Búsqueda de Independencia/Cambio Laboral",
+    "Deseo de Ingresos Superiores/Dolarizados",
+    "Anhelo de Flexibilidad/Trabajo Remoto",
+    "Interés en Mejorar Emprendimientos/Ventas",
+    "Interés Directo en el Programa VH"
+  ],
+  "mejores_practicas_detectadas": [
+    "Seguimiento Proactivo y Personalizado 1:1",
+    "Facilitar Acceso Inmediato a Contenido/Materiales",
+    "Calificación Profunda a Través del \"Por Qué\"",
+    "Validación Emocional y Refuerzo de Aspiraciones",
+    "Oferta Proactiva de Flexibilidad en Pagos"
+  ],
+  "patrones_linguisticos": {
+    "frases_vendedor_que_funcionaron": [
+      "De todas formas yo te estaré acompañando durante el taller para recordarte las clases y pasarte las actividades,dime pudiste ver el vídeo de instrucciones que pasaron más temprano por el grupo??",
+      "Holaa cómo va?? Soy Roque, te contacto de parte de Tomás del taller Tu Primer Trabajo Online, en el que estás participando",
+      "Tuviste tiempo para ver el vídeo de instrucciones que enviamos al grupo??",
+      "Tomi tiró una info clave para la gente que quiere empezar a trabajar por internet. Habló sobre su método de filtro y una forma de encarar el negocio que está muy buena... Me pareció que te iba a servir mucho para arrancar con el pie derecho",
+      "Te gustaría que te los comparta??",
+      "por qué te sumaste a este taller??",
+      "Entiendo lo del estado, llega un punto en qué uno quiere ser dueño de su propio progreso.",
+      "Si hoy ya tuvieras ese trabajo virtual y cobraras en dólares, tenés algún lugar en mente al que"
+    ],
+    "frases_cliente_que_indican_interes": [
+      "Y lo de los podstcast? Donde los veo?",
+      "sisi compartilo",
+      "Trabajo para el estado y ya no qiero depender más de éso, me sumé para adquirir algunas herramientas q me puedan ayudar, además tengo 2 emprendimientos con mi sra y pensé q también me podría ayudar a vender lo q hacemos",
+      "Quería saber si me podes pasar la actividad previa y el acceso a los podcast",
+      "me darias info de VH?",
+      "La verdad porque quiero cambiar de trabajo. Si puedo cobrar en dólares mejor y si encima es virtual 10 puntos"
+    ]
+  },
+  "analisis_por_vendedor": [
+    {
+      "vendedor": "Giani Yelme",
+      "estilo": "Nurturing e informativa",
+      "fortalezas": [
+        "Proactiva",
+        "Resolutiva",
+        "Personalizada",
+        "Recordatorios efectivos"
+      ],
+      "areas_mejora": [
+        "Falta de calificación para el programa pago",
+        "No inicia la conversación sobre el producto principal"
+      ],
+      "tasa_cierre_estimada": "5%"
+    },
+    {
+      "vendedor": "Roque Herrera",
+      "estilo": "Consultivo y de construcción de relaciones",
+      "fortalezas": [
+        "Valor proactivo",
+        "Descubrimiento profundo",
+        "Empatía y validación",
+        "Preguntas de futuro-pacing",
+        "Construcción de rapport"
+      ],
+      "areas_mejora": [
+        "Tiempos de respuesta inconsistentes",
+        "Falta de cierre observable en el chat"
+      ],
+      "tasa_cierre_estimada": "30%"
+    },
+    {
+      "vendedor": "Laura",
+      "estilo": "Directa y transaccional",
+      "fortalezas": [
+        "Respuesta rápida a preguntas",
+        "Comunicación clara",
+        "Eficiente con detalles de pago",
+        "Ofrece opciones de pago"
+      ],
+      "areas_mejora": [
+        "Falta de calificación de las necesidades del cliente",
+        "No construye valor antes del precio",
+        "Mensajes de seguimiento genéricos"
+      ],
+      "tasa_cierre_estimada": "25%"
+    }
+  ],
+  "metricas_proceso": {
+    "total_chats_analizados": 18
+  }
+}

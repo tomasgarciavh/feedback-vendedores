@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+
+{% block title %}Formación VH — Vendedores Humanos{% endblock %}
+{% block page_title %}Formación: Vendedores Humanos{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Tabs ── */
+  .vh-tabs .nav-link {
+    color: #6c757d;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px 6px 0 0;
+    padding: 9px 18px;
+  }
+  .vh-tabs .nav-link.active {
+    color: #667eea;
+    background: #fff;
+    border-color: #e9ecef #e9ecef #fff;
+    font-weight: 600;
+  }
+
+  /* ── Módulo accordion ── */
+  .modulo-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .modulo-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .modulo-header:hover { background: #f8f9fb; }
+  .modulo-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 14px;
+  }
+  .modulo-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e2235;
+    flex: 1;
+  }
+  .modulo-meta {
+    font-size: 12px;
+    color: #adb5bd;
+    margin-right: 12px;
+  }
+  .modulo-chevron {
+    color: #adb5bd;
+    font-size: 14px;
+    transition: transform 0.2s;
+  }
+  .modulo-header.collapsed .modulo-chevron { transform: rotate(-90deg); }
+
+  /* ── Clases list ── */
+  .clases-list {
+    border-top: 1px solid #f0f0f0;
+    padding: 6px 0 10px;
+  }
+  .clase-item {
+    display: flex;
+    align-items: center;
+    padding: 9px 20px 9px 64px;
+    transition: background 0.1s;
+    text-decoration: none;
+  }
+  .clase-item:hover {
+    background: #f4f6ff;
+  }
+  .clase-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(102,126,234,0.1);
+    color: #667eea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+  .clase-name {
+    font-size: 13px;
+    color: #344054;
+    flex: 1;
+    font-weight: 500;
+  }
+  .clase-btn {
+    font-size: 11px;
+    font-weight: 600;
+    color: #667eea;
+    background: rgba(102,126,234,0.08);
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    transition: background 0.15s;
+    text-decoration: none;
+  }
+  .clase-btn:hover {
+    background: rgba(102,126,234,0.18);
+    color: #667eea;
+  }
+
+  /* Módulo sin clases cargadas */
+  .modulo-pending {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px 12px 64px;
+    font-size: 12px;
+    color: #adb5bd;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  /* ── PDF viewer ── */
+  .pdf-container {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0 10px 10px 10px;
+    overflow: hidden;
+  }
+  .pdf-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+  }
+  .pdf-toolbar .pdf-title { font-size: 13px; font-weight: 600; color: #1e2235; }
+  .pdf-toolbar .pdf-meta { font-size: 12px; color: #6c757d; }
+  #pdf-viewer {
+    width: 100%;
+    height: calc(100vh - 220px);
+    min-height: 600px;
+    border: none;
+    display: block;
+  }
+
+  /* ── Slides grid ── */
+  .slides-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0 10px 10px 10px;
+  }
+  .slide-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s;
+    background: #fafafa;
+  }
+  .slide-card:hover {
+    box-shadow: 0 4px 16px rgba(102,126,234,0.15);
+    transform: translateY(-2px);
+  }
+  .slide-card .slide-num {
+    background: #667eea;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .slide-card .slide-body { padding: 14px; }
+  .slide-card .slide-section {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: #667eea; margin-bottom: 4px;
+  }
+  .slide-card .slide-title {
+    font-size: 14px; font-weight: 600; color: #1e2235;
+    margin-bottom: 8px; line-height: 1.3;
+  }
+  .slide-card .slide-desc { font-size: 12px; color: #6c757d; line-height: 1.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:#1e2235;">Vendedores Humanos — Formación Completa</h4>
+    <p class="text-muted mb-0" style="font-size:13px;">12 módulos · Accedé a cada clase directamente desde acá.</p>
+  </div>
+  <a href="{{ url_for('static', filename='formacion_vh.pdf') }}" download
+     class="btn btn-sm" style="background:#667eea;color:#fff;border-radius:8px;font-size:13px;font-weight:600;">
+    <i class="bi bi-download me-1"></i> Descargar Blueprint PDF
+  </a>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs vh-tabs mb-0" id="formacionTabs">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-clases">
+      <i class="bi bi-play-circle me-1"></i> Clases del Curso
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-visor">
+      <i class="bi bi-file-earmark-pdf me-1"></i> Blueprint PDF
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-indice">
+      <i class="bi bi-grid-3x3-gap me-1"></i> Índice de Diapositivas
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- ══════════════════════════════════════════
+       TAB 1: CLASES DEL CURSO
+  ══════════════════════════════════════════ -->
+  <div class="tab-pane fade show active" id="tab-clases">
+    <div style="background:#fff;border:1px solid #e9ecef;border-radius:0 10px 10px 10px;padding:20px;">
+
+      <!-- MÓDULO 1 -->
+      <div class="modulo-card">
+        <div class="modulo-header" data-bs-toggle="collapse" data-bs-target="#mod1">
+          <div class="modulo-num">1</div>
+          <div class="modulo-title">Empieza Acá — Onboarding</div>
+          <div class="modulo-meta">7 clases</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod1" class="collapse show">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193437735" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">¿Qué es Vendedores Humanos?</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193439170" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Uso de la Plataforma (Kajabi)</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193457775" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">¿Cómo es Vendedores Humanos?</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193457817" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Días y Horarios</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193460193" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Uso de la Comunidad</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193465654" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Acompañamiento Alumnos</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159077212/posts/2193465872" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">¿Qué esperamos de vos?</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 2 -->
+      <div class="modulo-card">
+        <div class="modulo-header collapsed" data-bs-toggle="collapse" data-bs-target="#mod2">
+          <div class="modulo-num">2</div>
+          <div class="modulo-title">Misión 1</div>
+          <div class="modulo-meta">2 clases</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod2" class="collapse">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875280/posts/2192600470" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Empezar acá</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875280/posts/2192600471" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-pencil-fill" style="font-size:11px;"></i></div>
+              <span class="clase-name">Misión 1 (Ejercicio)</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 3 -->
+      <div class="modulo-card">
+        <div class="modulo-header collapsed" data-bs-toggle="collapse" data-bs-target="#mod3">
+          <div class="modulo-num">3</div>
+          <div class="modulo-title">Sistema de Ventas Humanas</div>
+          <div class="modulo-meta">4 clases</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod3" class="collapse">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875281/posts/2193407290" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Estructura Completa de Vendedores Humanos</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875281/posts/2193407303" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Estructura Práctica Vendedores Humanos</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875281/posts/2193407320" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Fundamento Objeciones</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875281/posts/2193407324" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Objeciones Prácticas</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 4 -->
+      <div class="modulo-card">
+        <div class="modulo-header collapsed" data-bs-toggle="collapse" data-bs-target="#mod4">
+          <div class="modulo-num">4</div>
+          <div class="modulo-title">Psicología en Ventas y Neuroventas</div>
+          <div class="modulo-meta">6 clases</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod4" class="collapse">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2193407504" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Neuroventas</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2192600476" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">¿Cómo Persuadir al Cerebro?</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2192600478" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Historias: ¿Cómo usarlas para Vender?</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2192600477" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Vender según el Sexo (Hombres vs. Mujeres)</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2193407582" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Los principales 6 errores a evitar</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2158875282/posts/2193407586" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Sesgos Psicológicos: Persuadir al Cerebro</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 5 -->
+      <div class="modulo-card">
+        <div class="modulo-header collapsed" data-bs-toggle="collapse" data-bs-target="#mod5">
+          <div class="modulo-num">5</div>
+          <div class="modulo-title">Seguimientos Creativos</div>
+          <div class="modulo-meta">1 clase</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod5" class="collapse">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070047/posts/2193408289" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">4 tipos de seguimientos</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 6 -->
+      <div class="modulo-card">
+        <div class="modulo-header collapsed" data-bs-toggle="collapse" data-bs-target="#mod6">
+          <div class="modulo-num">6</div>
+          <div class="modulo-title">Mentalidad y Patrones Comunes de Éxito</div>
+          <div class="modulo-meta">7 clases</div>
+          <i class="bi bi-chevron-down modulo-chevron"></i>
+        </div>
+        <div id="mod6" class="collapse">
+          <div class="clases-list">
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407627" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Mentalidad a Prueba de Emociones</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407637" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Patrones Comunes Exitosos</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407670" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Desarrollar la Creatividad</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407674" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Alterego: Desarrolla tu Personalidad de Éxito</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2194251832" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Ejemplo de AlterEgo</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407888" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-play-fill"></i></div>
+              <span class="clase-name">Habilidades para cambiar tus resultados: Sistema VAKOG</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+            <a href="https://academiamultid.mykajabi.com/products/vendedores-humanos/categories/2159070107/posts/2193407680" target="_blank" class="clase-item">
+              <div class="clase-icon"><i class="bi bi-pencil-fill" style="font-size:11px;"></i></div>
+              <span class="clase-name">Misión Final</span>
+              <span class="clase-btn"><i class="bi bi-box-arrow-up-right me-1"></i>Ver clase</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓDULOS 7–12 (sin clases cargadas aún) -->
+      {% set modulos_extra = [
+        (7,  "Juego de Roles",                    "bi-controller"),
+        (8,  "Consultoría Lunes con Tomi",         "bi-camera-video-fill"),
+        (9,  "Consultoría Jueves con Tomi",        "bi-camera-video-fill"),
+        (10, "Llamadas de Ventas — Análisis",      "bi-telephone-fill"),
+        (11, "Ventas por Mensajes — Análisis",     "bi-chat-dots-fill"),
+        (12, "Redes Sociales",                     "bi-instagram")
+      ] %}
+      {% for num, nombre, icon in modulos_extra %}
+      <div class="modulo-card" style="opacity:0.7;">
+        <div class="modulo-header" style="cursor:default;">
+          <div class="modulo-num" style="background:linear-gradient(135deg,#adb5bd,#868e96);">{{ num }}</div>
+          <div class="modulo-title">{{ nombre }}</div>
+          <span class="badge rounded-pill ms-auto" style="background:#f0f0f0;color:#adb5bd;font-size:11px;font-weight:600;">Próximamente</span>
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 2: BLUEPRINT PDF
+  ══════════════════════════════════════════ -->
+  <div class="tab-pane fade" id="tab-visor">
+    <div class="pdf-container">
+      <div class="pdf-toolbar">
+        <span class="pdf-title"><i class="bi bi-file-earmark-pdf text-danger me-1"></i> Human Sales Blueprint — Vendedores Humanos</span>
+        <span class="pdf-meta">15 diapositivas · Tomás García</span>
+      </div>
+      <iframe id="pdf-viewer" src="{{ url_for('static', filename='formacion_vh.pdf') }}"
+              title="Formación Vendedores Humanos"></iframe>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 3: ÍNDICE DE DIAPOSITIVAS
+  ══════════════════════════════════════════ -->
+  <div class="tab-pane fade" id="tab-indice">
+    <div class="slides-grid">
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 1</div>
+        <div class="slide-body">
+          <div class="slide-section">Inicio</div>
+          <div class="slide-title">Vendedores Humanos</div>
+          <div class="slide-desc">El ecosistema definitivo para dominar la estructura, neuroventas y la psicología del alto rendimiento.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 2</div>
+        <div class="slide-body">
+          <div class="slide-section">Fundación</div>
+          <div class="slide-title">El Poder de la Claridad: Estudio Harvard (1979)</div>
+          <div class="slide-desc">Top 3% escribía sus metas → ganaba 10× más que el 97% restante. La diferencia no es el talento; es la claridad.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 3</div>
+        <div class="slide-body">
+          <div class="slide-section">Estructura · Pilar 1</div>
+          <div class="slide-title">Los 4 Pasos de la Venta Humana</div>
+          <div class="slide-desc">Descubrimiento (80%) → Diagnóstico → Permiso → Pitch. Estructuras dinámicas, no guiones rígidos.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 4</div>
+        <div class="slide-body">
+          <div class="slide-section">Estructura</div>
+          <div class="slide-title">La Estructura Práctica de 13 Pasos</div>
+          <div class="slide-desc">Rapport → Claridad → Tomador de Decisión → Situación Actual → Situación Deseada → Desafíos → Dolores → Preferencia → Costo de Oportunidad → Urgencia → Compromiso → Permiso → Pitch/Cierre.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 5</div>
+        <div class="slide-body">
+          <div class="slide-section">Estructura</div>
+          <div class="slide-title">Matriz de Resolución de Objeciones</div>
+          <div class="slide-desc">"Lo tengo que pensar" / "Es muy caro" / "Déjame hablar con mi socio" / "No tengo el dinero" → significado real + resolución táctica.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 6</div>
+        <div class="slide-body">
+          <div class="slide-section">Psicología · Pilar 2</div>
+          <div class="slide-title">Anatomía de la Decisión (Neuroventas)</div>
+          <div class="slide-desc">Cerebro Reptiliano (70-80%) domina. Emocional justifica. Racional valida. Si solo hablás de características técnicas, el cliente te ignora.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 7</div>
+        <div class="slide-body">
+          <div class="slide-section">Psicología</div>
+          <div class="slide-title">Idiomas del Cerebro: El Poder de las Historias</div>
+          <div class="slide-desc">Arco de Storytelling: Personaje → Problema → Mentor → Plan → Llamado a la Acción → Éxito.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 8</div>
+        <div class="slide-body">
+          <div class="slide-section">Psicología</div>
+          <div class="slide-title">Sesgos Psicológicos</div>
+          <div class="slide-desc">Sesgo de Confirmación · Efecto de Anclaje · Sesgo de Escasez · Prueba Social.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 9</div>
+        <div class="slide-body">
+          <div class="slide-section">Psicología</div>
+          <div class="slide-title">Diagnóstico Rápido: Vender a Hombres vs. Mujeres</div>
+          <div class="slide-desc">Diferencias en toma de decisiones, motivación, tipo de información, prioridad en la compra y precio vs. valor.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 10</div>
+        <div class="slide-body">
+          <div class="slide-section">Mentalidad · Pilar 3</div>
+          <div class="slide-title">Los 10 Patrones del Alto Rendimiento</div>
+          <div class="slide-desc">Mentalidad de Dueño · Claridad Absoluta · Hackeo Placer/Dolor · Inmunidad Emocional · Foco en Ayudar · Humildad Intelectual · Proactividad · Ambición Sana · Fracaso = Aprendizaje · Enfoque Positivo.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 11</div>
+        <div class="slide-body">
+          <div class="slide-section">Mentalidad</div>
+          <div class="slide-title">Hackeando la Identidad: Alter Ego y Sistema VAKOG</div>
+          <div class="slide-desc">Crear un personaje para vender evita el Síndrome del Impostor. Visual · Auditivo · Kinestésico · Olfato y Gusto.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 12</div>
+        <div class="slide-body">
+          <div class="slide-section">Seguimiento · Pilar 4</div>
+          <div class="slide-title">La Matriz de los Seguimientos</div>
+          <div class="slide-desc">Seguimiento de Valor · de Venta · de Cierre · Cruzado — combinarlos evita quemar el medio.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 13</div>
+        <div class="slide-body">
+          <div class="slide-section">Extra</div>
+          <div class="slide-title">Los 4 Arquetipos del Cliente (DISC)</div>
+          <div class="slide-desc">D - Dominante · I - Influyente · S - Estable · C - Cumplidor.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 14</div>
+        <div class="slide-body">
+          <div class="slide-section">Extra</div>
+          <div class="slide-title">Plan de Acción DISC: Pitch y WhatsApp</div>
+          <div class="slide-desc">Enfoque, qué evitar y cómo comunicar por WhatsApp para cada arquetipo DISC.</div>
+        </div>
+      </div>
+      <div class="slide-card" onclick="switchToPdf()">
+        <div class="slide-num">Diapositiva 15</div>
+        <div class="slide-body">
+          <div class="slide-section">Síntesis</div>
+          <div class="slide-title">El Ecosistema del Vendedor Humano</div>
+          <div class="slide-desc">Fundación + Lógica + Psicología + Persistencia = Conexión Humana Real.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-content -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Chevron rotation on collapse
+  document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(btn => {
+    const target = document.querySelector(btn.dataset.bsTarget);
+    if (!target) return;
+    target.addEventListener('show.bs.collapse', () => btn.classList.remove('collapsed'));
+    target.addEventListener('hide.bs.collapse', () => btn.classList.add('collapsed'));
+  });
+
+  function switchToPdf() {
+    const tab = document.querySelector('[data-bs-target="#tab-visor"]');
+    bootstrap.Tab.getOrCreateInstance(tab).show();
+    document.getElementById('pdf-viewer').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Deep-link: /formacion#mod3 abre y scrollea al módulo indicado
+  function openModuleFromHash() {
+    const hash = window.location.hash; // ej: #mod3
+    if (!hash) return;
+    const collapseEl = document.querySelector(hash);
+    if (!collapseEl) return;
+
+    // Activar tab Clases del Curso
+    const tabClases = document.querySelector('[data-bs-target="#tab-clases"]');
+    bootstrap.Tab.getOrCreateInstance(tabClases).show();
+
+    // Expandir módulo
+    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+    bsCollapse.show();
+
+    // Scroll al módulo
+    setTimeout(() => {
+      collapseEl.closest('.modulo-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  }
+
+  document.addEventListener('DOMContentLoaded', openModuleFromHash);
+  window.addEventListener('hashchange', openModuleFromHash);
+</script>
+{% endblock %}

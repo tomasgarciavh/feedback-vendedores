@@ -1,0 +1,876 @@
+{% extends "base.html" %}
+{% block title %}Roleplay Lanzamiento — {{ vendor.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --lz-dark: #1a0810;
+    --lz-mid:  #3d0f1e;
+    --lz-gold: #c9a066;
+    --lz-green:#2d6a4f;
+  }
+
+  /* ── Tabs ── */
+  .mode-tabs { display:flex; gap:8px; margin-bottom:24px; }
+  .mode-tab {
+    flex:1; padding:12px 10px; border-radius:12px; border:2px solid #e9ecef;
+    background:#fff; cursor:pointer; text-align:center; transition:all .15s;
+    font-weight:700; font-size:13px;
+  }
+  .mode-tab:hover { border-color:var(--lz-gold); background:#faf8f5; }
+  .mode-tab.active { border-color:var(--lz-mid); background:linear-gradient(135deg,rgba(61,15,30,.08),rgba(201,160,102,.12)); color:var(--lz-mid); }
+  .mode-tab .tab-icon { font-size:22px; display:block; margin-bottom:4px; }
+
+  /* ── Phase cards ── */
+  .phase-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px; }
+  @media(min-width:768px) { .phase-grid { grid-template-columns:repeat(4,1fr); } }
+  .phase-card {
+    padding:14px 12px; border-radius:12px; border:2px solid #e9ecef;
+    background:#fff; cursor:pointer; transition:all .15s; text-align:center;
+  }
+  .phase-card:hover { border-color:var(--lz-gold); }
+  .phase-card.selected { border-color:var(--lz-mid); background:linear-gradient(135deg,rgba(61,15,30,.07),rgba(201,160,102,.1)); }
+  .phase-card .ph-emoji { font-size:26px; }
+  .phase-card .ph-label { font-size:12px; font-weight:800; color:var(--lz-mid); margin:4px 0 2px; }
+  .phase-card .ph-days  { font-size:10px; color:#888; }
+  .phase-card .ph-goal  { font-size:10px; color:#666; margin-top:6px; line-height:1.4; display:none; }
+  .phase-card.selected .ph-goal { display:block; }
+
+  /* ── Chat area ── */
+  .chat-area {
+    display:flex; flex-direction:column; height:420px;
+    border:1px solid #e9ecef; border-radius:14px; overflow:hidden; background:#fafafa;
+  }
+  .chat-messages {
+    flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;
+  }
+  .chat-input-row {
+    display:flex; gap:8px; padding:12px; background:#fff; border-top:1px solid #f0e0e0;
+  }
+  .chat-input-row textarea {
+    flex:1; border:1px solid #e9ecef; border-radius:10px; padding:10px 12px;
+    font-size:13px; resize:none; height:44px; min-height:44px; max-height:120px;
+    overflow:hidden; font-family:inherit;
+  }
+  .chat-input-row textarea:focus { outline:none; border-color:var(--lz-gold); }
+  .chat-input-row button {
+    background:var(--lz-mid); color:#fff; border:none; border-radius:10px;
+    padding:0 18px; font-weight:700; font-size:13px; cursor:pointer; flex-shrink:0;
+  }
+  .chat-input-row button:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* ── Bubbles ── */
+  .bubble { max-width:80%; padding:10px 14px; border-radius:14px; font-size:13px; line-height:1.6; word-break:break-word; }
+  .bubble.vendor { background:var(--lz-mid); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
+  .bubble.lead   { background:#fff; border:1px solid #e9ecef; color:#222; align-self:flex-start; border-bottom-left-radius:4px; }
+  .bubble.system { background:#f0f4ff; border:1px solid #c7d2fe; color:#374151; align-self:center; font-size:12px; max-width:90%; border-radius:10px; text-align:center; }
+
+  /* ── Coach suggestion bubble ── */
+  .coach-card {
+    background:#fff; border:1px solid #e9ecef; border-left:4px solid var(--lz-gold);
+    border-radius:0 12px 12px 0; padding:14px 16px; font-size:13px; line-height:1.7;
+    align-self:stretch; margin:4px 0;
+  }
+  .coach-card h4 { font-size:12px; font-weight:800; color:var(--lz-mid); margin:14px 0 4px; }
+  .coach-card h4:first-child { margin-top:0; }
+  .coach-card .option-block {
+    background:#faf8f5; border:1px solid #e9e0d0; border-radius:8px;
+    padding:10px 12px; margin:6px 0; font-size:12.5px; line-height:1.65; position:relative;
+  }
+  .coach-card .copy-opt {
+    position:absolute; top:6px; right:8px; background:var(--lz-mid); color:#fff;
+    border:none; border-radius:6px; padding:2px 8px; font-size:10px; cursor:pointer;
+    font-weight:700;
+  }
+  .coach-card .copy-opt:hover { background:var(--lz-gold); color:var(--lz-dark); }
+  .coach-card strong { color:var(--lz-mid); }
+  .coach-card em { color:#666; font-style:italic; }
+  .coach-card ul { padding-left:16px; margin:4px 0 8px; }
+  .coach-card li { margin-bottom:3px; }
+  .coach-card .warn-box { background:#fff9f0; border:1px solid #fcd34d; border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12px; }
+  .coach-card .tip-box  { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12px; }
+
+  /* ── Feedback ── */
+  .feedback-panel { background:#faf8f5; border-radius:14px; padding:20px; border:1px solid #e9e0d0; margin-top:14px; }
+  .feedback-panel h2 { font-size:15px; font-weight:800; color:var(--lz-mid); margin:18px 0 6px; border-bottom:1.5px solid #e9e0d0; padding-bottom:4px; }
+  .feedback-panel h2:first-child { margin-top:0; }
+  .feedback-panel ul { padding-left:18px; }
+  .feedback-panel li { margin-bottom:4px; font-size:13px; }
+  .feedback-panel p  { font-size:13px; margin:0 0 8px; }
+
+  /* ── Setup form ── */
+  .setup-card { background:#fff; border:1px solid #e9ecef; border-radius:14px; overflow:hidden; }
+  .setup-card-head { background:linear-gradient(135deg,var(--lz-dark),var(--lz-mid)); padding:14px 20px; color:#fff; }
+  .setup-card-body { padding:20px; }
+  .form-label-sm { font-size:12px; font-weight:700; color:#555; margin-bottom:4px; display:block; }
+  .form-control-sm2 { width:100%; border:1px solid #e9ecef; border-radius:8px; padding:9px 12px; font-size:13px; font-family:inherit; }
+  .form-control-sm2:focus { outline:none; border-color:var(--lz-gold); }
+
+  /* ── History cards ── */
+  .hist-card { border:1px solid #e9ecef; border-radius:10px; padding:12px 16px; margin-bottom:8px; background:#fff; font-size:12px; }
+  .hist-badge { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .hist-badge.roleplay  { background:#ede9fe; color:#5b21b6; }
+  .hist-badge.asistente { background:#e0f2fe; color:#0369a1; }
+
+  /* ── Preset lead cards ── */
+  .preset-grid {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:4px;
+  }
+  .preset-lead-card {
+    padding:10px 10px 8px; border-radius:10px; border:2px solid #e9ecef;
+    background:#fff; cursor:pointer; transition:all .15s; position:relative;
+  }
+  .preset-lead-card:hover { border-color:var(--lz-gold); background:#faf8f5; }
+  .preset-lead-card.selected { border-color:var(--lz-mid); background:linear-gradient(135deg,rgba(61,15,30,.06),rgba(201,160,102,.1)); }
+  .preset-lead-card[style*="display:none"] { display:none !important; }
+  .preset-lead-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .preset-lead-emoji { font-size:20px; }
+  .preset-lead-name { font-size:12px; font-weight:800; color:var(--lz-mid); margin-bottom:2px; }
+  .preset-lead-short { font-size:10px; color:#666; line-height:1.4; }
+  .preset-diff { font-size:9px; font-weight:800; padding:2px 7px; border-radius:8px; }
+  .preset-diff-facil  { background:#d1fae5; color:#065f46; }
+  .preset-diff-medio  { background:#fef9c3; color:#713f12; }
+  .preset-diff-dificil { background:#fee2e2; color:#7f1d1d; }
+
+  /* Loading dots */
+  .loading-dots { display:inline-flex; gap:4px; align-items:center; }
+  .loading-dots span { width:6px; height:6px; border-radius:50%; background:var(--lz-gold); animation:ld .8s infinite ease-in-out; }
+  .loading-dots span:nth-child(2) { animation-delay:.15s; }
+  .loading-dots span:nth-child(3) { animation-delay:.3s; }
+  @keyframes ld { 0%,80%,100%{transform:scale(.4)}40%{transform:scale(1)} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex align-items-center gap-3">
+    {% if vendor.photo_path %}
+    <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">
+    {% else %}
+    <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;">
+      <i class="bi bi-person-fill text-white"></i>
+    </div>
+    {% endif %}
+    <div>
+      <h5 class="mb-0 fw-bold">Hola, {{ vendor.name.split()[0] }} 👋</h5>
+      <small class="text-muted">Roleplay — Lanzamiento 21 días</small>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('chat') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
+      <i class="bi bi-chat-dots me-1"></i>Roleplay VH
+    </a>
+    <a href="{{ url_for('chat_logout') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
+      <i class="bi bi-box-arrow-right me-1"></i>Salir
+    </a>
+  </div>
+</div>
+
+<!-- Mode tabs -->
+<div class="mode-tabs" id="modeTabs">
+  <div class="mode-tab active" id="tabRoleplay" onclick="switchMode('roleplay')">
+    <span class="tab-icon">🎭</span>
+    Roleplay por Fase
+    <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px;">Practicá con un lead IA según la semana</div>
+  </div>
+  <div class="mode-tab" id="tabAsistente" onclick="switchMode('asistente')">
+    <span class="tab-icon">💬</span>
+    Asistente en Vivo
+    <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px;">Pedí ayuda durante una conversación real</div>
+  </div>
+</div>
+
+<!-- ══════════════════════ ROLEPLAY MODE ══════════════════════ -->
+<div id="panelRoleplay">
+
+  <div id="rpSetup">
+    <div class="setup-card mb-4">
+      <div class="setup-card-head">
+        <div style="font-size:14px;font-weight:800;">🎭 Configurá tu práctica</div>
+        <div style="font-size:11px;opacity:.7;margin-top:2px;">Elegí la fase a practicar y describí al lead</div>
+      </div>
+      <div class="setup-card-body">
+
+        <!-- Phase selector -->
+        <label class="form-label-sm mb-2">1. ¿Qué fase del lanzamiento querés practicar?</label>
+        <div class="phase-grid" id="phaseGrid">
+          {% for key, ph in phases.items() %}
+          <div class="phase-card {% if loop.first %}selected{% endif %}" data-phase="{{ key }}" onclick="selectPhase('{{ key }}', this)">
+            <div class="ph-emoji">{{ ph.emoji }}</div>
+            <div class="ph-label">{{ ph.label }}</div>
+            <div class="ph-days">{{ ph.days }}</div>
+            <div class="ph-goal">{{ ph.goal }}</div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Preset lead selector -->
+        <label class="form-label-sm mt-3 mb-2">2. Elegí un lead predeterminado (o creá el tuyo abajo)</label>
+        <div id="presetLeadGrid" class="preset-grid">
+          {% for phase_key, leads in preset_leads.items() %}
+          {% for lead in leads %}
+          <div class="preset-lead-card" data-phase="{{ phase_key }}" data-name="{{ lead.name }}" data-context="{{ lead.context }}"
+               onclick="selectPresetLead(this)">
+            <div class="preset-lead-top">
+              <span class="preset-lead-emoji">{{ lead.emoji }}</span>
+              <span class="preset-diff preset-diff-{{ lead.difficulty|replace('á','a')|replace('é','e')|replace('í','i')|replace('ó','o') }}">{{ lead.difficulty }}</span>
+            </div>
+            <div class="preset-lead-name">{{ lead.name }}</div>
+            <div class="preset-lead-short">{{ lead.short }}</div>
+          </div>
+          {% endfor %}
+          {% endfor %}
+        </div>
+
+        <!-- Lead config -->
+        <label class="form-label-sm mt-3 mb-1">3. Nombre del lead</label>
+        <input type="text" id="rpLeadName" class="form-control-sm2" placeholder="Ej: Carla, Martín..." style="max-width:280px;">
+
+        <label class="form-label-sm mt-3 mb-1">4. Perfil del lead (mientras más detalle, mejor práctica)</label>
+        <textarea id="rpLeadContext" class="form-control-sm2" rows="3"
+          placeholder="Ej: Mamá de 35 años, trabaja en relación de dependencia, le gustaría tener algo propio pero cree que no tiene el perfil. Llegó al lanzamiento por un anuncio. Tiene miedo de gastar plata en algo que no le funcione."></textarea>
+
+        <button class="btn mt-4 fw-bold" style="background:var(--lz-mid);color:#fff;border-radius:10px;padding:10px 28px;"
+                onclick="startRoleplay()">
+          <i class="bi bi-play-fill me-1"></i>Empezar práctica
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat window (hidden until started) -->
+  <div id="rpChat" style="display:none;">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <span id="rpChatTitle" class="fw-bold" style="font-size:14px;color:var(--lz-mid);"></span>
+        <span id="rpChatSub" style="font-size:11px;color:#888;margin-left:8px;"></span>
+      </div>
+      <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;font-size:12px;" onclick="endRoleplay()">
+        <i class="bi bi-stop-circle me-1"></i>Finalizar y ver feedback
+      </button>
+    </div>
+
+    <div class="chat-area">
+      <div class="chat-messages" id="rpMessages"></div>
+      <div class="chat-input-row">
+        <textarea id="rpInput" placeholder="Escribí tu mensaje como si fuera WhatsApp..." onkeydown="rpKeydown(event)" oninput="autoResize(this)"></textarea>
+        <button id="rpSendBtn" onclick="sendRoleplay()"><i class="bi bi-send-fill"></i></button>
+      </div>
+    </div>
+
+    <div id="rpFeedback" style="display:none;">
+      <div class="d-flex align-items-center gap-2 mt-4 mb-2">
+        <span style="font-size:16px;">📋</span>
+        <span class="fw-bold" style="color:var(--lz-mid);">Feedback de la práctica</span>
+      </div>
+      <div class="feedback-panel" id="rpFeedbackContent"></div>
+      <button class="btn btn-sm mt-3" style="background:var(--lz-mid);color:#fff;border-radius:8px;" onclick="newRoleplay()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Nueva práctica
+      </button>
+    </div>
+  </div>
+
+</div><!-- /panelRoleplay -->
+
+
+<!-- ══════════════════════ ASISTENTE MODE ══════════════════════ -->
+<div id="panelAsistente" style="display:none;">
+
+  <!-- ── Contexto del lead (siempre visible, colapsable) ── -->
+  <div style="background:#fff;border:1px solid #e9ecef;border-radius:14px;overflow:hidden;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:linear-gradient(135deg,#0c4a6e,#0369a1);cursor:pointer;" onclick="toggleAsContext()">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;font-weight:800;color:#fff;">💬 Asistente en Vivo</span>
+        <span id="asContextSummary" style="font-size:11px;color:rgba(255,255,255,.65);">Configurá el contexto del lead →</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="asStartBtn" onclick="event.stopPropagation();startAsistente()"
+                style="background:#c9a066;color:#1a0810;border:none;border-radius:8px;padding:5px 14px;font-size:12px;font-weight:800;cursor:pointer;display:none;">
+          <i class="bi bi-play-fill me-1"></i>Nueva sesión
+        </button>
+        <i id="asContextChevron" class="bi bi-chevron-down" style="color:#fff;font-size:13px;"></i>
+      </div>
+    </div>
+    <div id="asContextPanel" style="padding:16px 18px;">
+      <div class="row g-3">
+        <div class="col-12 col-md-3">
+          <label class="form-label-sm">Nombre del lead</label>
+          <input type="text" id="asLeadName" class="form-control-sm2" placeholder="Ej: Marcela" oninput="asContextChanged()">
+        </div>
+        <div class="col-12 col-md-9">
+          <label class="form-label-sm">¿En qué fase están?</label>
+          <div class="phase-grid" id="asPhaseGrid" style="margin-bottom:0;grid-template-columns:repeat(4,1fr);">
+            {% for key, ph in phases.items() %}
+            <div class="phase-card {% if loop.first %}selected{% endif %}" data-phase="{{ key }}" onclick="selectAsPhase('{{ key }}', this)" style="padding:8px 6px;">
+              <div class="ph-emoji" style="font-size:18px;">{{ ph.emoji }}</div>
+              <div class="ph-label" style="font-size:10px;">{{ ph.label }}</div>
+              <div class="ph-days" style="font-size:9px;">{{ ph.days }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label-sm">¿Qué sabés del lead? (situación, trabajo, por qué entró, qué dijeron)</label>
+          <textarea id="asLeadContext" class="form-control-sm2" rows="2"
+            placeholder="Ej: Mamá de 38 años, trabaja de enfermera, quiere tener algo propio. Cree que no tiene el perfil. Dos semanas hablando." oninput="asContextChanged()"></textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button onclick="startAsistente()"
+                style="background:#0369a1;color:#fff;border:none;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:800;cursor:pointer;">
+          <i class="bi bi-play-fill me-1"></i>Iniciar / Actualizar sesión
+        </button>
+        <span style="font-size:11px;color:#888;align-self:center;">Podés actualizar el contexto en cualquier momento</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat + input (siempre visible) ── -->
+  <div id="asChat">
+    <div class="chat-area" style="height:480px;">
+      <div class="chat-messages" id="asMessages">
+        <div class="bubble system" style="text-align:center;">
+          👋 Configurá el lead arriba y hacé click en <strong>Iniciar sesión</strong>.<br>
+          Después podés escribir, pegar mensajes del lead, o <strong>adjuntar capturas de WhatsApp</strong>.
+        </div>
+      </div>
+
+      <div class="chat-input-row" style="flex-direction:column;gap:6px;">
+
+        <!-- File preview strip -->
+        <div id="asFilePreview" style="display:none;align-items:center;gap:8px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:8px;padding:6px 10px;font-size:12px;">
+          <i class="bi bi-paperclip" style="color:#0369a1;"></i>
+          <span id="asFileName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#374151;"></span>
+          <img id="asFileThumb" style="height:36px;width:36px;object-fit:cover;border-radius:4px;display:none;">
+          <button onclick="clearAsFile()" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;line-height:1;padding:0 2px;">✕</button>
+        </div>
+
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <!-- Hidden file input -->
+          <input type="file" id="asFileInput" accept="image/*,video/mp4,video/quicktime,video/webm,.mov,.avi" style="display:none;" onchange="onAsFileSelected(this)">
+
+          <!-- Attach button -->
+          <button onclick="document.getElementById('asFileInput').click()"
+                  title="Adjuntar captura o video de pantalla de WhatsApp"
+                  style="background:#e0f2fe;border:1.5px solid #7dd3fc;border-radius:10px;padding:0 13px;height:44px;cursor:pointer;flex-shrink:0;color:#0369a1;font-size:17px;transition:all .15s;"
+                  onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
+            <i class="bi bi-image"></i>
+          </button>
+
+          <textarea id="asInput" placeholder="Escribí la situación, pegá el mensaje del lead, o adjuntá una captura 📎"
+                    onkeydown="asKeydown(event)" oninput="autoResize(this)"
+                    style="height:44px;min-height:44px;font-size:13px;"></textarea>
+
+          <button id="asSendBtn" onclick="sendAsistente()"
+                  style="background:#0369a1;border:none;border-radius:10px;color:#fff;padding:0 16px;height:44px;cursor:pointer;flex-shrink:0;font-size:16px;transition:all .15s;"
+                  onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0369a1'">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </div>
+
+        <div style="font-size:10px;color:#aaa;text-align:center;">
+          📸 Podés adjuntar capturas de pantalla (.jpg, .png, .webp) o grabaciones (.mp4, .mov)
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panelAsistente -->
+
+
+<!-- ══════════════════════ HISTORY ══════════════════════ -->
+{% if sessions %}
+<div class="mt-5">
+  <h6 class="fw-bold mb-3" style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.5px;">Sesiones anteriores</h6>
+  {% for s in sessions[:10] %}
+  <div class="hist-card">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <span class="hist-badge {{ s.mode }}">{{ '🎭 Roleplay' if s.mode == 'roleplay' else '💬 Asistente' }}</span>
+        {% for key, ph in phases.items() %}{% if key == s.phase %}<span style="font-size:12px;">{{ ph.emoji }} {{ ph.label }}</span>{% endif %}{% endfor %}
+        {% if s.lead_name %}<span style="font-size:12px;color:#666;">— {{ s.lead_name }}</span>{% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        {% if s.score %}<span style="font-size:12px;font-weight:800;color:{% if s.score >= 7 %}#2d6a4f{% elif s.score >= 5 %}#8b6914{% else %}#8b1a2b{% endif %};">{{ "%.1f"|format(s.score) }}/10</span>{% endif %}
+        <span style="font-size:11px;color:#aaa;">{{ s.started_at[:10] if s.started_at else '' }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentMode = 'roleplay';
+let rpSessionId = null;
+let asSessionId = null;
+let rpPhase = '{{ phases.keys()|list|first }}';
+let asPhase = '{{ phases.keys()|list|first }}';
+let rpEnded = false;
+
+// ── Mode switch ────────────────────────────────────────────────────────────
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tabRoleplay').classList.toggle('active', mode === 'roleplay');
+  document.getElementById('tabAsistente').classList.toggle('active', mode === 'asistente');
+  document.getElementById('panelRoleplay').style.display = mode === 'roleplay' ? '' : 'none';
+  document.getElementById('panelAsistente').style.display = mode === 'asistente' ? '' : 'none';
+}
+
+// ── Phase selectors ────────────────────────────────────────────────────────
+function selectPhase(key, el) {
+  rpPhase = key;
+  document.querySelectorAll('#phaseGrid .phase-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  // Show only preset leads for this phase, deselect current
+  document.querySelectorAll('.preset-lead-card').forEach(c => {
+    c.style.display = c.dataset.phase === key ? '' : 'none';
+    c.classList.remove('selected');
+  });
+  // Clear lead fields when phase changes
+  document.getElementById('rpLeadName').value = '';
+  document.getElementById('rpLeadContext').value = '';
+}
+
+function selectPresetLead(el) {
+  document.querySelectorAll('.preset-lead-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('rpLeadName').value = el.dataset.name;
+  document.getElementById('rpLeadContext').value = el.dataset.context;
+}
+function selectAsPhase(key, el) {
+  asPhase = key;
+  document.querySelectorAll('#asPhaseGrid .phase-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function autoResize(ta) {
+  ta.style.height = '44px';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+}
+
+function appendBubble(containerId, role, text) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement('div');
+  div.className = 'bubble ' + role;
+  div.innerHTML = text.replace(/\n/g, '<br>');
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function appendCoachCard(containerId, html) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement('div');
+  div.className = 'coach-card';
+  div.innerHTML = html;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function addLoadingBubble(containerId, role) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement('div');
+  div.className = 'bubble ' + role;
+  div.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  div.id = 'loadingBubble';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function removeLoading() {
+  const el = document.getElementById('loadingBubble');
+  if (el) el.remove();
+}
+
+// ── Render markdown-like text for coach suggestions ──────────────────────
+function applyInlineCoach(text) {
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+}
+
+function renderCoachText(raw) {
+  const lines = raw.split('\n');
+  let html = '';
+  let inUL = false;
+
+  function closeUL() { if (inUL) { html += '</ul>'; inUL = false; } }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip fences
+    if (line.startsWith('```')) continue;
+
+    // HR
+    if (/^---+$/.test(line.trim())) { closeUL(); html += '<hr style="margin:10px 0;border-color:#e9e0d0;">'; continue; }
+
+    // Empty line
+    if (!line.trim()) { closeUL(); continue; }
+
+    // OPCIÓN A/B/C — look ahead for blockquote
+    const optM = line.match(/^\*\*OPCIÓN ([ABC])\*\*\s*[—–\-]?\s*(.*)/);
+    if (optM) {
+      closeUL();
+      const letter = optM[1];
+      const sublabel = optM[2].replace(/\*\*/g,'').trim();
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      let msgBlock = '';
+      if (lines[j] && lines[j].startsWith('> ')) {
+        const msg = lines[j].slice(2).trim();
+        msgBlock = `<div class="option-block">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}<button class="copy-opt" onclick="copyOpt(this)">Copiar</button></div>`;
+        i = j;
+      }
+      html += `<h4>OPCIÓN ${letter}${sublabel ? ` <em style="font-weight:400;color:#777;">— ${sublabel}</em>` : ''}</h4>${msgBlock}`;
+      continue;
+    }
+
+    // Generic blockquote (❓ PREGUNTA, etc.) — copy button
+    if (line.startsWith('> ')) {
+      closeUL();
+      const msg = line.slice(2).trim();
+      html += `<div class="option-block" style="border-left-color:#3d0f1e;">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}<button class="copy-opt" onclick="copyOpt(this)">Copiar</button></div>`;
+      continue;
+    }
+
+    // Section headers **...emoji...**
+    if (/^\*\*[^*]+\*\*\s*$/.test(line.trim()) || /^\*\*(📊|🎯|❓|⚠️|💡|🧠|📋)[^*]*\*\*/.test(line)) {
+      closeUL();
+      const headerText = line.replace(/\*\*/g, '');
+      if (/⚠️/.test(line)) {
+        html += `<h4>${applyInlineCoach(headerText)}</h4>`;
+        // grab next line as warn-box
+        let j = i + 1;
+        while (j < lines.length && !lines[j].trim()) j++;
+        if (j < lines.length && !lines[j].startsWith('**') && !lines[j].startsWith('OPCIÓN')) {
+          html += `<div class="warn-box">⚠️ ${applyInlineCoach(lines[j])}</div>`;
+          i = j;
+        }
+        continue;
+      }
+      html += `<h4>${applyInlineCoach(headerText)}</h4>`;
+      continue;
+    }
+
+    // PLAN bullet lines (- Hoy: / - Mañana: / - Pasado:)
+    const planM = line.match(/^-\s*(Hoy|Mañana|Pasado)\s*:(.*)/);
+    if (planM) {
+      closeUL();
+      html += `<div style="padding:4px 0 4px 4px;font-size:12.5px;"><strong style="color:#3d0f1e;">${planM[1]}:</strong> ${applyInlineCoach(planM[2].trim())}</div>`;
+      continue;
+    }
+
+    // Regular list items
+    if (/^[-*] /.test(line)) {
+      if (!inUL) { html += '<ul>'; inUL = true; }
+      html += `<li>${applyInlineCoach(line.slice(2))}</li>`;
+      continue;
+    }
+
+    // Normal text / bold headers inline
+    closeUL();
+    html += `<p>${applyInlineCoach(line)}</p>`;
+  }
+  closeUL();
+  return html;
+}
+
+function copyOpt(btn) {
+  const block = btn.parentElement;
+  const text = block.textContent.replace('Copiar', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    btn.style.background = '#2d6a4f';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+  });
+}
+
+// ── Render feedback markdown ───────────────────────────────────────────────
+function renderFeedback(text) {
+  let h = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^---+$/gm, '<hr>')
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g, m => '<ul>' + m + '</ul>')
+    .replace(/<\/ul>\s*<ul>/g, '');
+  const blocks = h.split(/\n{2}/);
+  return blocks.map(b => {
+    b = b.trim();
+    if (!b) return '';
+    if (/^<(h[234]|ul|hr)/.test(b)) return b;
+    return '<p>' + b.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+}
+
+// ══════════════════ ROLEPLAY ══════════════════════════════════════════════
+
+async function startRoleplay() {
+  const leadName = document.getElementById('rpLeadName').value.trim() || 'Lead';
+  const leadContext = document.getElementById('rpLeadContext').value.trim();
+
+  const res = await fetch('/chat/lanzamiento/session/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ mode:'roleplay', phase:rpPhase, lead_name:leadName, lead_context:leadContext })
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Error: ' + data.error); return; }
+
+  rpSessionId = data.session_id;
+  rpEnded = false;
+
+  // Get phase label
+  const phaseCard = document.querySelector('#phaseGrid .phase-card.selected');
+  const phaseLabel = phaseCard ? phaseCard.querySelector('.ph-label').textContent : '';
+  const phaseGoal  = phaseCard ? phaseCard.querySelector('.ph-goal').textContent : '';
+
+  document.getElementById('rpChatTitle').textContent = '🎭 Practicando: ' + phaseLabel;
+  document.getElementById('rpChatSub').textContent = 'Lead: ' + leadName;
+
+  // Clear and show chat
+  document.getElementById('rpMessages').innerHTML = '';
+  document.getElementById('rpFeedback').style.display = 'none';
+  document.getElementById('rpSetup').style.display = 'none';
+  document.getElementById('rpChat').style.display = '';
+
+  appendBubble('rpMessages', 'system',
+    '🎭 Práctica iniciada — <strong>' + phaseLabel + '</strong><br><em>' + phaseGoal + '</em><br><br>Escribí tu primer mensaje como si fuera WhatsApp real. El lead va a responder según cómo lo trabajés.');
+}
+
+function rpKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendRoleplay(); }
+}
+
+async function sendRoleplay() {
+  if (!rpSessionId || rpEnded) return;
+  const input = document.getElementById('rpInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = '44px';
+  document.getElementById('rpSendBtn').disabled = true;
+
+  appendBubble('rpMessages', 'vendor', text);
+  addLoadingBubble('rpMessages', 'lead');
+
+  const res = await fetch('/chat/lanzamiento/session/' + rpSessionId + '/message', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ text })
+  });
+  removeLoading();
+  document.getElementById('rpSendBtn').disabled = false;
+
+  const data = await res.json();
+  if (data.ok) {
+    appendBubble('rpMessages', 'lead', data.reply);
+  } else {
+    appendBubble('rpMessages', 'system', '⚠️ Error: ' + data.error);
+  }
+  input.focus();
+}
+
+async function endRoleplay() {
+  if (!rpSessionId || rpEnded) return;
+  rpEnded = true;
+  document.querySelector('#rpChat button[onclick="endRoleplay()"]').disabled = true;
+
+  appendBubble('rpMessages', 'system', '⏳ Generando feedback...');
+
+  const res = await fetch('/chat/lanzamiento/session/' + rpSessionId + '/end', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+  });
+  const data = await res.json();
+
+  if (data.ok && data.feedback) {
+    document.getElementById('rpFeedback').style.display = '';
+    document.getElementById('rpFeedbackContent').innerHTML = renderFeedback(data.feedback);
+    document.getElementById('rpFeedback').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+function newRoleplay() {
+  rpSessionId = null; rpEnded = false;
+  document.getElementById('rpSetup').style.display = '';
+  document.getElementById('rpChat').style.display = 'none';
+  document.getElementById('rpMessages').innerHTML = '';
+  document.getElementById('rpFeedback').style.display = 'none';
+}
+
+
+// ══════════════════ ASISTENTE ═════════════════════════════════════════════
+
+let _asContextOpen = true;
+
+function toggleAsContext() {
+  _asContextOpen = !_asContextOpen;
+  document.getElementById('asContextPanel').style.display = _asContextOpen ? '' : 'none';
+  document.getElementById('asContextChevron').className = 'bi bi-chevron-' + (_asContextOpen ? 'up' : 'down');
+}
+
+function asContextChanged() {
+  const name = document.getElementById('asLeadName').value.trim();
+  const ctx  = document.getElementById('asLeadContext').value.trim();
+  const btn  = document.getElementById('asStartBtn');
+  if (name || ctx) {
+    document.getElementById('asContextSummary').textContent = (name || 'Lead') + ' · ' + (ctx.slice(0,40) || '…');
+    if (btn) btn.style.display = '';
+  } else {
+    document.getElementById('asContextSummary').textContent = 'Configurá el contexto del lead →';
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+async function startAsistente() {
+  const leadName = document.getElementById('asLeadName').value.trim() || 'el lead';
+  const leadContext = document.getElementById('asLeadContext').value.trim();
+
+  const res = await fetch('/chat/lanzamiento/session/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ mode:'asistente', phase:asPhase, lead_name:leadName, lead_context:leadContext })
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Error: ' + data.error); return; }
+
+  asSessionId = data.session_id;
+
+  const phaseCard = document.querySelector('#asPhaseGrid .phase-card.selected');
+  const phaseEmoji = phaseCard ? phaseCard.querySelector('.ph-emoji').textContent : '';
+  const phaseLabel = phaseCard ? phaseCard.querySelector('.ph-label').textContent : '';
+
+  // Collapse context panel and update summary
+  _asContextOpen = false;
+  document.getElementById('asContextPanel').style.display = 'none';
+  document.getElementById('asContextChevron').className = 'bi bi-chevron-down';
+  document.getElementById('asContextSummary').textContent =
+    phaseEmoji + ' ' + phaseLabel + ' · ' + leadName + (leadContext ? ' — sesión activa ✓' : '');
+
+  // Clear messages and show welcome
+  document.getElementById('asMessages').innerHTML = '';
+  appendBubble('asMessages', 'system',
+    '✅ Sesión iniciada para <strong>' + leadName + '</strong> — ' + phaseEmoji + ' ' + phaseLabel + '<br><br>' +
+    'Describí lo que pasó, pegá el mensaje del lead, o <strong>adjuntá una captura de pantalla</strong> de tu WhatsApp. ' +
+    'Te doy opciones de respuesta listas para copiar.');
+
+  document.getElementById('asInput').focus();
+}
+
+function asKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAsistente(); }
+}
+
+let _asFile = null;
+
+function onAsFileSelected(input) {
+  if (!input.files.length) return;
+  _asFile = input.files[0];
+  document.getElementById('asFileName').textContent = _asFile.name;
+  document.getElementById('asFilePreview').style.display = 'flex';
+  const thumb = document.getElementById('asFileThumb');
+  if (_asFile.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => { thumb.src = e.target.result; thumb.style.display = ''; };
+    reader.readAsDataURL(_asFile);
+  } else {
+    thumb.style.display = 'none';
+  }
+}
+
+function clearAsFile() {
+  _asFile = null;
+  document.getElementById('asFileInput').value = '';
+  document.getElementById('asFilePreview').style.display = 'none';
+  document.getElementById('asFileThumb').style.display = 'none';
+}
+
+async function sendAsistente() {
+  if (!asSessionId) return;
+  const input = document.getElementById('asInput');
+  const text = input.value.trim();
+  if (!text && !_asFile) return;
+
+  const fileToSend = _asFile;
+  const textToSend = text;
+
+  input.value = '';
+  input.style.height = '44px';
+  clearAsFile();
+  document.getElementById('asSendBtn').disabled = true;
+
+  // Show what the vendor sent
+  let previewHtml = textToSend ? textToSend.replace(/\n/g, '<br>') : '';
+  if (fileToSend) {
+    previewHtml += (previewHtml ? '<br>' : '') + '<span style="font-size:11px;opacity:.7;"><i class="bi bi-paperclip"></i> ' + fileToSend.name + '</span>';
+  }
+  appendBubble('asMessages', 'vendor', previewHtml);
+
+  const loadingMsg = fileToSend && fileToSend.type.startsWith('video/')
+    ? 'Analizando video... puede tardar hasta 30 segundos ⏳'
+    : 'Analizando...';
+  addLoadingBubble('asMessages', 'system');
+
+  let res;
+  if (fileToSend) {
+    const fd = new FormData();
+    if (textToSend) fd.append('text', textToSend);
+    fd.append('file', fileToSend);
+    res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
+      method: 'POST',
+      body: fd,
+    });
+  } else {
+    res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: textToSend }),
+    });
+  }
+
+  removeLoading();
+  document.getElementById('asSendBtn').disabled = false;
+
+  const data = await res.json();
+  if (data.ok) {
+    appendCoachCard('asMessages', renderCoachText(data.suggestion));
+  } else {
+    appendBubble('asMessages', 'system', '⚠️ Error: ' + (data.error || 'Algo salió mal'));
+  }
+  input.focus();
+}
+
+function resetAsistente() {
+  asSessionId = null;
+  clearAsFile();
+  document.getElementById('asMessages').innerHTML = '<div class="bubble system" style="text-align:center;">👋 Configurá el lead arriba y hacé click en <strong>Iniciar sesión</strong>.<br>Después podés escribir, pegar mensajes del lead, o <strong>adjuntá capturas de WhatsApp</strong>.</div>';
+  document.getElementById('asLeadName').value = '';
+  document.getElementById('asLeadContext').value = '';
+  document.getElementById('asContextSummary').textContent = 'Configurá el contexto del lead →';
+  // Re-open context panel
+  _asContextOpen = true;
+  document.getElementById('asContextPanel').style.display = '';
+  document.getElementById('asContextChevron').className = 'bi bi-chevron-up';
+  const btn = document.getElementById('asStartBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+// ── Init preset leads: show only first phase on load ─────────────────────
+(function() {
+  const firstPhase = '{{ phases.keys()|list|first }}';
+  document.querySelectorAll('.preset-lead-card').forEach(c => {
+    if (c.dataset.phase !== firstPhase) c.style.display = 'none';
+  });
+})();
+</script>
+{% endblock %}

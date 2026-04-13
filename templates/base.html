@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Sistema de Feedback Automático{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    :root {
+      --sidebar-width: 240px;
+      --sidebar-bg: #1a0810;
+      --sidebar-text: #c9a4a4;
+      --sidebar-active: #c9a066;
+      --vh-gold: #c9a066;
+      --vh-gold-light: #f1d7be;
+      --vh-burgundy: #3d0f1e;
+      --header-height: 60px;
+    }
+
+    body {
+      background: #f4f6f9;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: var(--sidebar-bg);
+      z-index: 1000;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+
+    #sidebar .sidebar-brand {
+      display: flex;
+      align-items: center;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #sidebar .sidebar-brand .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #c9a066, #8b5a2b);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    #sidebar .sidebar-brand .brand-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.3;
+    }
+
+    #sidebar .nav-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: rgba(168,178,216,0.5);
+      padding: 20px 20px 8px;
+    }
+
+    #sidebar .nav-link {
+      display: flex;
+      align-items: center;
+      padding: 8px 20px;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      margin: 2px 10px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #sidebar .nav-link i {
+      width: 20px;
+      font-size: 16px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    #sidebar .nav-link:hover {
+      background: rgba(201,160,102,0.12);
+      color: #fff;
+    }
+
+    #sidebar .nav-link.active {
+      background: rgba(201,160,102,0.18);
+      color: #fff;
+    }
+
+    #sidebar .nav-link.active i {
+      color: var(--vh-gold);
+    }
+
+    /* Main content */
+    #main-content {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+
+    /* Top header */
+    #top-header {
+      background: #fff;
+      height: var(--header-height);
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    #top-header .page-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #1e2235;
+      margin: 0;
+    }
+
+    .page-body {
+      padding: 28px;
+    }
+
+    /* Cards */
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px 24px;
+      border: 1px solid #e9ecef;
+      height: 100%;
+    }
+
+    .stat-card .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1e2235;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 13px;
+      color: #6c757d;
+    }
+
+    .card {
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+
+    .card-header {
+      background: #fff;
+      border-bottom: 1px solid #e9ecef;
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #1e2235;
+    }
+
+    /* Status badges */
+    .badge-done { background-color: #d1fae5; color: #065f46; }
+    .badge-processing { background-color: #dbeafe; color: #1e40af; }
+    .badge-error { background-color: #fee2e2; color: #991b1b; }
+
+    /* Toast */
+    #toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+    }
+
+    @media (max-width: 768px) {
+      #sidebar {
+        transform: translateX(-100%);
+      }
+      #sidebar.show {
+        transform: translateX(0);
+      }
+      #main-content {
+        margin-left: 0;
+      }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-brand" style="padding:18px 16px 16px;border-bottom:1px solid rgba(201,160,102,0.12);">
+    <div style="width:100%;text-align:center;">
+      <!-- Logo completo Vendedores Humanos -->
+      <svg viewBox="0 0 485.63 84.74" style="width:100%;max-width:180px;height:auto;display:inline-block;" xmlns="http://www.w3.org/2000/svg">
+        <!-- VH monogram -->
+        <path fill="#c9a066" d="M38.63,56.51l-1.86,6.46c-.3,1.01-.6,1.28-.72,1.28-.11,0-.43-.24-.82-1.14L7.65,1.12l-.15-.34H0L31.92,72.35l.15,.34h4.6l1.95-5.51v-10.67Z"/>
+        <polygon fill="#c9a066" points="55.11 18 55.11 29.35 65.22 .78 57.74 .78 55.11 9.94 55.11 10.9 55.11 18"/>
+        <path fill="#c9a066" d="M100.8,10.9h-8.76v31.05c-1.95-.88-4.03-1.59-6.24-2.11-3.05-.73-6.27-1.1-9.54-1.1-3.33,0-6.7,.38-9.99,1.17-3.28,.79-6.41,1.99-9.29,3.59-1.79,.98-3.46,2.15-4.98,3.49V10.9h-10.68V84.74h10.68v-21.7c.04-2.45,.59-4.72,1.67-6.74,1.15-2.14,2.73-4.06,4.71-5.69,2.03-1.67,4.33-3.1,6.82-4.25,2.51-1.16,5.13-2.04,7.79-2.63,2.65-.59,5.25-.88,7.65-.88,2.27,0,4.36,.26,6.16,.79,1.67,.49,3,1.22,3.97,2.19,.86,.86,1.28,1.93,1.28,3.25v35.65h10.68V10.9h-1.92Z"/>
+        <!-- HUMANOS wordmark -->
+        <path fill="#f1d7be" d="M131.95,83.48V36.38h8.38v19.3h22.76v-19.3h8.38v47.1h-8.38v-21.02h-22.76v21.02h-8.38Z"/>
+        <path fill="#f1d7be" d="M200.61,84.74c-3.99,0-7.5-.84-10.55-2.52-3.04-1.69-5.4-4.06-7.09-7.12-1.68-3.06-2.52-6.65-2.52-10.78v-27.94h8.45v27.68c0,4.17,1.06,7.5,3.2,9.99,2.13,2.48,4.97,3.73,8.51,3.73s6.46-1.24,8.58-3.73c2.13-2.48,3.2-5.81,3.2-9.99v-27.68h8.38v27.94c0,4.13-.84,7.73-2.53,10.78-1.68,3.06-4.02,5.43-7.04,7.12-3.01,1.68-6.54,2.52-10.58,2.52Z"/>
+        <path fill="#f1d7be" d="M229.75,83.48V36.38h11.38l15.3,37.05h.53l15.1-37.05h11.51v47.1h-8.12V47.69h-.53l-14.84,35.79h-6.86l-14.77-35.73h-.6v35.73h-8.12Z"/>
+        <path fill="#f1d7be" d="M289.36,83.48l16.5-47.1h12.39l16.5,47.1h-8.71l-3.53-9.77h-20.97l-3.53,9.77h-8.65Zm13.98-16.03h17.36l-8.38-23.82h-.6l-8.38,23.82Z"/>
+        <path fill="#f1d7be" d="M340.39,83.48V36.38h9.32l21.81,36.32h.53V36.38h7.85v47.1h-9.31l-21.76-36.26h-.53v36.26h-7.92Z"/>
+        <path fill="#f1d7be" d="M413.31,84.74c-5.06,0-9.52-1.04-13.38-3.11-3.85-2.09-6.88-4.99-9.08-8.71-2.19-3.73-3.28-8.06-3.28-12.98s1.09-9.31,3.28-13.03c2.19-3.73,5.22-6.63,9.08-8.71,3.86-2.09,8.32-3.13,13.38-3.13s9.52,1.04,13.4,3.13c3.88,2.08,6.91,4.98,9.09,8.71,2.17,3.72,3.26,8.07,3.26,13.03s-1.09,9.25-3.26,12.98c-2.18,3.72-5.21,6.62-9.09,8.71-3.88,2.07-8.34,3.11-13.4,3.11Zm0-6.97c3.42,0,6.43-.75,9.03-2.27,2.59-1.51,4.63-3.61,6.11-6.29,1.49-2.68,2.24-5.77,2.24-9.27s-.75-6.59-2.24-9.27c-1.48-2.68-3.52-4.78-6.11-6.29-2.6-1.51-5.61-2.27-9.03-2.27s-6.35,.76-8.94,2.27c-2.6,1.52-4.64,3.61-6.13,6.29-1.48,2.68-2.22,5.78-2.22,9.27s.74,6.53,2.22,9.21c1.49,2.68,3.53,4.79,6.13,6.33,2.59,1.54,5.57,2.3,8.94,2.3Z"/>
+        <path fill="#f1d7be" d="M465.47,84.74c-4.04,0-7.58-.69-10.62-2.05-3.04-1.38-5.39-3.31-7.06-5.8-1.66-2.48-2.48-5.37-2.48-8.65l7.92-.07c0,3.19,1.12,5.71,3.36,7.55,2.24,1.85,5.31,2.77,9.21,2.77,3.45,0,6.23-.7,8.31-2.12,2.09-1.42,3.13-3.31,3.13-5.66,0-1.91-.59-3.35-1.77-4.32-1.17-.98-2.71-1.71-4.62-2.17-1.9-.46-3.94-.85-6.11-1.16-2.09-.31-4.23-.67-6.43-1.09-2.2-.43-4.24-1.08-6.13-1.97-1.88-.88-3.41-2.14-4.59-3.79-1.17-1.64-1.76-3.82-1.76-6.53,0-2.92,.77-5.48,2.32-7.67,1.56-2.19,3.74-3.9,6.56-5.12,2.82-1.23,6.15-1.84,10.02-1.84s7.37,.67,10.3,2c2.94,1.32,5.21,3.19,6.82,5.58,1.62,2.38,2.43,5.18,2.43,8.38h-7.72c0-3.01-1.04-5.39-3.13-7.12-2.09-1.73-4.88-2.6-8.38-2.6s-6.01,.74-7.92,2.2c-1.91,1.46-2.87,3.34-2.87,5.65,0,1.87,.6,3.29,1.79,4.27,1.2,.97,2.77,1.68,4.7,2.12,1.93,.44,4,.84,6.21,1.19,2.09,.31,4.23,.7,6.43,1.18,2.19,.46,4.21,1.15,6.05,2.05,1.84,.91,3.33,2.18,4.46,3.83,1.13,1.65,1.71,3.8,1.71,6.46,0,2.93-.84,5.48-2.5,7.65-1.66,2.17-3.99,3.85-7.01,5.05-3.01,1.19-6.57,1.79-10.65,1.79Z"/>
+        <!-- VENDEDORES small text -->
+        <path fill="#f1d7be" opacity="0.75" d="M140.5,24.59L131.95,.75h3.25l7.62,21.37h.23L150.65,.75h3.25l-8.56,23.85h-4.83Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M157.18,24.59V.75h16.81V3.35h-13.77v7.79h12.65v2.29h-12.65v8.56h14.1v2.6h-17.14Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M178.48,24.59V.75h3.69l12.18,19.83h.27V.75h2.98V24.59h-3.69l-12.18-19.79h-.27V24.59h-2.98Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M202.93,24.59V.75h8.06c2.59,0,4.87,.48,6.83,1.44,1.96,.95,3.48,2.32,4.58,4.09,1.1,1.77,1.65,3.9,1.65,6.38s-.54,4.61-1.62,6.39c-1.08,1.78-2.61,3.15-4.58,4.11-1.96,.95-4.25,1.43-6.86,1.43h-8.06Zm3.08-2.54h4.98c1.99,0,3.71-.37,5.18-1.11,1.48-.75,2.63-1.82,3.47-3.24,.84-1.41,1.26-3.09,1.26-5.05s-.42-3.65-1.26-5.07c-.83-1.41-1.99-2.48-3.48-3.22-1.49-.75-3.21-1.12-5.17-1.12h-4.98V22.06Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M228.43,24.59V.75h16.81V3.35h-13.77v7.79h12.65v2.29h-12.65v8.56h14.1v2.6h-17.14Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M249.73,24.59V.75h8.06c2.59,0,4.87,.48,6.83,1.44,1.96,.95,3.48,2.32,4.58,4.09,1.1,1.77,1.65,3.9,1.65,6.38s-.54,4.61-1.62,6.39c-1.08,1.78-2.61,3.15-4.58,4.11-1.96,.95-4.25,1.43-6.86,1.43h-8.06Zm3.08-2.54h4.98c1.99,0,3.71-.37,5.18-1.11,1.48-.75,2.63-1.82,3.47-3.24,.84-1.41,1.26-3.09,1.26-5.05s-.42-3.65-1.26-5.07c-.83-1.41-1.99-2.48-3.48-3.22-1.49-.75-3.21-1.12-5.17-1.12h-4.98V22.06Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M287.07,25.34c-2.5,0-4.72-.54-6.66-1.61-1.93-1.07-3.45-2.56-4.56-4.46-1.1-1.91-1.65-4.11-1.65-6.61s.55-4.71,1.65-6.6c1.11-1.89,2.63-3.37,4.56-4.45,1.94-1.07,4.16-1.61,6.66-1.61s4.76,.54,6.7,1.61c1.94,1.08,3.46,2.56,4.56,4.45,1.11,1.89,1.66,4.09,1.66,6.6,0,1.88-.32,3.58-.95,5.13-.63,1.54-1.53,2.87-2.69,4-1.16,1.13-2.52,2-4.09,2.63-1.57,.62-3.3,.93-5.19,.93Zm0-2.71c1.9,0,3.58-.42,5.04-1.26,1.47-.85,2.62-2.03,3.45-3.54,.83-1.51,1.25-3.24,1.25-5.17s-.42-3.66-1.25-5.16c-.83-1.5-1.99-2.68-3.45-3.53-1.46-.86-3.14-1.29-5.04-1.29s-3.57,.43-5.04,1.29c-1.46,.85-2.61,2.03-3.44,3.53-.83,1.5-1.25,3.22-1.25,5.16s.42,3.65,1.25,5.16c.83,1.5,1.98,2.67,3.44,3.53,1.47,.86,3.15,1.29,5.04,1.29Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M304.32,24.59V.75h10.66c1.78,0,3.32,.3,4.63,.89,1.31,.59,2.32,1.41,3.03,2.49,.71,1.07,1.07,2.33,1.07,3.79,0,1.31-.31,2.48-.93,3.49-.62,1.02-1.48,1.81-2.59,2.4-1.11,.59-2.41,.91-3.89,.98l-.88,.04,8.42,9.77h-3.61l-8.02-9.6h-4.7v9.6h-3.18Zm3.18-11.91h7.06c1.8,0,3.25-.43,4.34-1.28,1.1-.86,1.65-2.01,1.65-3.45s-.54-2.68-1.62-3.52c-1.08-.83-2.54-1.25-4.37-1.25h-7.06V12.68Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M328.13,24.59V.75h16.81V3.35h-13.77v7.79h12.65v2.29h-12.65v8.56h14.1v2.6h-17.14Z"/>
+        <path fill="#f1d7be" opacity="0.75" d="M358.63,25.34c-2.01,0-3.76-.35-5.25-1.04-1.49-.7-2.64-1.69-3.47-2.95-.82-1.26-1.22-2.74-1.22-4.43h3c0,1.86,.63,3.31,1.89,4.37s2.99,1.59,5.18,1.59c2,0,3.6-.42,4.78-1.25,1.19-.83,1.78-1.95,1.78-3.35,0-.83-.2-1.5-.59-2.01-.4-.51-.93-.91-1.6-1.21-.66-.31-1.42-.54-2.27-.71-.84-.17-1.72-.33-2.64-.46-1.07-.15-2.14-.35-3.22-.58-1.08-.24-2.08-.58-2.98-1.02-.9-.44-1.63-1.07-2.18-1.87-.55-.8-.82-1.85-.82-3.16,0-1.44,.37-2.71,1.11-3.79,.75-1.08,1.81-1.93,3.18-2.54,1.37-.61,3.01-.92,4.91-.92s3.65,.33,5.08,.99c1.43,.65,2.55,1.58,3.34,2.77,.79,1.2,1.19,2.6,1.19,4.23h-2.91c-.03-1.72-.63-3.07-1.82-4.06-1.18-1-2.77-1.5-4.78-1.5s-3.42,.44-4.51,1.3c-1.09,.87-1.64,1.97-1.64,3.3,0,1.08,.33,1.91,.98,2.47,.65,.56,1.51,.97,2.57,1.24,1.06,.26,2.19,.48,3.39,.66,1.08,.15,2.17,.35,3.27,.59,1.11,.23,2.12,.58,3.03,1.03,.91,.45,1.65,1.08,2.22,1.89,.57,.81,.85,1.87,.85,3.17,0,1.47-.41,2.75-1.22,3.84-.81,1.09-1.95,1.93-3.42,2.53-1.46,.58-3.2,.88-5.21,.88Z"/>
+      </svg>
+      <div style="font-size:8px;font-weight:600;color:rgba(201,160,102,0.45);letter-spacing:2.5px;text-transform:uppercase;margin-top:6px;">Feedback System</div>
+    </div>
+  </div>
+
+  <div class="nav-section-title">Menú</div>
+
+  <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+    <i class="bi bi-speedometer2"></i> Dashboard
+  </a>
+  <a href="{{ url_for('vendors') }}" class="nav-link {% if request.endpoint == 'vendors' %}active{% endif %}">
+    <i class="bi bi-people-fill"></i> Vendedores
+  </a>
+  <a href="{{ url_for('analytics') }}" class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">
+    <i class="bi bi-bar-chart-line-fill"></i> Analytics
+  </a>
+  <a href="{{ url_for('formacion_vh') }}" class="nav-link {% if request.endpoint == 'formacion_vh' %}active{% endif %}">
+    <i class="bi bi-journal-richtext"></i> Formación VH
+  </a>
+
+  <div class="nav-section-title" style="padding-top:10px;">Práctica</div>
+  <a href="{{ url_for('chat') }}" class="nav-link {% if request.endpoint in ('chat','chat_login','chat_view_session') %}active{% endif %}">
+    <i class="bi bi-chat-dots-fill"></i> Roleplay VH
+  </a>
+  <a href="{{ url_for('chat_lanzamiento') }}" class="nav-link {% if request.endpoint in ('chat_lanzamiento','chat_lanzamiento_start','chat_lanzamiento_message','chat_lanzamiento_end') %}active{% endif %}">
+    <i class="bi bi-chat-quote-fill"></i> Asistente Lanzamiento
+  </a>
+  <a href="{{ url_for('lanzamiento') }}" class="nav-link {% if request.endpoint in ('lanzamiento','lanzamiento_upload','lanzamiento_feedback_json') %}active{% endif %}">
+    <i class="bi bi-rocket-takeoff-fill"></i> Feedback Lanzamiento
+  </a>
+
+  {% if session.get('producer_auth') %}
+  <div class="nav-section-title" style="padding-top:10px;">Productor</div>
+  <a href="{{ url_for('ventas') }}" class="nav-link {% if request.endpoint == 'ventas' %}active{% endif %}">
+    <i class="bi bi-graph-up-arrow"></i> Ventas Lanzamiento
+  </a>
+  <a href="{{ url_for('analisis_chats') }}" class="nav-link {% if request.endpoint == 'analisis_chats' %}active{% endif %}">
+    <i class="bi bi-people-fill"></i> Análisis de Compradores
+  </a>
+  <a href="{{ url_for('productor_logout') }}" class="nav-link" style="color:rgba(168,178,216,0.5);font-size:12px;">
+    <i class="bi bi-box-arrow-right"></i> Salir de Productor
+  </a>
+  {% else %}
+  <a href="{{ url_for('productor_login') }}" class="nav-link {% if request.endpoint == 'productor_login' %}active{% endif %}"
+     style="color:rgba(168,178,216,0.4);font-size:12px;margin-top:8px;">
+    <i class="bi bi-shield-lock"></i> Acceso Productor
+  </a>
+  {% endif %}
+
+  <div class="nav-section-title" style="margin-top:auto;">Info</div>
+  <div style="padding:10px 20px;">
+    <div style="font-size:11px;color:rgba(168,178,216,0.4);line-height:1.5;">
+      Versión 1.0<br>
+      Powered by Gemini
+    </div>
+  </div>
+</nav>
+
+<!-- Main -->
+<div id="main-content">
+  <!-- Header -->
+  <div id="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-3" id="sidebar-toggle">
+      <i class="bi bi-list"></i>
+    </button>
+    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      {% block header_actions %}{% endblock %}
+    </div>
+  </div>
+
+  <!-- Flash messages -->
+  <div class="px-4 pt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="border-radius:8px;">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Page body -->
+  <div class="page-body">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Sidebar toggle (mobile)
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('show');
+    });
+  }
+
+  // Toast helper
+  function showToast(message, type = 'success') {
+    const id = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : (type === 'danger' ? 'bg-danger' : 'bg-info');
+    const html = `
+      <div id="${id}" class="toast align-items-center text-white ${bgClass} border-0 mb-2" role="alert" aria-live="assertive">
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>`;
+    document.getElementById('toast-container').insertAdjacentHTML('beforeend', html);
+    const toastEl = document.getElementById(id);
+    const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
