@@ -668,9 +668,26 @@ def chat():
     system_leads = database.get_system_leads()
     my_leads = database.get_vendor_leads(vendor["id"])
     sessions = database.get_vendor_sessions(vendor["id"])
+    gamif = database.get_gamification(vendor["id"])
+    import json as _json
+    gamif["badges"] = _json.loads(gamif.get("badges_json") or "[]")
+    gamif["level"] = database.get_level_info(gamif.get("xp") or 0)
+    gamif["all_badges"] = database.BADGES
     return render_template("chat.html", vendor=vendor,
                            system_leads=system_leads, my_leads=my_leads,
-                           sessions=sessions)
+                           sessions=sessions, gamif=gamif)
+
+
+@app.route("/chat/gamification")
+def chat_gamification_api():
+    vendor = _vendor_session()
+    if not vendor:
+        return jsonify({"ok": False}), 401
+    import json as _json
+    gamif = database.get_gamification(vendor["id"])
+    gamif["badges"] = _json.loads(gamif.get("badges_json") or "[]")
+    gamif["level"] = database.get_level_info(gamif.get("xp") or 0)
+    return jsonify({"ok": True, **gamif})
 
 
 @app.route("/chat/login", methods=["GET", "POST"])
@@ -897,8 +914,11 @@ mentalidad: [0-10]
 
     database.close_session(session_id, feedback_text, score, _json.dumps(section_scores))
 
+    # Award XP and badges
+    gamification = database.award_xp_and_badges(vendor["id"], score, sess["lead_id"])
+
     return jsonify({"ok": True, "feedback": feedback_text, "score": score,
-                    "section_scores": section_scores})
+                    "section_scores": section_scores, "gamification": gamification})
 
 
 @app.route("/chat/session/<int:session_id>")
@@ -963,16 +983,22 @@ LANZAMIENTO_PRESET_LEADS = {
             "difficulty": "fácil", "emoji": "😊", "name": "Camila",
             "short": "Entró al taller, responde rápido y es amigable",
             "context": "Camila, 32 años, mamá de 2 hijos, trabaja media jornada como asistente administrativa. Entró al lanzamiento por una publicidad en Instagram. Responde rápido, le gusta la energía del taller. Aún no sabe bien qué hace VH. Es amigable y abierta.",
+            "behavior_pattern": "ABIERTA — responde rápido, muestra interés",
+            "alt_strategy": "Camila ya está abierta. Si el chat fluye bien, no cambies de canal. Si baja la energía o deja de responder 2+ días, mandá un audio de WhatsApp corto y cálido — el tono de voz conecta más que el texto con este perfil.",
         },
         {
             "difficulty": "medio", "emoji": "🤔", "name": "Sebastián",
             "short": "Educado pero reservado, hay que ganarse su confianza",
             "context": "Sebastián, 38 años, vendedor de autos. Entró al taller gratis por curiosidad. Es educado pero reservado — responde poco. No quiere que le vendan nada. Hay que ganarse su confianza antes de avanzar.",
+            "behavior_pattern": "RESERVADO — respuestas cortas, no abre el juego solo",
+            "alt_strategy": "Si después de 2-3 mensajes sigue respondiendo con frases solas ('sí', 'entiendo', 'ok'), no insistas por texto. Proponé una videollamada de 10 minutos sin presión: *'Sebastián, me parece que por acá no te termino de explicar bien. ¿Tenés 10 minutos esta semana para una llamada rápida, sin compromiso?'* — las personas reservadas muchas veces conectan mejor hablando que escribiendo.",
         },
         {
             "difficulty": "difícil", "emoji": "😶", "name": "Valeria",
             "short": "Casi no interactúa, responde con monosílabos",
             "context": "Valeria, 44 años, empleada pública. Se inscribió al taller pero casi no interactuó. Responde con monosílabos ('sí', 'ok', 'puede ser'). Hay que generar conexión desde cero con mucha paciencia.",
+            "behavior_pattern": "MONOSILÁBICA — respuestas de 1 palabra, casi no interactúa",
+            "alt_strategy": "Con Valeria, el chat por texto solo no va a funcionar. Después de 2-3 monosílabos, cambiá de canal: enviá un audio personal de WhatsApp (30 segundos, cálido, sin presión) preguntando algo puntual sobre su situación. Si tampoco responde al audio en 48hs, proponé una videollamada corta: *'Valeria, sería más fácil contarte todo en 10 minutos por videollamada, ¿te parece? Elegís vos el día y hora.'* — el cambio de canal rompe el patrón de no-respuesta.",
         },
     ],
     "descubrimiento": [
@@ -980,16 +1006,22 @@ LANZAMIENTO_PRESET_LEADS = {
             "difficulty": "fácil", "emoji": "💬", "name": "Paula",
             "short": "Habla mucho y comparte sus dolores fácilmente",
             "context": "Paula, 29 años, emprendedora que vende productos de limpieza naturales. Quiere crecer pero no sabe cómo. Habla mucho de sus problemas: ingresos estancados, cansancio, siente que trabaja sola. Ideal para practicar descubrimiento activo.",
+            "behavior_pattern": "ABIERTA Y HABLADORA — comparte sus dolores sin que le pregunten",
+            "alt_strategy": "Paula habla mucho — el riesgo no es que no responda sino que la conversación se vaya por las ramas. Si después de varios mensajes el vendedor no tiene claro el dolor principal, proponé una llamada corta para 'tener más claridad y poder orientarla mejor': concentra la energía y permite hacer descubrimiento profundo de forma más eficiente.",
         },
         {
             "difficulty": "medio", "emoji": "🔒", "name": "Marcos",
             "short": "No abre el juego solo, hay que preguntar bien",
             "context": "Marcos, 41 años, contador con consultora propia pero ingresos irregulares. Es reservado con sus miedos. Responde a preguntas concretas pero no abre el juego solo. Hay que preguntar bien para que profundice.",
+            "behavior_pattern": "RESERVADO CONCRETO — responde si le preguntás bien, pero no abre solo",
+            "alt_strategy": "Si Marcos responde a preguntas pero sus respuestas son siempre cortas y racionales (nunca emocionales), el texto por chat limita el descubrimiento. Proponé una videollamada de 15 min presentándola como 'para entender mejor tu situación puntual y ver si el programa tiene sentido para vos específicamente' — Marcos como contador valora que le dediquen tiempo en serio.",
         },
         {
             "difficulty": "difícil", "emoji": "🛡️", "name": "Romina",
             "short": "Se pone a la defensiva si preguntás mucho",
             "context": "Romina, 36 años, vendedora freelance de seguros. Interpreta las preguntas como un interrogatorio. Si preguntás mucho dice '¿para qué necesitás saber eso?' o 'estoy bien como estoy'. Hay que avanzar muy despacio y con mucha empatía.",
+            "behavior_pattern": "DEFENSIVA — se cierra si siente que la están interrogando",
+            "alt_strategy": "Con Romina, el chat puede volverse tenso fácilmente. Si nota resistencia (respuestas cortas + tono defensivo), no insistas por texto — eso escala la tensión. En cambio, bajá la guardia vos primero: contale algo personal o una historia propia antes de pedir que ella cuente. O propone una videollamada diciéndole que 'así es más fácil charlar sin que parezca un formulario' — el cara a cara reduce la sensación de interrogatorio.",
         },
     ],
     "siembra": [
@@ -997,16 +1029,22 @@ LANZAMIENTO_PRESET_LEADS = {
             "difficulty": "fácil", "emoji": "🌱", "name": "Florencia",
             "short": "Receptiva, escucha bien y se emociona con las historias",
             "context": "Florencia, 27 años, quiere salir de su trabajo en relación de dependencia. Ya confía en el vendedor. Escucha, hace preguntas, se emociona con historias. Es el momento de sembrar bien: conectar su situación con casos de éxito y el programa.",
+            "behavior_pattern": "RECEPTIVA Y EMOCIONAL — se conecta con historias, hace preguntas",
+            "alt_strategy": "Florencia está en el canal ideal. Si querés potenciar la siembra, compartile un audio o video testimonial corto de un alumno con perfil similar (empleada que quería independencia). El formato visual/auditivo amplifica el impacto emocional mucho más que el texto.",
         },
         {
             "difficulty": "medio", "emoji": "😐", "name": "Gustavo",
             "short": "Le entran algunos hooks pero dice 'mi caso es diferente'",
             "context": "Gustavo, 45 años, dueño de una ferretería. Quiere crecer pero no conecta con historias ajenas fácilmente. Dice 'mi caso es diferente'. Hay que sembrar con ejemplos muy específicos parecidos a su situación.",
+            "behavior_pattern": "RACIONAL DISTANTE — se desconecta de historias que no son idénticas a la suya",
+            "alt_strategy": "Si por chat Gustavo sigue diciendo 'mi caso es diferente' después de 2 historias, el formato texto no está funcionando para él. Propone una videollamada breve y encuadrala como 'quiero entender bien qué hace tu negocio para ver si tengo casos similares que te pueda mostrar' — esto le da lo que necesita (personalización) y te permite sembrar mejor con su propio lenguaje.",
         },
         {
             "difficulty": "difícil", "emoji": "🧱", "name": "Alejandro",
             "short": "No cree en los cursos, mucha resistencia",
             "context": "Alejandro, 50 años, gerente de ventas con 20 años de experiencia. Cuando mencionás el programa dice 'eso es para gente que no sabe'. No cree en la formación. Hay que sembrar con prueba social muy fuerte sin mencionar el programa directamente.",
+            "behavior_pattern": "MUY RESISTENTE — descarta la formación, cree que ya sabe todo",
+            "alt_strategy": "Con Alejandro, sembrar por texto es muy difícil porque puede ignorar o refutar con 1 línea. El cambio de canal más efectivo acá es proponerle hablar con un alumno que tenga su mismo perfil (gerente o dueño de empresa con experiencia) — 'Alejandro, tengo un alumno que pensaba exactamente lo mismo que vos antes de entrar, ¿te interesaría charlar 5 minutos con él?' Esto saca la siembra de tu boca y la pone en alguien con quien se pueda identificar.",
         },
     ],
     "objeciones": [
@@ -1014,16 +1052,22 @@ LANZAMIENTO_PRESET_LEADS = {
             "difficulty": "fácil", "emoji": "💰", "name": "Natalia",
             "short": "Una sola objeción: el precio",
             "context": "Natalia, 33 años, diseñadora gráfica independiente. Quiere entrar al programa, ya casi convencida. Su única objeción es el precio: 'es mucho'. No tiene objeciones de tiempo ni credibilidad. Practicá el manejo del precio con elegancia y sin dar descuentos.",
+            "behavior_pattern": "CASI CONVENCIDA — una sola objeción de precio, receptiva",
+            "alt_strategy": "Si Natalia responde bien por texto, manejá la objeción del precio ahí. Pero si después de 2 intentos de manejar el precio sigue sin decidir, proponé una llamada de 10 minutos: *'Natalia, creo que por chat me falta transmitirte bien el valor. ¿Tenés 10 minutos para que te cuente en vivo cómo le fue a alguien con el mismo perfil tuyo?'* — muchas veces el precio deja de ser objeción cuando la persona escucha un caso real hablado.",
         },
         {
             "difficulty": "medio", "emoji": "🤯", "name": "Fernando",
             "short": "Lo tiene que pensar + consultar con su mujer",
             "context": "Fernando, 37 años, comerciante con local propio. Le interesa el programa pero tiene dos objeciones: 'lo tengo que pensar' y 'lo tengo que hablar con mi mujer'. No es que no quiera — necesita validación externa y más tiempo. Practicá el desapego y cierres suaves.",
+            "behavior_pattern": "NECESITA VALIDACIÓN EXTERNA — posterga con 'lo hablo con mi mujer'",
+            "alt_strategy": "Con Fernando, la clave es la pareja. Por chat es difícil llegar a ella. Ofrecé incluirla directamente: *'Fernando, con gusto te explico lo mismo a los dos juntos en una videollamada de 15 minutos. Así tu mujer tiene toda la info y lo pueden decidir con claridad juntos.'* — esto saca la objeción de la pareja del juego porque la traés al proceso en vez de luchar contra ella.",
         },
         {
             "difficulty": "difícil", "emoji": "🔥", "name": "Nicolás",
             "short": "Múltiples objeciones en cadena, la más difícil",
             "context": "Nicolás, 42 años, ex-emprendedor que tuvo un negocio y le fue mal. Múltiples objeciones en cadena: 'es caro', 'no tengo tiempo', 'ya probé cosas así y no funcionaron', 'no sé si esto es para mí'. Cuando resolvés una, aparece la siguiente. Practicá persistencia con desapego.",
+            "behavior_pattern": "OBJECIONES EN CADENA — cada vez que resolvés una, aparece otra",
+            "alt_strategy": "Cuando las objeciones se encadenan en texto, es una señal de que el canal no está funcionando — por chat es fácil objetar porque no hay costo social. Cambiá de estrategia: en vez de seguir respondiendo objeciones, proponé parar: *'Nicolás, veo que tenés varias dudas importantes — por chat es difícil que te las pueda responder bien. ¿Hacemos una llamada de 15 minutos y las vemos todas juntas?'* — la llamada te da control del ritmo, no puede objetar todo al mismo tiempo, y el tono de voz baja la guardia.",
         },
     ],
 }
@@ -1142,6 +1186,15 @@ def chat_lanzamiento_message(session_id: int):
             for m in messages
         )
 
+        # Detect lead behavior pattern from conversation history for roleplay coaching
+        lead_msg_count = sum(1 for m in messages if m["role"] == "lead")
+        vendor_msg_count = sum(1 for m in messages if m["role"] == "vendor")
+        lead_msgs = [m["text"] for m in messages if m["role"] == "lead"]
+        short_responses = sum(1 for t in lead_msgs if len(t.split()) <= 3)
+        behavior_note = ""
+        if lead_msg_count >= 2 and short_responses >= lead_msg_count * 0.6:
+            behavior_note = "\n⚠️ COMPORTAMIENTO ACTUAL: El lead está respondiendo con mensajes muy cortos. Mantené ese patrón monosilábico — hace que el vendedor deba esforzarse más para generar conexión."
+
         system_prompt = f"""Estás haciendo un roleplay de práctica de ventas para {vendor['name']}, vendedor del lanzamiento digital de Valentín Hernández (VH).
 
 Interpretás el personaje: {lead_name}
@@ -1150,6 +1203,7 @@ Perfil del lead: {sess['lead_context'] or 'Lead genérico que llegó al lanzamie
 FASE DE PRÁCTICA: {phase_info['label']} ({phase_info['days']})
 Objetivo del vendedor en esta fase: {phase_info['goal']}
 Cómo debés comportarte en esta fase: {phase_info['lead_behavior']}
+{behavior_note}
 
 REGLAS ESTRICTAS:
 - Respondé SOLO como {lead_name}. Nunca rompas el personaje.
@@ -1159,6 +1213,7 @@ REGLAS ESTRICTAS:
 - Si el vendedor presiona, vende antes de tiempo, o ignora lo que dijiste → te cerrás, respondés más seco.
 - Si el vendedor hace una siembra genuina y conectada con algo que dijiste → mostrás interés real.
 - Si el vendedor intenta recomendar el programa antes de haber construido relación y descubrimiento → ponés resistencia ("no sé, no conozco mucho", "voy a pensar").
+- Si el vendedor propone un cambio de canal (llamada, videollamada, audio) que tiene sentido para el momento → reaccioná de forma coherente con tu personalidad (Valeria dudaría, Camila aceptaría fácil, Sebastián pediría que sea breve).
 
 Historial:
 {history_text}
@@ -1215,6 +1270,30 @@ Regla secundaria — posición (usala solo si el color no es claro):
 
 NUNCA inviertas los roles. VERDE = vendedor, GRIS = lead. Esto es fundamental."""
 
+        # ── Behavior analysis for live assistant ────────────────────────────
+        # Analyze lead message patterns from conversation history
+        lead_messages_hist = [m["text"] for m in messages if m["role"] == "lead"]
+        vendor_messages_hist = [m["text"] for m in messages if m["role"] == "vendor_query"]
+        total_lead_msgs = len(lead_messages_hist)
+        short_lead_msgs = sum(1 for t in lead_messages_hist if len(t.split()) <= 4)
+        behavior_analysis = ""
+        if total_lead_msgs >= 2:
+            monosyllabic_pct = short_lead_msgs / total_lead_msgs
+            if monosyllabic_pct >= 0.6:
+                behavior_analysis = "🚨 PATRÓN DETECTADO: LEAD MONOSILÁBICO — El lead está respondiendo con mensajes muy cortos (1-4 palabras) en la mayoría de los intercambios. Esto indica baja apertura o que el canal de texto no está funcionando."
+            elif monosyllabic_pct >= 0.4:
+                behavior_analysis = "⚠️ PATRÓN DETECTADO: RESPUESTAS CORTAS — El lead alterna entre respuestas cortas y un poco más largas. Hay apertura parcial pero el canal de texto no está generando suficiente conexión."
+            elif total_lead_msgs >= 3 and all(len(t.split()) >= 8 for t in lead_messages_hist[-2:]):
+                behavior_analysis = "✅ PATRÓN DETECTADO: LEAD ACTIVO Y ABIERTO — El lead está respondiendo con mensajes largos y elaborados. Hay conexión real. Aprovechá el momentum."
+        if not behavior_analysis and user_text:
+            lower = user_text.lower()
+            if any(w in lower for w in ["no responde", "sin respuesta", "visto", "ignoró", "dejó de", "ghosting", "no contesta"]):
+                behavior_analysis = "🚨 PATRÓN DETECTADO: LEAD FANTASMA — El lead dejó de responder o está ignorando los mensajes. El canal de texto claramente no está funcionando."
+            elif any(w in lower for w in ["monosílabo", "sí solo", "ok solo", "responde poco", "poco", "corto"]):
+                behavior_analysis = "🚨 PATRÓN DETECTADO: LEAD MONOSILÁBICO — Responde con palabras sueltas. El texto por sí solo no va a generar la conexión necesaria."
+            elif any(w in lower for w in ["objecion", "objeción", "objeciones", "no quiere", "duda", "pero", "aunque"]):
+                behavior_analysis = "⚠️ PATRÓN DETECTADO: OBJECIONES ACTIVAS — El lead está poniendo resistencia. Evaluar si el canal texto es el adecuado o si conviene proponer un cambio."
+
         coach_prompt = f"""Sos el mejor asesor comercial y coach de ventas del equipo de Valentín Hernández (VH). Tenés dominio absoluto de la metodología: relación profunda, descubrimiento, siembra, storytelling, manejo de objeciones y cierre con desapego. Tu misión es ayudar a {vendor['name']} a cerrar más ventas durante el lanzamiento de 21 días.
 
 ━━━ CONTEXTO ━━━
@@ -1222,7 +1301,8 @@ NUNCA inviertas los roles. VERDE = vendedor, GRIS = lead. Esto es fundamental.""
 Vendedor: {vendor['name']}
 Lead: {lead_name}
 Perfil del lead: {sess['lead_context'] or 'Sin contexto registrado aún.'}
-Fase del lanzamiento: {phase_info['label']} ({phase_info['days']}) — {phase_info['goal']}{file_identification}
+Fase del lanzamiento: {phase_info['label']} ({phase_info['days']}) — {phase_info['goal']}
+{f'ANÁLISIS DE COMPORTAMIENTO: {behavior_analysis}' if behavior_analysis else ''}{file_identification}
 
 ━━━ HISTORIAL DE ESTA SESIÓN ━━━
 {history_text}
@@ -1242,10 +1322,10 @@ Respondé con EXACTAMENTE esta estructura:
 ---
 
 📊 **LECTURA DE LA SITUACIÓN**
-[2-3 oraciones: ¿Dónde está emocionalmente este lead? ¿Qué reveló (consciente o inconscientemente) en lo que el vendedor describió o en la imagen? ¿Qué está buscando realmente?]
+[2-3 oraciones: ¿Dónde está emocionalmente este lead? ¿Qué reveló (consciente o inconscientemente) en lo que el vendedor describió o en la imagen? ¿Qué está buscando realmente? Si hay un patrón de comportamiento detectado, nombralo claramente.]
 
 🎯 **ESTRATEGIA PARA ESTE LEAD**
-[La estrategia específica para las próximas 24-48 horas con este lead particular. No genérica — basada en lo que sabemos de él. Incluí qué etapa priorizar, por qué, y qué resultado buscar.]
+[La estrategia específica para las próximas 24-48 horas con este lead particular. No genérica — basada en su comportamiento real. Incluí qué etapa priorizar, por qué, y qué resultado buscar.]
 
 ---
 
@@ -1257,6 +1337,11 @@ Respondé con EXACTAMENTE esta estructura:
 
 **OPCIÓN C** — 🌱 Siembra / Elevar nivel de conciencia
 > [Mini historia real o reflexión que conecta con algo que el lead dijo. Activa curiosidad, identificación o imaginación. Rompe una creencia limitante de forma sutil. Si no hay suficiente base aún, hacé descubrimiento desde otro ángulo. Listo para copiar.]
+
+---
+
+🔄 **ESTRATEGIA ALTERNATIVA DE CANAL**
+[SIEMPRE incluí esta sección. Basándote en el comportamiento específico de este lead (monosilábico, fantasma, activo, con objeciones, etc.), recomendá si conviene mantener el texto o cambiar de canal. Si hay señales de que el texto no funciona, proponé: audio de WhatsApp, videollamada corta, o conectar al lead con un alumno con perfil similar. Incluí exactamente QUÉ decirle para proponer ese cambio de canal, listo para copiar. Si el lead está respondiendo bien por texto, decí por qué seguir así y cuándo sería el momento de escalar el canal.]
 
 ---
 

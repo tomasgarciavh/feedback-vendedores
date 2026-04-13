@@ -140,6 +140,16 @@ def init_db():
                 status TEXT DEFAULT 'active'
             )
         """)
+        # Gamification table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS vendor_gamification (
+                vendor_id INTEGER PRIMARY KEY,
+                xp INTEGER DEFAULT 0,
+                streak INTEGER DEFAULT 0,
+                last_activity_date TEXT,
+                badges_json TEXT DEFAULT '[]'
+            )
+        """)
         conn.commit()
     logger.info("Database initialized.")
 
@@ -669,84 +679,294 @@ def get_vendor_sessions(vendor_id: int) -> list:
     return [dict(r) for r in rows]
 
 
-def seed_system_leads():
-    """Inserta los leads predeterminados si no existen."""
-    with get_connection() as conn:
-        count = conn.execute("SELECT COUNT(*) as c FROM roleplay_leads WHERE is_system=1").fetchone()["c"]
-    if count > 0:
-        return
+# ── Gamification ────────────────────────────────────────────────────────────
 
+BADGES = {
+    "primer_disparo":      {"emoji": "🎯", "nombre": "Primer Disparo",       "desc": "Completaste tu primer roleplay"},
+    "en_llamas":           {"emoji": "🔥", "nombre": "En Llamas",            "desc": "3 días seguidos practicando"},
+    "imparable":           {"emoji": "⚡", "nombre": "Imparable",            "desc": "7 días seguidos practicando"},
+    "diez_rodadas":        {"emoji": "💪", "nombre": "10 Rodadas",           "desc": "Completaste 10 roleplays"},
+    "veinticinco":         {"emoji": "🌟", "nombre": "25 Roleplays",         "desc": "Completaste 25 roleplays"},
+    "perfeccionista":      {"emoji": "🏆", "nombre": "Perfeccionista",       "desc": "Obtuviste 9 o más en un roleplay"},
+    "elite_vh":            {"emoji": "👑", "nombre": "Elite VH",             "desc": "Completaste todos los leads del sistema"},
+    "cazador_objeciones":  {"emoji": "🛡️", "nombre": "Cazador de Objeciones","desc": "Venciste los 3 leads difíciles"},
+    "promedio_ocho":       {"emoji": "⭐", "nombre": "Promedio 8+",          "desc": "Promedio ≥ 8 con al menos 5 sesiones"},
+    "el_valiente":         {"emoji": "🦁", "nombre": "El Valiente",          "desc": "Practicaste con el lead más difícil"},
+}
+
+LEVELS = [
+    (0,    "Principiante", "🌱"),
+    (100,  "Aprendiz",     "📚"),
+    (250,  "Vendedor",     "💼"),
+    (500,  "Vendedor Pro", "⭐"),
+    (800,  "Experto VH",   "🏆"),
+    (1200, "Elite VH",     "👑"),
+]
+
+def get_level_info(xp: int) -> dict:
+    level_name, level_emoji, next_xp = "Principiante", "🌱", 100
+    for i, (threshold, name, emoji) in enumerate(LEVELS):
+        if xp >= threshold:
+            level_name = name
+            level_emoji = emoji
+            next_xp = LEVELS[i + 1][0] if i + 1 < len(LEVELS) else None
+    return {"name": level_name, "emoji": level_emoji, "next_xp": next_xp}
+
+
+def get_gamification(vendor_id: int) -> dict:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM vendor_gamification WHERE vendor_id=?", (vendor_id,)
+        ).fetchone()
+    if not row:
+        return {"vendor_id": vendor_id, "xp": 0, "streak": 0,
+                "last_activity_date": None, "badges_json": "[]"}
+    return dict(row)
+
+
+def _ensure_gamification_row(conn, vendor_id: int):
+    conn.execute(
+        """INSERT OR IGNORE INTO vendor_gamification
+           (vendor_id, xp, streak, last_activity_date, badges_json)
+           VALUES (?,0,0,NULL,'[]')""",
+        (vendor_id,)
+    )
+
+
+def award_xp_and_badges(vendor_id: int, session_score: float | None, lead_id: int) -> dict:
+    """Called after a roleplay session ends. Returns {xp_gained, new_badges, level_up}."""
+    import json as _json
+    today = _today()
+
+    with get_connection() as conn:
+        _ensure_gamification_row(conn, vendor_id)
+        row = dict(conn.execute(
+            "SELECT * FROM vendor_gamification WHERE vendor_id=?", (vendor_id,)
+        ).fetchone())
+
+        # --- XP calculation ---
+        xp_gained = 50  # base por completar
+        if session_score:
+            if session_score >= 9:  xp_gained += 25
+            elif session_score >= 8: xp_gained += 15
+            elif session_score >= 7: xp_gained += 5
+
+        # Bonus primera vez con este lead
+        prev = conn.execute(
+            """SELECT COUNT(*) as c FROM roleplay_sessions
+               WHERE vendor_id=? AND lead_id=? AND status='done'""",
+            (vendor_id, lead_id)
+        ).fetchone()["c"]
+        if prev == 0:
+            xp_gained += 10
+
+        new_xp = row["xp"] + xp_gained
+
+        # --- Streak calculation ---
+        last = row["last_activity_date"]
+        streak = row["streak"] or 0
+        if last == today:
+            pass  # ya contó hoy
+        elif last and (datetime.fromisoformat(today) - datetime.fromisoformat(last)).days == 1:
+            streak += 1
+        else:
+            streak = 1
+
+        # --- Badge checking ---
+        badges = _json.loads(row["badges_json"] or "[]")
+        new_badges = []
+
+        done_count = conn.execute(
+            "SELECT COUNT(*) as c FROM roleplay_sessions WHERE vendor_id=? AND status='done'",
+            (vendor_id,)
+        ).fetchone()["c"] + 1  # +1 porque esta sesión aún no se marcó done antes del commit
+
+        # Estadísticas de scores
+        scores = [r["score"] for r in conn.execute(
+            "SELECT score FROM roleplay_sessions WHERE vendor_id=? AND status='done' AND score IS NOT NULL",
+            (vendor_id,)
+        ).fetchall()]
+        if session_score: scores.append(session_score)
+
+        # Leads difíciles completados
+        difficult_done = conn.execute(
+            """SELECT DISTINCT s.lead_id FROM roleplay_sessions s
+               JOIN roleplay_leads l ON l.id=s.lead_id
+               WHERE s.vendor_id=? AND s.status='done' AND l.difficulty='difícil'""",
+            (vendor_id,)
+        ).fetchall()
+        difficult_ids = {r["lead_id"] for r in difficult_done}
+        difficult_leads = conn.execute(
+            "SELECT id FROM roleplay_leads WHERE is_system=1 AND difficulty='difícil'"
+        ).fetchall()
+        all_difficult_ids = {r["id"] for r in difficult_leads}
+
+        # Todos los leads del sistema completados
+        system_leads = conn.execute(
+            "SELECT id FROM roleplay_leads WHERE is_system=1"
+        ).fetchall()
+        done_lead_ids = {r["lead_id"] for r in conn.execute(
+            "SELECT DISTINCT lead_id FROM roleplay_sessions WHERE vendor_id=? AND status='done'",
+            (vendor_id,)
+        ).fetchall()} | {lead_id}
+
+        # Hardest lead (highest id of system difficult)
+        hardest = conn.execute(
+            "SELECT id FROM roleplay_leads WHERE is_system=1 AND difficulty='difícil' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        hardest_id = hardest["id"] if hardest else None
+
+        def check_badge(key, condition):
+            if key not in badges and condition:
+                badges.append(key)
+                new_badges.append(key)
+
+        check_badge("primer_disparo",     done_count >= 1)
+        check_badge("diez_rodadas",       done_count >= 10)
+        check_badge("veinticinco",        done_count >= 25)
+        check_badge("perfeccionista",     session_score and session_score >= 9)
+        check_badge("en_llamas",          streak >= 3)
+        check_badge("imparable",          streak >= 7)
+        check_badge("el_valiente",        hardest_id and lead_id == hardest_id)
+        check_badge("cazador_objeciones", all_difficult_ids and all_difficult_ids <= (difficult_ids | {lead_id}))
+        check_badge("elite_vh",           {r["id"] for r in system_leads} <= done_lead_ids)
+        check_badge("promedio_ocho",      len(scores) >= 5 and (sum(scores)/len(scores)) >= 8)
+
+        old_level = get_level_info(row["xp"])
+        new_level = get_level_info(new_xp)
+        level_up = new_level["name"] != old_level["name"]
+
+        conn.execute(
+            """UPDATE vendor_gamification
+               SET xp=?, streak=?, last_activity_date=?, badges_json=?
+               WHERE vendor_id=?""",
+            (new_xp, streak, today, _json.dumps(badges), vendor_id)
+        )
+        conn.commit()
+
+    return {
+        "xp_gained": xp_gained,
+        "total_xp": new_xp,
+        "streak": streak,
+        "new_badges": [{"key": k, **BADGES[k]} for k in new_badges],
+        "level_up": level_up,
+        "new_level": new_level if level_up else None,
+        "level": new_level,
+    }
+
+
+def seed_system_leads():
+    """Inserta o actualiza los leads predeterminados según el avatar real de compradores VH."""
+    # Siempre actualiza/inserta para mantener los leads al día con el avatar real
     leads = [
+        # ── BLOQUE 1: Avatar principal — La Empleada que quiere independencia ──
         {
-            "name": "María — La Indecisa",
-            "avatar": "🤔",
+            "name": "Elena — La Empleada del Estado",
+            "avatar": "🏛️",
             "difficulty": "fácil",
-            "description": "Emprendedora, 35 años. Le interesa el programa pero siempre posterga. Su frase favorita es 'lo tengo que pensar'.",
-            "personality": "Eres María, una emprendedora de 35 años que vende bijouterie artesanal por redes sociales. Estás atascada en los mismos ingresos hace 2 años (~$300.000/mes ARS). Ves el valor del programa, PERO siempre buscás razones para no decidir ahora. Frases típicas tuyas: 'no sé, lo tengo que pensar', 'me parece bien pero dame unos días', '¿me podés mandar la info por WhatsApp?'. Respondés con mensajes cortos, 1-2 oraciones. Hablás en español argentino informal. Sos amable pero esquiva.",
-            "objections": "Lo tengo que pensar. Dame unos días. Mandame la info por mensaje. No sé si es el momento.",
-        },
-        {
-            "name": "Carlos — El Escéptico",
-            "avatar": "🙄",
-            "difficulty": "medio",
-            "description": "Vendedor con experiencia. Ya probó otros cursos que no le funcionaron. Desconfía de las promesas.",
-            "personality": "Eres Carlos, 42 años, vendedor B2B con 15 años de experiencia. Ya pagaste 3 cursos de ventas y ninguno te cambió los resultados. Estás cansado de las promesas. Sos directo, un poco cínico, y pedís evidencia concreta antes de creer algo. Frases típicas: 'eso ya lo sé', 'todos prometen lo mismo', '¿cuánto facturaron tus alumnos?', 'ya probé X y no me sirvió'. Hablás en español argentino, directamente. Respondés con 1-2 oraciones, a veces cortás con una pregunta incómoda.",
-            "objections": "Todos dicen lo mismo. Ya probé otros cursos. ¿Tenés resultados reales? ¿Qué tiene de diferente esto?",
-        },
-        {
-            "name": "Lucía — Sin Presupuesto",
-            "avatar": "💸",
-            "difficulty": "medio",
-            "description": "Quiere hacerlo pero dice que no tiene el dinero. Trabaja en relación de dependencia y tiene un emprendimiento chico.",
-            "personality": "Eres Lucía, 29 años, empleada en una empresa y con un emprendimiento de repostería los fines de semana. Ganás ~$180.000/mes y el programa te parece caro. Sí querés crecer, sí ves el valor, PERO genuinamente el precio te parece mucho y no tenés ahorros. Frases típicas: 'es caro para lo que gano', 'no me llega', 'tendría que ver si puedo en cuotas', '¿hay alguna beca o descuento?'. Respondés amablemente, en 1-2 oraciones, en español argentino.",
-            "objections": "Es caro. No me llega el dinero. ¿Hay cuotas? ¿Descuento? Tendría que ver bien los números.",
-        },
-        {
-            "name": "Roberto — El Muy Ocupado",
-            "avatar": "⏰",
-            "difficulty": "medio",
-            "description": "Empresario con poco tiempo. Todo le parece bien pero dice que no tiene horas para dedicarle al programa.",
-            "personality": "Eres Roberto, 48 años, dueño de una empresa de logística con 12 empleados. Estás MUY ocupado, siempre con el teléfono sonando. El programa te interesa pero creés que no tenés tiempo. Frases típicas: 'no tengo tiempo para clases', 'con todo lo que tengo no podría cursarlo', 'ya sé que es bueno pero…', 'cuántas horas por semana lleva'. Respondés en 1-2 oraciones, a veces interrumpís con 'perdón, un segundo' o avisás que tenés que cortar.",
-            "objections": "No tengo tiempo. ¿Cuántas horas lleva? Ya sé que debería pero no puedo sumar más cosas.",
-        },
-        {
-            "name": "Silvina — Consulta con su Pareja",
-            "avatar": "👫",
-            "difficulty": "difícil",
-            "description": "Le encanta el programa pero dice que tiene que consultarlo con su marido antes de decidir.",
-            "personality": "Eres Silvina, 38 años, vende servicios de diseño gráfico freelance. El programa te copó, pero siempre postergás con 'lo tengo que hablar con mi marido'. En realidad tu marido es escéptico de los cursos online y vos tenés miedo de su reacción. Frases típicas: 'sí me gusta pero lo tengo que hablar con Gustavo', 'él siempre se pone re en contra de estos gastos', 'si fuera por mí lo haría', '¿podría él hablar con alguien del equipo?'. Respondés en 1-2 oraciones, de forma cálida pero evasiva.",
-            "objections": "Lo tengo que hablar con mi marido. Él no sé cómo va a reaccionar. No quiero tomar la decisión sola.",
-        },
-        {
-            "name": "Matías — El Comparador",
-            "avatar": "🔍",
-            "difficulty": "difícil",
-            "description": "Estuvo investigando otros programas. Compara precios y propuestas constantemente.",
-            "personality": "Eres Matías, 33 años, emprendedor del mundo digital. Estuviste 3 semanas investigando programas de ventas. Tenés comparativos, precios, reviews. Comparás todo con la competencia. Frases típicas: 'vi un programa similar que cuesta la mitad', 'X referente da algo parecido', '¿qué tiene esto que no tenga el de fulano?', '¿por qué vale más?'. Sos analítico, pedís argumentos concretos. Respondés en 1-2 oraciones con comparaciones y preguntas.",
-            "objections": "Vi otros más baratos. ¿En qué se diferencia? ¿Por qué vale lo que vale? ¿Qué tiene de especial?",
+            "description": "Empleada pública 35 años, quiere independencia y cobrar en dólares. Tiene 2 emprendimientos con su pareja. Dolor claro.",
+            "personality": """Sos Elena, 35 años, empleada del Estado hace 8 años. Ganás un sueldo fijo en pesos que ya no alcanza. Tenés 2 emprendimientos pequeños con tu pareja (venden ropa y hacen tortas por encargo) pero ninguno despegó. Te sumaste al taller de VH porque 'ya no querés depender más de eso' y porque 'si podés cobrar en dólares, mejor'. Tu frase al sumarte fue 'me sumé para adquirir algunas herramientas q me puedan ayudar'. Estás abierta al diálogo, respondés rápido, pero tenés miedo de invertir mal porque ya gastaste plata en cosas que no funcionaron. Cuando te preguntan por tu situación, contás todo. Hablás en español argentino informal, usás minúsculas y abreviaturas típicas de WhatsApp ('xq', 'qiero', 'tmb'). Respondés en 1-2 oraciones.""",
+            "objections": "No sé si tengo el tiempo con mis emprendimientos. ¿Esto sirve también si tengo negocio propio? ¿Y si ya trabajé vendiendo? ¿Cuánto sale?",
         },
         {
             "name": "Daniela — El Lead Caliente",
             "avatar": "🔥",
             "difficulty": "fácil",
-            "description": "Está lista para comprar, pero hay que cerrar bien. Si el vendedor comete errores, se enfría.",
-            "personality": "Eres Daniela, 31 años, coach de bienestar con muchas ganas de escalar su negocio. Ya viste testimonios, ya sabés del programa, ESTÁS LISTA para comprar. Pero si el vendedor no te escucha, te apura, o te parece un script robótico, te enfriás. Frases típicas al inicio: 'me interesa mucho', 'ya vi testimonios', '¿cómo arrancamos?'. Si el vendedor te presiona o no conecta: 'bueno, lo pienso'. Respondés con entusiasmo al inicio, pero bajás la guardia si algo no te cierra. 1-3 oraciones, cálida.",
-            "objections": "Si el vendedor me presiona: 'dejame pensarlo'. Si no conecta: '¿me podés contar más de los resultados?'.",
+            "description": "Está lista para comprar. Ya vio testimonios, ya está convencida. Si el vendedor la apura o no conecta, se enfría.",
+            "personality": """Sos Daniela, 31 años, coach de bienestar con muchas ganas de escalar tu negocio. Ya viste testimonios, ya sabés del programa, ESTÁS LISTA para entrar. Pero si el vendedor no te escucha, te apura o te parece un script robótico, te enfriás y decís 'bueno, lo pienso'. Al inicio sos entusiasta: 'me interesa mucho', 'ya vi testimonios', '¿cómo arrancamos?'. Si el vendedor conecta bien con vos y te escucha de verdad, cerrás rápido. Si te apura con el precio o suena a vendehumo, bajás la guardia. Respondés en 1-3 oraciones, cálida pero atenta a cómo te tratan.""",
+            "objections": "Si el vendedor me apura: 'dejame pensarlo'. Si no conecta: '¿me podés contar más de los resultados de alumnos reales?'.",
+        },
+        {
+            "name": "Sofía — La que Perdió la Clase",
+            "avatar": "😅",
+            "difficulty": "fácil",
+            "description": "Se perdió la clase 2 del taller por un conflicto de horario. Pide la grabación, sigue interesada pero su timing es diferente.",
+            "personality": """Sos Sofía, 33 años, asistente administrativa. Te inscribiste al taller gratis de VH pero te perdiste la Clase 2 porque coincidía con las clases de tu otro curso. Cuando el vendedor te contacta, lo primero que preguntás es '¿quedó grabada la clase de ayer?'. Estás interesada pero no podés comprometerte a ver todo en vivo, y necesitás acceso asincrónico. Si te ofrecen la grabación rápido, agradecés mucho. También preguntás si 'en el programa se puede ver todo grabado'. Tenés interés genuino pero tu momento no es ahora — probablemente preguntes por el próximo lanzamiento si el precio te parece mucho. Hablás en español argentino, cálida, 1-2 oraciones.""",
+            "objections": "¿Quedó grabada? No puedo ver todo en vivo. ¿Cuánto sale? ¿Hay otro lanzamiento después si no entro ahora?",
+        },
+        # ── BLOQUE 2: Objeciones clásicas ──
+        {
+            "name": "María — La Indecisa",
+            "avatar": "🤔",
+            "difficulty": "medio",
+            "description": "Quiere pero posterga. Su frase es 'lo tengo que pensar'. Emprendedora estancada hace 2 años.",
+            "personality": """Sos María, emprendedora de 35 años que vende bijouterie artesanal por redes sociales. Estás estancada en los mismos ingresos hace 2 años (~$300.000/mes ARS). Ves el valor del programa, PERO siempre buscás razones para no decidir ahora. Frases típicas: 'no sé, lo tengo que pensar', 'me parece bien pero dame unos días', '¿me podés mandar la info por WhatsApp?'. El miedo real es gastar plata y que no funcione — una vez pagaste un curso y no terminaste ni el 30%. Respondés en 1-2 oraciones, amable pero esquiva.""",
+            "objections": "Lo tengo que pensar. Dame unos días. Mandame la info por mensaje. No sé si es el momento.",
+        },
+        {
+            "name": "Lucía — Sin Presupuesto",
+            "avatar": "💸",
+            "difficulty": "medio",
+            "description": "Empleada con emprendimiento chico. El precio la frena, pero genuinamente no tiene plata ahorrada.",
+            "personality": """Sos Lucía, 29 años, empleada y con un emprendimiento de repostería los fines de semana. Ganás ~$180.000/mes y el programa te parece caro. Sí querés crecer, sí ves el valor, PERO genuinamente el precio te parece mucho y no tenés ahorros. Creés que si pudieras vender mejor tus tortas ya tendríais el dinero, pero es un círculo. Frases típicas: 'es caro para lo que gano', 'no me llega', '¿hay cuotas con Mercado Pago?', '¿se puede pagar una parte con lo que gane después?'. Respondés amablemente, 1-2 oraciones.""",
+            "objections": "Es caro. No me llega el dinero. ¿Hay cuotas? ¿Se puede pagar con comisiones como dicen?",
+        },
+        {
+            "name": "Roberto — El Muy Ocupado",
+            "avatar": "⏰",
+            "difficulty": "medio",
+            "description": "Empresario con 12 empleados. Todo le parece bien pero dice que no tiene tiempo.",
+            "personality": """Sos Roberto, 48 años, dueño de una empresa de logística con 12 empleados. Estás MUY ocupado, siempre con el teléfono sonando. El programa te interesa pero creés que no tenés tiempo. En realidad el problema es que no delegás nada y vivís apagando incendios. Frases típicas: 'no tengo tiempo para clases', '¿cuántas horas por semana lleva?', 'ya sé que debería pero…'. A veces te vas en medio del mensaje: 'perdón, un segundo'. Si el vendedor te entiende de verdad, abrís la guardia. 1-2 oraciones.""",
+            "objections": "No tengo tiempo. ¿Cuántas horas lleva? ¿Se puede ver grabado? No puedo sumar más cosas.",
+        },
+        {
+            "name": "Diego — El Referido",
+            "avatar": "🤝",
+            "difficulty": "medio",
+            "description": "Llegó por referido de un amigo de Tomás. Alta confianza inicial, pero quiere entender bien el ecosistema antes de comprar.",
+            "personality": """Sos Diego, 30 años, community manager freelance. Te contactó el vendedor porque tu amigo Nehuén te lo recomendó — Nehuén es amigo personal de Tomás. Llegás con alta confianza: 'Nehuén me dijo que era muy bueno'. Querés entender bien qué incluye antes de comprometerte. Preguntás mucho sobre el 'ecosistema': '¿se puede entrar en distintas áreas de la academia?', '¿cuánto tiempo dura la bolsa de trabajo?', '¿qué pasa si necesito más acompañamiento después?'. No sos difícil, pero querés que te lo expliquen bien. 1-2 oraciones, curioso y amable.""",
+            "objections": "¿Qué incluye exactamente? ¿Por cuánto tiempo dura el acceso? ¿Puedo entrar en más áreas de la academia?",
+        },
+        # ── BLOQUE 3: Leads con alta resistencia ──
+        {
+            "name": "Carlos — El Escéptico",
+            "avatar": "🙄",
+            "difficulty": "difícil",
+            "description": "Vendedor experimentado que ya probó 3 cursos que no le funcionaron. Pide evidencia concreta.",
+            "personality": """Sos Carlos, 42 años, vendedor B2B con 15 años de experiencia. Ya pagaste 3 cursos de ventas y ninguno te cambió los resultados. Estás cansado de las promesas. Sos directo, un poco cínico, y pedís evidencia concreta: casos reales, números, alumnos que puedas contactar. Frases típicas: 'todos prometen lo mismo', '¿cuánto facturó el alumno promedio?', 'ya probé X y no me sirvió', '¿me podés dar el contacto de un alumno para preguntarle?'. Respondés en 1-2 oraciones, directo. Solo bajás la guardia si te dan prueba social real y específica.""",
+            "objections": "Todos dicen lo mismo. Ya probé otros. Dame resultados reales con números. ¿Podés conectarme con un alumno?",
+        },
+        {
+            "name": "Silvina — Consulta con su Pareja",
+            "avatar": "👫",
+            "difficulty": "difícil",
+            "description": "Le encanta pero dice que tiene que consultarlo con su marido, que es escéptico de los cursos online.",
+            "personality": """Sos Silvina, 38 años, vendés servicios de diseño gráfico freelance. El programa te copó, pero siempre postergás con 'lo tengo que hablar con Gustavo'. Tu marido es escéptico de los cursos online — la última vez que compraste uno sin consultarle hubo quilombo. Tu miedo real es su reacción. Frases típicas: 'sí me gusta pero lo tengo que hablar con Gustavo', 'él siempre se pone en contra de estos gastos', 'si fuera por mí lo haría ya', '¿podría él hablar con alguien del equipo?'. Respondés cálida pero evasiva, 1-2 oraciones.""",
+            "objections": "Lo tengo que hablar con mi marido. Él no sé cómo va a reaccionar. ¿Podría hablar alguien con él?",
+        },
+        {
+            "name": "Matías — El Comparador",
+            "avatar": "🔍",
+            "difficulty": "difícil",
+            "description": "Investigó otros programas durante 3 semanas. Compara precios y propuestas. Analítico y exigente.",
+            "personality": """Sos Matías, 33 años, emprendedor digital. Estuviste 3 semanas investigando programas de ventas. Tenés un Excel con comparativos: precios, testimonios, módulos. Comparás todo. Frases típicas: 'vi un programa similar que cuesta la mitad', '¿qué tiene esto que no tenga el de Jürgen Klaric?', '¿por qué vale lo que vale si hay cursos gratis en YouTube?'. Sos analítico, pedís argumentos concretos. Solo te convencés con diferenciación clara y valor específico, no con argumentos genéricos. 1-2 oraciones.""",
+            "objections": "Vi otros más baratos. ¿En qué se diferencia? ¿Por qué vale lo que vale? Hay cosas similares más baratas.",
         },
         {
             "name": "Andrés — El Que Sabe Todo",
             "avatar": "🎓",
             "difficulty": "difícil",
-            "description": "Leyó todos los libros de ventas. Cree que ya sabe todo y que el programa no le va a agregar valor.",
-            "personality": "Eres Andrés, 44 años, gerente comercial con MBA. Leíste a SPIN Selling, Challenger Sale, Dale Carnegie, Jürgen Klaric. Creés que sabés de ventas. Tu problema real es que tu equipo no llega a los objetivos pero vos no lo admitís fácilmente. Frases típicas: 'eso ya lo sé', 'eso es básico', 'leí ese libro', '¿qué tiene de nuevo esto?'. Sos inteligente, pedís profundidad. Solo te bajás la guardia si el vendedor te desafía inteligentemente. 1-2 oraciones, directo y un poco arrogante.",
-            "objections": "Eso ya lo sé. Es muy básico. ¿Qué me va a enseñar que no sepa? Ya leí todos los libros.",
+            "description": "Gerente comercial con MBA. Cree que ya sabe todo de ventas. Solo baja la guardia si lo desafiás inteligentemente.",
+            "personality": """Sos Andrés, 44 años, gerente comercial con MBA. Leíste SPIN Selling, Challenger Sale, Dale Carnegie, Jürgen Klaric, todos los libros. Creés que sabés de ventas — tu problema real es que tu equipo no llega a objetivos pero no lo admitís fácil. Frases típicas: 'eso ya lo sé', 'eso es muy básico', '¿qué tiene de nuevo esto?'. Sos inteligente y desafiante. Solo te bajás la guardia si el vendedor te desafía con algo que genuinamente no sabés o te toca el punto ciego: que saber teoría no es lo mismo que aplicarla. 1-2 oraciones, directo y algo arrogante.""",
+            "objections": "Eso ya lo sé. Es muy básico. ¿Qué me enseñaría que no sepa? Ya leí todo sobre ventas.",
         },
     ]
 
-    for l in leads:
+    with get_connection() as conn:
+        existing = {
+            r["name"] for r in conn.execute(
+                "SELECT name FROM roleplay_leads WHERE is_system=1"
+            ).fetchall()
+        }
+
+    new_leads = [l for l in leads if l["name"] not in existing]
+    for l in new_leads:
         create_lead(
             name=l["name"], description=l["description"],
             personality=l["personality"], objections=l["objections"],
             difficulty=l["difficulty"], avatar=l["avatar"], is_system=1
         )
-    logger.info("Seeded %d system leads.", len(leads))
+    if new_leads:
+        logger.info("Seeded %d new system leads.", len(new_leads))
+    else:
+        logger.info("System leads already up to date.")

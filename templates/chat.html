@@ -24,28 +24,97 @@
 
 <!-- Stats row -->
 {% set done_sessions = sessions | selectattr('status','equalto','done') | list %}
-<div class="row g-3 mb-4">
-  <div class="col-4">
-    <div class="card border-0 shadow-sm text-center p-3">
-      <div style="font-size:28px;font-weight:800;color:#1a0810;">{{ sessions|length }}</div>
-      <div style="font-size:11px;color:#888;">Roleplays totales</div>
-    </div>
-  </div>
-  <div class="col-4">
-    <div class="card border-0 shadow-sm text-center p-3">
-      <div style="font-size:28px;font-weight:800;color:#c9a066;">
-        {% if done_sessions %}
-          {{ (done_sessions | map(attribute='score') | select | list | sum / done_sessions | selectattr('score') | list | length) | round(1) }}
-        {% else %}—{% endif %}
+
+<!-- ── GAMIFICATION PANEL ── -->
+<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);overflow:hidden;">
+  <div class="card-body p-4">
+    <!-- Level + XP bar -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <div style="font-size:36px;line-height:1;">{{ gamif.level.emoji }}</div>
+      <div style="flex:1;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span style="font-weight:700;color:#fff;font-size:15px;">{{ gamif.level.name }}</span>
+          <span style="font-size:12px;color:#c9a066;font-weight:600;">{{ gamif.xp }} XP</span>
+        </div>
+        {% if gamif.level.next_xp %}
+        {% set pct = ((gamif.xp / gamif.level.next_xp) * 100)|int %}
+        <div style="background:rgba(255,255,255,.15);border-radius:99px;height:8px;">
+          <div style="background:linear-gradient(90deg,#c9a066,#f0c070);height:8px;border-radius:99px;width:{{ [pct,100]|min }}%;transition:width .6s ease;"></div>
+        </div>
+        <div style="font-size:10px;color:#aaa;margin-top:3px;">{{ gamif.xp }} / {{ gamif.level.next_xp }} XP para el siguiente nivel</div>
+        {% else %}
+        <div style="background:linear-gradient(90deg,#c9a066,#f0c070);height:8px;border-radius:99px;"></div>
+        <div style="font-size:10px;color:#c9a066;margin-top:3px;font-weight:600;">Nivel máximo desbloqueado 👑</div>
+        {% endif %}
       </div>
-      <div style="font-size:11px;color:#888;">Puntaje promedio</div>
+      {% if gamif.streak and gamif.streak > 0 %}
+      <div style="background:rgba(255,100,0,.2);border:1px solid rgba(255,100,0,.4);border-radius:10px;padding:8px 12px;text-align:center;">
+        <div style="font-size:20px;line-height:1;">🔥</div>
+        <div style="font-size:11px;color:#ff9944;font-weight:700;">{{ gamif.streak }}d</div>
+        <div style="font-size:9px;color:#aaa;">racha</div>
+      </div>
+      {% endif %}
     </div>
-  </div>
-  <div class="col-4">
-    <div class="card border-0 shadow-sm text-center p-3">
-      <div style="font-size:28px;font-weight:800;color:#1a7a4a;">{{ done_sessions|length }}</div>
-      <div style="font-size:11px;color:#888;">Con feedback</div>
+
+    <!-- Stats -->
+    <div class="row g-2 mb-3">
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#fff;">{{ sessions|length }}</div>
+          <div style="font-size:10px;color:#aaa;">Roleplays</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#c9a066;">
+            {% set scored = done_sessions | selectattr('score') | list %}
+            {% if scored %}{{ (scored | map(attribute='score') | list | sum / scored|length) | round(1) }}{% else %}—{% endif %}
+          </div>
+          <div style="font-size:10px;color:#aaa;">Promedio</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#7ed56f;">{{ gamif.badges|length }}</div>
+          <div style="font-size:10px;color:#aaa;">Insignias</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Badges earned -->
+    {% if gamif.badges %}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:6px;">Insignias desbloqueadas</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for key in gamif.badges %}
+      {% if key in gamif.all_badges %}
+      {% set b = gamif.all_badges[key] %}
+      <div class="badge-chip" title="{{ b.desc }}"
+           style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:5px;cursor:default;">
+        <span style="font-size:14px;">{{ b.emoji }}</span>
+        <span style="font-size:11px;color:#c9a066;font-weight:600;">{{ b.nombre }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Locked badges (next to unlock) -->
+    {% set locked = [] %}
+    {% for key, b in gamif.all_badges.items() %}
+      {% if key not in gamif.badges %}{% set _ = locked.append((key, b)) %}{% endif %}
+    {% endfor %}
+    {% if locked %}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#555;margin-bottom:6px;margin-top:10px;">Por desbloquear</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for key, b in locked[:5] %}
+      <div title="{{ b.desc }}"
+           style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:5px;cursor:default;filter:grayscale(1);opacity:.5;">
+        <span style="font-size:14px;">{{ b.emoji }}</span>
+        <span style="font-size:11px;color:#888;">{{ b.nombre }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -241,6 +310,27 @@
   </div>
 </div>
 
+<!-- XP CELEBRATION MODAL -->
+<div class="modal fade" id="xpModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#1a0810,#3d0f1e);">
+      <div class="modal-body text-center p-5">
+        <div id="xpEmoji" style="font-size:56px;line-height:1;margin-bottom:12px;">⭐</div>
+        <div style="font-size:28px;font-weight:800;color:#c9a066;" id="xpGained">+50 XP</div>
+        <div style="font-size:15px;color:#fff;margin:8px 0 4px;" id="xpTotal"></div>
+        <div id="xpStreak" style="font-size:13px;color:#aaa;margin-bottom:16px;"></div>
+        <div id="xpLevelUp" style="display:none;background:rgba(201,160,102,.2);border:1px solid #c9a066;border-radius:12px;padding:12px;margin-bottom:16px;">
+          <div style="font-size:13px;color:#c9a066;font-weight:700;">¡SUBISTE DE NIVEL!</div>
+          <div style="font-size:24px;" id="xpLevelName"></div>
+        </div>
+        <div id="xpBadges" style="margin-bottom:16px;"></div>
+        <button class="btn fw-bold px-4" style="background:#c9a066;color:#1a0810;border:none;border-radius:10px;"
+                data-bs-dismiss="modal">¡Genial!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FEEDBACK MODAL -->
 <div class="modal fade" id="feedbackModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -428,6 +518,10 @@ document.getElementById('endChatBtn').addEventListener('click', async () => {
     if (data.ok) {
       document.getElementById('feedbackContent').innerHTML = renderFeedback(data.feedback, data.score);
       document.getElementById('feedbackContent').style.display = 'block';
+      // Show XP celebration after a short delay
+      if (data.gamification) {
+        setTimeout(() => showXpModal(data.gamification), 1800);
+      }
     } else {
       document.getElementById('feedbackContent').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
       document.getElementById('feedbackContent').style.display = 'block';
@@ -438,6 +532,48 @@ document.getElementById('endChatBtn').addEventListener('click', async () => {
     document.getElementById('feedbackContent').style.display = 'block';
   }
 });
+
+function showXpModal(g) {
+  const score = g.total_xp;
+  const gained = g.xp_gained;
+  const level = g.level;
+  const streak = g.streak;
+  const newBadges = g.new_badges || [];
+  const levelUp = g.level_up;
+
+  // Emoji based on XP gained
+  let emoji = '⭐';
+  if (gained >= 90) emoji = '🏆';
+  else if (gained >= 70) emoji = '🌟';
+  else if (gained >= 60) emoji = '🔥';
+
+  document.getElementById('xpEmoji').textContent = emoji;
+  document.getElementById('xpGained').textContent = `+${gained} XP`;
+  document.getElementById('xpTotal').textContent = `Total: ${score} XP · ${level.emoji} ${level.name}`;
+  document.getElementById('xpStreak').textContent = streak > 1 ? `🔥 ${streak} días seguidos practicando` : '';
+
+  const lvlDiv = document.getElementById('xpLevelUp');
+  if (levelUp && g.new_level) {
+    lvlDiv.style.display = 'block';
+    document.getElementById('xpLevelName').textContent = `${g.new_level.emoji} ${g.new_level.name}`;
+  } else {
+    lvlDiv.style.display = 'none';
+  }
+
+  const badgesDiv = document.getElementById('xpBadges');
+  if (newBadges.length > 0) {
+    badgesDiv.innerHTML = '<div style="font-size:12px;color:#c9a066;font-weight:700;margin-bottom:8px;">🎖️ ¡INSIGNIA DESBLOQUEADA!</div>' +
+      newBadges.map(b => `<div style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:10px;padding:8px 14px;margin-bottom:6px;">
+        <span style="font-size:20px;">${b.emoji}</span>
+        <span style="color:#fff;font-weight:700;font-size:13px;margin-left:6px;">${b.nombre}</span>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${b.desc}</div>
+      </div>`).join('');
+  } else {
+    badgesDiv.innerHTML = '';
+  }
+
+  new bootstrap.Modal(document.getElementById('xpModal')).show();
+}
 
 document.getElementById('closeFeedbackBtn').addEventListener('click', () => {
   bootstrap.Modal.getInstance(document.getElementById('feedbackModal')).hide();
