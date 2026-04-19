@@ -1,19 +1,15 @@
-version: "3.9"
-
 services:
   app:
     build: .
     container_name: feedback-vendedores
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       # Google service account credentials (must exist before starting)
       - ./credentials.json:/app/credentials.json:ro
-      # SQLite database persisted on the host
-      - ./feedback.db:/app/feedback.db
       # Drive polling state file
       - ./drive_state.json:/app/drive_state.json
-      # Environment variables
+      # Environment variables (incluye DATABASE_URL a PostgreSQL)
       - ./.env:/app/.env:ro
     environment:
       - PYTHONUNBUFFERED=1

@@ -1,14 +1,80 @@
 from __future__ import annotations
 
-import sqlite3
 import logging
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 logger = logging.getLogger(__name__)
 
-DB_PATH = "feedback.db"
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
+
+
+def _database_url() -> str:
+    url = (os.getenv("DATABASE_URL") or "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL no está definido. Configuralo en .env (PostgreSQL)."
+        )
+    if "sslmode" not in url and "rlwy.net" in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+    return url
+
+
+class _Result:
+    __slots__ = ("_cur", "rowcount", "lastrowid")
+
+    def __init__(self, cursor):
+        self._cur = cursor
+        self.rowcount = cursor.rowcount
+        self.lastrowid = None
+
+    def fetchall(self):
+        return self._cur.fetchall()
+
+    def fetchone(self):
+        return self._cur.fetchone()
+
+
+class _Conn:
+    """Adaptador estilo sqlite3 sobre psycopg2 (placeholders ? → %s, EXCLUDED)."""
+
+    def __init__(self, raw):
+        self._raw = raw
+
+    def execute(self, sql, params=None):
+        sql = sql.replace("?", "%s").replace("excluded.", "EXCLUDED.")
+        cur = self._raw.cursor()
+        cur.execute(sql, params or ())
+        return _Result(cur)
+
+    def commit(self):
+        self._raw.commit()
+
+    def rollback(self):
+        self._raw.rollback()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self._raw.rollback()
+        self._raw.close()
+        return False
+
+
+def get_connection():
+    conn = psycopg2.connect(_database_url(), cursor_factory=RealDictCursor)
+    return _Conn(conn)
 
 
 def _now() -> str:
@@ -17,12 +83,6 @@ def _now() -> str:
 
 def _today() -> str:
     return datetime.now(TZ).date().isoformat()
-
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def init_db():
@@ -37,51 +97,34 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'processing',
                 error_message TEXT,
                 feedback_text TEXT,
-                score REAL,
+                score DOUBLE PRECISION,
                 section_scores TEXT
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS vendors (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
                 email TEXT NOT NULL,
-                photo_path TEXT
+                photo_path TEXT,
+                role TEXT,
+                phone TEXT,
+                bio TEXT,
+                objectives TEXT,
+                achievements TEXT,
+                results TEXT,
+                experience TEXT,
+                status TEXT,
+                joined_program TEXT,
+                metrics TEXT,
+                testimonial_video TEXT,
+                pin TEXT,
+                kpi_vendor INTEGER DEFAULT 0
             )
         """)
-        # Migrate existing tables — add columns if they don't exist yet
-        for col, typedef in [
-            ("score", "REAL"),
-            ("section_scores", "TEXT"),
-        ]:
-            try:
-                conn.execute(f"ALTER TABLE processed_files ADD COLUMN {col} {typedef}")
-            except Exception:
-                pass
-        for col, typedef in [
-            ("photo_path", "TEXT"),
-            ("role", "TEXT"),
-            ("phone", "TEXT"),
-            ("bio", "TEXT"),
-            ("objectives", "TEXT"),
-            ("achievements", "TEXT"),
-            ("results", "TEXT"),
-            ("experience", "TEXT"),
-            ("status", "TEXT"),
-            ("joined_program", "TEXT"),
-            ("metrics", "TEXT"),
-            ("testimonial_video", "TEXT"),
-            ("pin", "TEXT"),
-        ]:
-            try:
-                conn.execute(f"ALTER TABLE vendors ADD COLUMN {col} {typedef}")
-            except Exception:
-                pass
-
-        # Roleplay leads
         conn.execute("""
             CREATE TABLE IF NOT EXISTS roleplay_leads (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 avatar TEXT,
                 description TEXT,
@@ -93,22 +136,20 @@ def init_db():
                 created_at TEXT
             )
         """)
-        # Roleplay sessions
         conn.execute("""
             CREATE TABLE IF NOT EXISTS roleplay_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 vendor_id INTEGER NOT NULL,
                 lead_id INTEGER NOT NULL,
                 started_at TEXT,
                 ended_at TEXT,
                 messages_json TEXT DEFAULT '[]',
                 feedback_text TEXT,
-                score REAL,
+                score DOUBLE PRECISION,
                 section_scores TEXT,
                 status TEXT DEFAULT 'active'
             )
         """)
-        # Lanzamiento feedback submissions
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_submissions (
                 file_id TEXT PRIMARY KEY,
@@ -118,15 +159,16 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'processing',
                 error_message TEXT,
                 feedback_text TEXT,
-                score REAL,
+                score DOUBLE PRECISION,
                 section_scores TEXT,
-                file_type TEXT DEFAULT 'video'
+                file_type TEXT DEFAULT 'video',
+                analysis_phase TEXT,
+                custom_instructions TEXT
             )
         """)
-        # Lanzamiento coach sessions (roleplay + asistente en vivo)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_coach_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 vendor_id INTEGER NOT NULL,
                 mode TEXT NOT NULL DEFAULT 'roleplay',
                 phase TEXT NOT NULL DEFAULT 'relacion',
@@ -136,11 +178,10 @@ def init_db():
                 ended_at TEXT,
                 messages_json TEXT DEFAULT '[]',
                 feedback_text TEXT,
-                score REAL,
+                score DOUBLE PRECISION,
                 status TEXT DEFAULT 'active'
             )
         """)
-        # Gamification table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS vendor_gamification (
                 vendor_id INTEGER PRIMARY KEY,
@@ -148,6 +189,28 @@ def init_db():
                 streak INTEGER DEFAULT 0,
                 last_activity_date TEXT,
                 badges_json TEXT DEFAULT '[]'
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS lanzamiento_kpi_entries (
+                id SERIAL PRIMARY KEY,
+                vendor_id INTEGER NOT NULL,
+                entry_date TEXT NOT NULL,
+                no_respondido INTEGER DEFAULT 0,
+                interaccion_leve_frio INTEGER DEFAULT 0,
+                interaccion_leve_tibio INTEGER DEFAULT 0,
+                interaccion_leve_caliente INTEGER DEFAULT 0,
+                conversacion_fluida_frio INTEGER DEFAULT 0,
+                conversacion_fluida_tibio INTEGER DEFAULT 0,
+                conversacion_fluida_caliente INTEGER DEFAULT 0,
+                potencial_compra_frio INTEGER DEFAULT 0,
+                potencial_compra_tibio INTEGER DEFAULT 0,
+                potencial_compra_caliente INTEGER DEFAULT 0,
+                venta_realizada INTEGER DEFAULT 0,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                UNIQUE(vendor_id, entry_date)
             )
         """)
         conn.commit()
@@ -559,12 +622,14 @@ def create_lead(name: str, description: str, personality: str, objections: str,
         cur = conn.execute(
             """INSERT INTO roleplay_leads
                (name, description, personality, objections, difficulty, avatar, is_system, created_by_vendor_id, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?)
+               RETURNING id""",
             (name, description, personality, objections, difficulty, avatar,
              is_system, vendor_id, _now())
         )
+        row = cur.fetchone()
         conn.commit()
-        return cur.lastrowid
+        return row["id"] if row else None
 
 
 def delete_lead(lead_id: int, vendor_id: int):
@@ -580,11 +645,13 @@ def create_roleplay_session(vendor_id: int, lead_id: int) -> int:
     with get_connection() as conn:
         cur = conn.execute(
             """INSERT INTO roleplay_sessions (vendor_id, lead_id, started_at, messages_json, status)
-               VALUES (?,?,?,'[]','active')""",
+               VALUES (?,?,?,'[]','active')
+               RETURNING id""",
             (vendor_id, lead_id, _now())
         )
+        row = cur.fetchone()
         conn.commit()
-        return cur.lastrowid
+        return row["id"] if row else None
 
 
 def get_session(session_id: int):
@@ -621,11 +688,13 @@ def lanzamiento_coach_create(vendor_id: int, mode: str, phase: str,
         cur = conn.execute(
             """INSERT INTO lanzamiento_coach_sessions
                (vendor_id, mode, phase, lead_name, lead_context, started_at, messages_json, status)
-               VALUES (?,?,?,?,?,?,'[]','active')""",
+               VALUES (?,?,?,?,?,?,'[]','active')
+               RETURNING id""",
             (vendor_id, mode, phase, lead_name, lead_context, _now())
         )
+        row = cur.fetchone()
         conn.commit()
-        return cur.lastrowid
+        return row["id"] if row else None
 
 
 def lanzamiento_coach_get(session_id: int):
@@ -726,9 +795,10 @@ def get_gamification(vendor_id: int) -> dict:
 
 def _ensure_gamification_row(conn, vendor_id: int):
     conn.execute(
-        """INSERT OR IGNORE INTO vendor_gamification
+        """INSERT INTO vendor_gamification
            (vendor_id, xp, streak, last_activity_date, badges_json)
-           VALUES (?,0,0,NULL,'[]')""",
+           VALUES (?,0,0,NULL,'[]')
+           ON CONFLICT (vendor_id) DO NOTHING""",
         (vendor_id,)
     )
 
