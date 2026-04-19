@@ -1,0 +1,864 @@
+{% extends "base.html" %}
+{% block title %}KPI Director — Lanzamiento{% endblock %}
+{% block page_title %}KPI Director{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+/* ── Shared ──────────────────────────────────────────────── */
+.kpi-card {
+  background: #fff; border-radius: 14px; padding: 18px 20px;
+  border: 1px solid #e9ecef; height: 100%;
+}
+.kpi-val  { font-size: 30px; font-weight: 900; line-height: 1; }
+.kpi-lbl  { font-size: 11px; color: #888; margin-top: 4px; }
+.kpi-sub  { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+.section-title {
+  font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;
+  letter-spacing: .7px; margin: 28px 0 14px; display: flex; align-items: center; gap: 8px;
+}
+.section-title::after { content:''; flex:1; height:1px; background:#e9ecef; }
+
+/* ── Filter bar ──────────────────────────────────────────── */
+.filter-bar {
+  background: #fff; border: 1px solid #e9ecef; border-radius: 14px;
+  padding: 14px 18px; margin-bottom: 24px;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+}
+.filter-bar label { font-size: 11px; font-weight: 700; color: #666; margin-bottom: 4px; display: block; }
+.filter-bar select, .filter-bar input[type=date] {
+  border: 1.5px solid #e9ecef; border-radius: 8px;
+  padding: 6px 10px; font-size: 13px; color: #333; background: #fafafa; min-width: 140px;
+}
+.filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: #c9a066; background:#fff; }
+
+/* ── Stage hero (active filter) ──────────────────────────── */
+.stage-hero {
+  border-radius: 16px; padding: 24px 28px; margin-bottom: 20px;
+  border: 2px solid; position: relative; overflow: hidden;
+}
+.stage-hero::before {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 180px; height: 180px; border-radius: 50%; opacity: .07;
+  background: currentColor;
+}
+.stage-hero-emoji { font-size: 48px; line-height: 1; margin-bottom: 8px; }
+.stage-hero-count { font-size: 56px; font-weight: 900; line-height: 1; }
+.stage-hero-label { font-size: 15px; font-weight: 700; opacity: .8; margin-top: 4px; }
+
+/* ── Vendor row ──────────────────────────────────────────── */
+.vendor-row {
+  background: #fff; border: 1px solid #e9ecef; border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 8px; transition: box-shadow .12s;
+}
+.vendor-row:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+
+/* ── Temp pills ──────────────────────────────────────────── */
+.temp-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+}
+.pill-frio     { background: #dbeafe; color: #1e40af; }
+.pill-tibio    { background: #fef3c7; color: #92400e; }
+.pill-caliente { background: #fee2e2; color: #991b1b; }
+
+/* ── Conv mini bar ───────────────────────────────────────── */
+.conv-mini { height: 5px; border-radius: 2px; background: #f0f0f0; overflow: hidden; }
+.conv-mini-fill { height: 100%; border-radius: 2px; }
+
+/* ── Strategy block ──────────────────────────────────────── */
+.strategy-block {
+  background: #faf8f5; border: 1px solid #e9e0d0; border-radius: 12px;
+  padding: 16px; margin-top: 10px; font-size: 13px; line-height: 1.7;
+}
+.strat-h { font-weight: 800; color: #1a0810; font-size: 13px; margin: 14px 0 6px;
+  padding: 6px 12px; background: linear-gradient(135deg, #f8f2eb, #f0e8d8);
+  border-left: 3px solid #c9a066; border-radius: 0 8px 8px 0; }
+.strat-h:first-child { margin-top: 0; }
+.strat-b { padding: 3px 0 3px 16px; position: relative; }
+.strat-b::before { content:"•"; position:absolute; left:4px; color:#c9a066; font-weight:700; }
+
+/* ── Today cards ─────────────────────────────────────────── */
+.today-vendor-card {
+  background: #fff; border: 1px solid #e9ecef; border-radius: 12px;
+  padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+}
+.today-vendor-card .avatar {
+  width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
+}
+.today-vendor-card .avatar-fallback {
+  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(135deg,#c9a066,#8b5a2b);
+  display: flex; align-items: center; justify-content: center;
+}
+.stage-chip {
+  display: inline-block; min-width: 30px; text-align: center;
+  padding: 3px 8px; border-radius: 7px; font-size: 12px; font-weight: 800;
+}
+</style>
+{% endblock %}
+
+{# ── Emoji & color maps ─────────────────────────────────── #}
+{% set STAGE_META = {
+  'no_respondido':       ('😶', '#9ca3af', 'No Respondido',       'NR'),
+  'interaccion_leve':    ('❄️', '#60a5fa', 'Interacción Leve',    'IL'),
+  'conversacion_fluida': ('🤝', '#4ade80', 'Conversación Fluida', 'CF'),
+  'potencial_compra':    ('🔥', '#fbbf24', 'Potencial Compra',    'PC'),
+  'venta_realizada':     ('💵', '#a78bfa', 'Venta Concretada',    'VC'),
+} %}
+{% set SF_EMOJI, SF_COLOR, SF_LABEL, SF_SHORT = STAGE_META.get(stage_filter, ('','#c9a066','','')) %}
+
+{% block content %}
+
+<!-- ════════════════ FILTER BAR ════════════════ -->
+<form method="get" class="filter-bar" id="filterForm">
+  <div>
+    <label>Vendedor</label>
+    <select name="vendor_id" onchange="this.form.submit()">
+      <option value="">Todos los vendedores</option>
+      {% for v in vendors_list %}
+      <option value="{{ v.id }}" {% if vendor_filter == v.id|string %}selected{% endif %}>{{ v.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Etapa / Etiqueta</label>
+    <select name="stage" onchange="this.form.submit()">
+      <option value="">Todas las etapas</option>
+      {% for key, (emoji, color, label, short) in STAGE_META.items() %}
+      <option value="{{ key }}" {% if stage_filter == key %}selected{% endif %}>{{ emoji }} {{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Desde</label>
+    <input type="date" name="from_date" value="{{ from_date }}" onchange="this.form.submit()">
+  </div>
+  <div>
+    <label>Hasta</label>
+    <input type="date" name="to_date" value="{{ to_date }}" onchange="this.form.submit()">
+  </div>
+  {% if from_date or to_date or vendor_filter or stage_filter %}
+  <div>
+    <label style="visibility:hidden;">x</label>
+    <a href="{{ url_for('lanzamiento_kpi_director') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">
+      <i class="bi bi-x-lg me-1"></i>Limpiar
+    </a>
+  </div>
+  {% endif %}
+</form>
+
+
+{% if stage_filter %}
+{# ════════════════════════════════════════════════════════
+   VISTA FOCALIZADA POR ETAPA
+   ════════════════════════════════════════════════════════ #}
+
+<!-- Stage hero -->
+<div class="stage-hero" style="background:{{ SF_COLOR }}12;border-color:{{ SF_COLOR }}55;color:{{ SF_COLOR }};">
+  <div class="row align-items-center g-3">
+    <div class="col-auto">
+      <div class="stage-hero-emoji">{{ SF_EMOJI }}</div>
+      <div class="stage-hero-count" style="color:{{ SF_COLOR }};">{{ global_totals.get(stage_filter, 0) }}</div>
+      <div class="stage-hero-label" style="color:#444;">{{ SF_LABEL }}</div>
+      {% if vendor_filter %}
+      <div style="font-size:11px;color:#888;margin-top:4px;">
+        {{ vendors_list | selectattr('id','equalto', vendor_filter|int) | map(attribute='name') | first | default('') }}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if stage_filter != 'no_respondido' and stage_filter != 'venta_realizada' %}
+    <div class="col">
+      {% set frio_k = stage_filter + '_frio' %}
+      {% set tibio_k = stage_filter + '_tibio' %}
+      {% set caliente_k = stage_filter + '_caliente' %}
+      {% set f = global_totals.get(frio_k, 0) %}
+      {% set t = global_totals.get(tibio_k, 0) %}
+      {% set c = global_totals.get(caliente_k, 0) %}
+      {% set ts = f + t + c %}
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:10px;">Temperatura del equipo en {{ SF_LABEL }}</div>
+      <div class="row g-3">
+        <div class="col-auto">
+          <div style="background:#dbeafe;border-radius:12px;padding:14px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#1e40af;">{{ f }}</div>
+            <div style="font-size:11px;color:#1e40af;font-weight:700;">❄️ Frío</div>
+            {% if ts > 0 %}<div style="font-size:10px;color:#60a5fa;">{{ (f/ts*100)|round }}%</div>{% endif %}
+          </div>
+        </div>
+        <div class="col-auto">
+          <div style="background:#fef3c7;border-radius:12px;padding:14px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#92400e;">{{ t }}</div>
+            <div style="font-size:11px;color:#92400e;font-weight:700;">🌡️ Tibio</div>
+            {% if ts > 0 %}<div style="font-size:10px;color:#f59e0b;">{{ (t/ts*100)|round }}%</div>{% endif %}
+          </div>
+        </div>
+        <div class="col-auto">
+          <div style="background:#fee2e2;border-radius:12px;padding:14px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#991b1b;">{{ c }}</div>
+            <div style="font-size:11px;color:#991b1b;font-weight:700;">🔥 Caliente</div>
+            {% if ts > 0 %}<div style="font-size:10px;color:#ef4444;">{{ (c/ts*100)|round }}%</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- AI analysis button -->
+    <div class="col-auto ms-auto">
+      <button onclick="analyzeStageGlobal()" class="btn fw-bold"
+              style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:10px;padding:10px 18px;font-size:13px;">
+        <i class="bi bi-lightning-fill me-2"></i>Analizar {{ SF_EMOJI }} {{ SF_LABEL }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Stage AI panel -->
+<div id="stageAnalysisPanel" style="display:none;" class="mb-4">
+  <div id="stageAnalysisLoader" class="text-center py-4">
+    <div class="spinner-border" style="color:#c9a066;"></div>
+    <div style="font-size:12px;color:#888;margin-top:8px;">Analizando {{ SF_LABEL }} con IA...</div>
+  </div>
+  <div id="stageAnalysisContent" class="strategy-block" style="display:none;"></div>
+</div>
+
+<!-- Vendor ranking for this stage -->
+{% if vendor_summaries %}
+<div class="section-title"><i class="bi bi-bar-chart-steps" style="color:{{ SF_COLOR }};"></i>
+  Ranking de vendedores en {{ SF_EMOJI }} {{ SF_LABEL }}
+</div>
+
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;border-left:4px solid {{ SF_COLOR }} !important;">
+  <div class="card-body p-4">
+    <div style="font-size:12px;color:#888;margin-bottom:16px;">Cada barra = cantidad de leads en {{ SF_LABEL }} por vendedor</div>
+    <canvas id="stageRankingChart" height="140"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stage trend -->
+{% if daily_series and daily_series|length > 1 %}
+<div class="section-title"><i class="bi bi-activity" style="color:{{ SF_COLOR }};"></i>
+  Evolución de {{ SF_EMOJI }} {{ SF_LABEL }} en el tiempo
+</div>
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body p-4">
+    <canvas id="stageTrendChart" height="130"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Vendor detail sorted by stage -->
+<div class="section-title"><i class="bi bi-person-lines-fill" style="color:{{ SF_COLOR }};"></i>
+  Detalle por vendedor — ordenado por {{ SF_EMOJI }} {{ SF_LABEL }}
+  {% if vendor_filter %}
+  · <span style="color:{{ SF_COLOR }};">{{ vendors_list | selectattr('id','equalto', vendor_filter|int) | map(attribute='name') | first | default('') }}</span>
+  {% endif %}
+</div>
+
+{% set _base_sf = vendor_summaries | selectattr('vendor_id','equalto', vendor_filter|int) | list if vendor_filter else vendor_summaries %}
+{% set sorted_stage = _base_sf | sort(attribute=stage_filter, reverse=True) %}
+
+{% for vs in sorted_stage %}
+{% set stage_val = vs.get(stage_filter, 0) %}
+<div class="vendor-row" style="border-left: 4px solid {{ SF_COLOR }}40;">
+  <div class="d-flex align-items-center gap-3">
+    {% if vs.photo_path %}
+    <img src="{{ url_for('vendor_photo', filename=vs.photo_path) }}"
+         style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;">
+    {% else %}
+    <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="bi bi-person-fill text-white" style="font-size:16px;"></i>
+    </div>
+    {% endif %}
+
+    <div style="flex:1;min-width:0;">
+      <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+        <span style="font-weight:800;font-size:14px;color:#1a0810;">{{ vs.vendor_name }}</span>
+        <span style="font-size:11px;color:#888;">{{ vs.entry_count }} día{{ 's' if vs.entry_count != 1 }}</span>
+      </div>
+      <!-- Stage value + temperature -->
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div style="background:{{ SF_COLOR }}18;border:1.5px solid {{ SF_COLOR }}55;border-radius:10px;padding:6px 16px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:{{ SF_COLOR }};">{{ stage_val }}</div>
+          <div style="font-size:9px;color:#888;font-weight:700;">{{ SF_EMOJI }} {{ SF_SHORT }}</div>
+        </div>
+        {% if stage_filter not in ('no_respondido','venta_realizada') %}
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="temp-pill pill-frio">❄️ {{ vs.get(stage_filter+'_frio', 0) }}</span>
+          <span class="temp-pill pill-tibio">🌡️ {{ vs.get(stage_filter+'_tibio', 0) }}</span>
+          <span class="temp-pill pill-caliente">🔥 {{ vs.get(stage_filter+'_caliente', 0) }}</span>
+        </div>
+        {% endif %}
+        <!-- All-stage mini summary -->
+        <div class="d-flex gap-1 ms-2">
+          {% for sk, (se, sc, sl, ss) in STAGE_META.items() %}
+          <div style="background:#f8f8f8;border-radius:6px;padding:3px 8px;text-align:center;
+                      {% if sk == stage_filter %}outline:1.5px solid {{ sc }};{% endif %}">
+            <div style="font-size:11px;font-weight:900;color:{{ sc }};">{{ vs.get(sk,0) }}</div>
+            <div style="font-size:8px;color:#aaa;font-weight:700;">{{ se }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-sm fw-bold flex-shrink-0"
+            style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;font-size:11px;white-space:nowrap;"
+            onclick="analyzeVendor({{ vs.vendor_id }}, '{{ vs.vendor_name | e }}', {{ vs | tojson | e }})">
+      <i class="bi bi-lightning-fill me-1"></i>Estrategias
+    </button>
+  </div>
+  <div id="strategy-{{ vs.vendor_id }}" style="display:none;" class="mt-3">
+    <div id="strategy-loader-{{ vs.vendor_id }}" class="text-center py-3">
+      <div class="spinner-border spinner-border-sm" style="color:#c9a066;"></div>
+    </div>
+    <div id="strategy-content-{{ vs.vendor_id }}" class="strategy-block" style="display:none;"></div>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+{# ════════════════════════════════════════════════════════
+   VISTA GLOBAL (sin filtro de etapa)
+   ════════════════════════════════════════════════════════ #}
+
+<!-- ── HOY ── -->
+<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado hoy — {{ today }}</div>
+
+{% if today_by_vendor %}
+<div class="row g-2 mb-3">
+  {% for stage_key, (emoji, color, label, short) in STAGE_META.items() %}
+  <div class="col-6 col-sm-4 col-lg">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:{{ color }};">{{ today_totals.get(stage_key, 0) }}</div>
+      <div class="kpi-lbl">{{ emoji }} {{ label }}</div>
+      <div class="kpi-sub">Hoy</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-2 mb-2">
+  {% for tv in today_by_vendor %}
+  <div class="col-12 col-sm-6 col-lg-4">
+    <div class="today-vendor-card">
+      {% if tv.photo_path %}
+      <img src="{{ url_for('vendor_photo', filename=tv.photo_path) }}" class="avatar">
+      {% else %}
+      <div class="avatar-fallback"><i class="bi bi-person-fill text-white" style="font-size:16px;"></i></div>
+      {% endif %}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:800;color:#1a0810;margin-bottom:5px;">{{ tv.vendor_name }}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
+          <span class="stage-chip" style="background:{{ color }}18;color:{{ color }};border:1px solid {{ color }}40;">
+            <span style="font-size:9px;font-weight:700;opacity:.7;">{{ emoji }}</span> {{ tv.totals.get(sk, 0) }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:18px;color:#bbb;font-size:13px;text-align:center;margin-bottom:4px;">
+  <i class="bi bi-clock" style="font-size:20px;display:block;margin-bottom:6px;opacity:.35;"></i>
+  Ningún vendedor cargó datos hoy todavía.
+</div>
+{% endif %}
+
+<!-- ── TOTALES ACUMULADOS ── -->
+<div class="section-title"><i class="bi bi-graph-up-arrow" style="color:#c9a066;"></i> Totales acumulados del lanzamiento</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#1a0810;">{{ global_totals.get('total_leads', 0) }}</div>
+      <div class="kpi-lbl">📊 Total leads</div>
+    </div>
+  </div>
+  {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
+  <div class="col-6 col-lg-2">
+    <div class="kpi-card" {% if sk == 'venta_realizada' %}style="background:linear-gradient(135deg,#1a0810,#3d0f1e);"{% endif %}>
+      <div class="kpi-val" style="color:{{ color }};">{{ global_totals.get(sk, 0) }}</div>
+      <div class="kpi-lbl" {% if sk == 'venta_realizada' %}style="color:rgba(255,255,255,.55);"{% endif %}>{{ emoji }} {{ label }}</div>
+      {% if sk == 'venta_realizada' %}
+        {% set pc = global_totals.get('potencial_compra', 0) + global_totals.get('venta_realizada', 0) %}
+        {% set vr = global_totals.get('venta_realizada', 0) %}
+        {% if pc > 0 %}<div class="kpi-sub" style="color:#c9a066;">{{ (vr/pc*100)|round(1) }}% de potenciales</div>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Funnel + temperature -->
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;">
+      <div class="card-body p-4">
+        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:16px;">📊 Embudo global acumulado</div>
+        <canvas id="globalFunnelChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;height:100%;">
+      <div class="card-body p-4">
+        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:16px;">🌡️ Temperatura del pipeline</div>
+        {% macro temp_row(emoji, label, frio, tibio, caliente, color) %}
+        {% set total_stage = frio + tibio + caliente %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:12px;font-weight:700;color:{{ color }};">{{ emoji }} {{ label }}</span>
+            <span style="font-size:12px;color:#888;">{{ total_stage }}</span>
+          </div>
+          {% if total_stage > 0 %}
+          <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;">
+            <div style="width:{{ (frio/total_stage*100)|round }}%;background:#bfdbfe;" title="❄️ Frío: {{ frio }}"></div>
+            <div style="width:{{ (tibio/total_stage*100)|round }}%;background:#f59e0b;" title="🌡️ Tibio: {{ tibio }}"></div>
+            <div style="width:{{ (caliente/total_stage*100)|round }}%;background:#ef4444;" title="🔥 Caliente: {{ caliente }}"></div>
+          </div>
+          <div class="d-flex gap-2 mt-1">
+            <span class="temp-pill pill-frio">❄️ {{ frio }}</span>
+            <span class="temp-pill pill-tibio">🌡️ {{ tibio }}</span>
+            <span class="temp-pill pill-caliente">🔥 {{ caliente }}</span>
+          </div>
+          {% else %}
+          <div style="font-size:11px;color:#bbb;">Sin datos</div>
+          {% endif %}
+        </div>
+        {% endmacro %}
+        {{ temp_row('💬','Interacción Leve',
+            global_totals.get('interaccion_leve_frio',0),
+            global_totals.get('interaccion_leve_tibio',0),
+            global_totals.get('interaccion_leve_caliente',0),'#60a5fa') }}
+        {{ temp_row('🤝','Conversación Fluida',
+            global_totals.get('conversacion_fluida_frio',0),
+            global_totals.get('conversacion_fluida_tibio',0),
+            global_totals.get('conversacion_fluida_caliente',0),'#4ade80') }}
+        {{ temp_row('💰','Potencial Compra',
+            global_totals.get('potencial_compra_frio',0),
+            global_totals.get('potencial_compra_tibio',0),
+            global_totals.get('potencial_compra_caliente',0),'#fbbf24') }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Grouped vendor chart -->
+{% if vendor_summaries %}
+<div class="section-title"><i class="bi bi-bar-chart-grouped" style="color:#c9a066;"></i> Comparativa por vendedor — todas las etapas</div>
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body p-4">
+    <div style="font-size:11px;color:#aaa;margin-bottom:10px;">Eje X = etapas · Eje Y = leads · Cada color = un vendedor</div>
+    <canvas id="groupedStageChart" height="130"></canvas>
+  </div>
+</div>
+
+<!-- Daily trend -->
+{% if daily_series and daily_series|length > 1 %}
+<div class="section-title"><i class="bi bi-activity" style="color:#c9a066;"></i> Evolución diaria del equipo</div>
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body p-4">
+    <canvas id="dailyTrendChart" height="130"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Per-vendor detail -->
+<div class="section-title"><i class="bi bi-person-lines-fill" style="color:#c9a066;"></i>
+  Detalle por vendedor
+  {% if vendor_filter %}
+  — <span style="color:#c9a066;">{{ vendors_list | selectattr('id','equalto', vendor_filter|int) | map(attribute='name') | first | default('') }}</span>
+  {% endif %}
+</div>
+
+{% set _base_g = vendor_summaries | selectattr('vendor_id','equalto', vendor_filter|int) | list if vendor_filter else vendor_summaries %}
+{% for vs in _base_g %}
+{% set vs_total = vs.get('total_leads', 0) %}
+{% set vs_responded = vs.get('interaccion_leve',0)+vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
+{% set vs_cf_plus = vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
+{% set vs_pc_plus = vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
+{% set vs_vr = vs.get('venta_realizada',0) %}
+{% set conv_resp = ((vs_responded/vs_total*100)|round(1)) if vs_total>0 else 0 %}
+{% set conv_esc  = ((vs_cf_plus/vs_responded*100)|round(1)) if vs_responded>0 else 0 %}
+{% set conv_pc   = ((vs_pc_plus/vs_cf_plus*100)|round(1)) if vs_cf_plus>0 else 0 %}
+{% set conv_vr   = ((vs_vr/vs_pc_plus*100)|round(1)) if vs_pc_plus>0 else 0 %}
+{% set convs     = [conv_resp, conv_esc, conv_pc, conv_vr] %}
+{% set conv_names= ['Respuesta','Escalada IL→CF','Interés CF→PC','Cierre PC→Venta'] %}
+{% set bottleneck= namespace(val=0,rate=100.0) %}
+{% for i in range(4) %}{% if convs[i]<bottleneck.rate %}{% set bottleneck.rate=convs[i] %}{% set bottleneck.val=i %}{% endif %}{% endfor %}
+
+<div class="vendor-row">
+  <div class="d-flex align-items-start gap-3">
+    {% if vs.photo_path %}
+    <img src="{{ url_for('vendor_photo', filename=vs.photo_path) }}"
+         style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;">
+    {% else %}
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="bi bi-person-fill text-white" style="font-size:18px;"></i>
+    </div>
+    {% endif %}
+    <div style="flex:1;min-width:0;">
+      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span style="font-weight:800;font-size:14px;color:#1a0810;">{{ vs.vendor_name }}</span>
+        <span style="font-size:11px;color:#888;">{{ vs.entry_count }} día{{ 's' if vs.entry_count!=1 }}</span>
+        {% if vs_total > 0 %}
+        <span style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;font-size:10px;font-weight:700;padding:2px 7px;color:#92400e;">
+          ⚠️ {{ conv_names[bottleneck.val] }}: {{ bottleneck.rate }}%
+        </span>
+        {% endif %}
+      </div>
+      <!-- Stage chips -->
+      <div class="d-flex gap-2 mb-2 flex-wrap">
+        {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
+        <div style="background:#f8f8f8;border-radius:9px;padding:5px 11px;text-align:center;min-width:42px;">
+          <div style="font-size:15px;font-weight:900;color:{{ color }};">{{ vs.get(sk,0) }}</div>
+          <div style="font-size:9px;color:#aaa;font-weight:700;">{{ emoji }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <!-- Conversion rates -->
+      <div class="row g-2">
+        {% for label, rate, color in [('Respuesta',conv_resp,'#3b82f6'),('Escalada',conv_esc,'#22c55e'),('Interés',conv_pc,'#f59e0b'),('Cierre',conv_vr,'#8b5cf6')] %}
+        <div class="col-6 col-md-3">
+          <div style="font-size:10px;color:#888;margin-bottom:2px;">{{ label }}</div>
+          <div style="font-size:13px;font-weight:800;color:{{ color }};">{{ rate }}%</div>
+          <div class="conv-mini"><div class="conv-mini-fill" style="width:{{ [rate,100]|min }}%;background:{{ color }};"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <button class="btn btn-sm fw-bold flex-shrink-0"
+            style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;font-size:11px;white-space:nowrap;"
+            onclick="analyzeVendor({{ vs.vendor_id }},'{{ vs.vendor_name | e }}',{{ vs|tojson|e }})">
+      <i class="bi bi-lightning-fill me-1"></i>Estrategias
+    </button>
+  </div>
+  <div id="strategy-{{ vs.vendor_id }}" style="display:none;" class="mt-3">
+    <div id="strategy-loader-{{ vs.vendor_id }}" class="text-center py-3">
+      <div class="spinner-border spinner-border-sm" style="color:#c9a066;"></div>
+    </div>
+    <div id="strategy-content-{{ vs.vendor_id }}" class="strategy-block" style="display:none;"></div>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="text-center py-5" style="color:#bbb;">
+  <i class="bi bi-bar-chart" style="font-size:40px;display:block;margin-bottom:12px;opacity:.3;"></i>
+  <div style="font-size:14px;">No hay datos de KPI cargados aún.</div>
+</div>
+{% endif %}
+
+{% endif %}{# end else (global view) #}
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+const gt            = {{ global_totals | tojson }};
+const vendorSummaries = {{ vendor_summaries | tojson }};
+const dailySeries   = {{ daily_series | tojson }};
+const stageFilter   = {{ stage_filter | tojson }};
+const stageMeta = {
+  no_respondido:       { emoji:'😶', color:'#9ca3af', label:'No Respondido' },
+  interaccion_leve:    { emoji:'❄️', color:'#60a5fa', label:'Interac. Leve' },
+  conversacion_fluida: { emoji:'🤝', color:'#4ade80', label:'Conv. Fluida' },
+  potencial_compra:    { emoji:'🔥', color:'#fbbf24', label:'Potencial' },
+  venta_realizada:     { emoji:'💵', color:'#a78bfa', label:'Venta' },
+};
+const stageKeys = Object.keys(stageMeta);
+
+// ── Global funnel — VERTICAL ─────────────────────────────────────────────────
+const funnelCtx = document.getElementById('globalFunnelChart');
+if (funnelCtx) {
+  new Chart(funnelCtx, {
+    type: 'bar',
+    data: {
+      labels: stageKeys.map(k => stageMeta[k].emoji + ' ' + stageMeta[k].label),
+      datasets: [{
+        label: 'Leads',
+        data: stageKeys.map(k => gt[k] || 0),
+        backgroundColor: stageKeys.map(k => stageMeta[k].color + 'cc'),
+        borderColor:     stageKeys.map(k => stageMeta[k].color),
+        borderWidth: 1,
+        borderRadius: 6, borderSkipped: false,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#f0f0f0' },
+          ticks: { font: { size: 11 }, stepSize: 50 },
+          max: 550, beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── Grouped stage chart (all stages × all vendors) ───────────────────────────
+const groupedCtx = document.getElementById('groupedStageChart');
+if (groupedCtx && vendorSummaries.length > 0) {
+  const palette = [
+    '#6366f1','#ec4899','#f97316','#22c55e','#3b82f6',
+    '#a78bfa','#14b8a6','#f59e0b','#ef4444','#84cc16'
+  ];
+  const datasets = vendorSummaries.map((vs, i) => ({
+    label: vs.vendor_name.split(' ')[0],
+    data: stageKeys.map(k => vs[k] || 0),
+    backgroundColor: palette[i % palette.length] + 'bb',
+    borderColor: palette[i % palette.length],
+    borderWidth: 1, borderRadius: 4,
+  }));
+  new Chart(groupedCtx, {
+    type: 'bar',
+    data: {
+      labels: stageKeys.map(k => stageMeta[k].emoji + ' ' + stageMeta[k].label),
+      datasets,
+    },
+    options: {
+      plugins: {
+        legend: {
+          labels: { font: { size: 9 }, boxWidth: 8, padding: 6 },
+          position: 'bottom',
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: {
+          grid: { color: '#f0f0f0' },
+          ticks: { font: { size: 9 }, stepSize: 100 },
+          max: 200, beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── Daily trend chart ────────────────────────────────────────────────────────
+const trendCtx = document.getElementById('dailyTrendChart');
+if (trendCtx && dailySeries.length > 1) {
+  new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: dailySeries.map(d => d.date),
+      datasets: stageKeys.map(k => ({
+        label: stageMeta[k].emoji + ' ' + stageMeta[k].label,
+        borderColor: stageMeta[k].color,
+        backgroundColor: stageMeta[k].color + '22',
+        data: dailySeries.map(d => d.totals[k] || 0),
+        tension: .35, fill: false, pointRadius: 3,
+        borderWidth: k === 'venta_realizada' ? 2.5 : 1.5,
+      }))
+    },
+    options: {
+      plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 14 } },
+        y: {
+          grid: { color: '#f0f0f0' },
+          ticks: { font: { size: 10 }, stepSize: 100 },
+          max: 400, beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── Stage ranking chart (used when stage filter is active) ───────────────────
+const stageRankCtx = document.getElementById('stageRankingChart');
+if (stageRankCtx && stageFilter && vendorSummaries.length > 0) {
+  const sfMeta = stageMeta[stageFilter] || { color: '#c9a066', emoji: '', label: stageFilter };
+  const sorted = [...vendorSummaries].sort((a,b) => (b[stageFilter]||0) - (a[stageFilter]||0));
+  new Chart(stageRankCtx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(v => v.vendor_name.split(' ')[0]),
+      datasets: [{
+        label: sfMeta.emoji + ' ' + sfMeta.label,
+        data: sorted.map(v => v[stageFilter] || 0),
+        backgroundColor: sfMeta.color + 'cc',
+        borderColor: sfMeta.color,
+        borderWidth: 1, borderRadius: 6,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#f0f0f0' },
+          ticks: { font: { size: 11 }, stepSize: 50 },
+          max: 550, beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── Stage trend chart (only selected stage over time) ────────────────────────
+const stageTrendCtx = document.getElementById('stageTrendChart');
+if (stageTrendCtx && stageFilter && dailySeries.length > 1) {
+  const sfMeta = stageMeta[stageFilter] || { color: '#c9a066', emoji: '', label: stageFilter };
+  // Also show sub-temperatures if available
+  const fKey = stageFilter + '_frio';
+  const tKey = stageFilter + '_tibio';
+  const cKey = stageFilter + '_caliente';
+  const hasFTC = dailySeries.some(d => (d.totals[fKey]||0) + (d.totals[tKey]||0) + (d.totals[cKey]||0) > 0);
+  const datasets = [{
+    label: sfMeta.emoji + ' Total ' + sfMeta.label,
+    borderColor: sfMeta.color,
+    backgroundColor: sfMeta.color + '22',
+    data: dailySeries.map(d => d.totals[stageFilter] || 0),
+    tension: .35, fill: true, pointRadius: 4, borderWidth: 2.5,
+  }];
+  if (hasFTC) {
+    datasets.push(
+      { label:'❄️ Frío',     borderColor:'#3b82f6', data: dailySeries.map(d=>d.totals[fKey]||0), tension:.3, fill:false, pointRadius:3, borderWidth:1.5 },
+      { label:'🌡️ Tibio',    borderColor:'#f59e0b', data: dailySeries.map(d=>d.totals[tKey]||0), tension:.3, fill:false, pointRadius:3, borderWidth:1.5 },
+      { label:'🔥 Caliente', borderColor:'#ef4444', data: dailySeries.map(d=>d.totals[cKey]||0), tension:.3, fill:false, pointRadius:3, borderWidth:1.5 }
+    );
+  }
+  new Chart(stageTrendCtx, {
+    type: 'line',
+    data: { labels: dailySeries.map(d=>d.date), datasets },
+    options: {
+      plugins: { legend: { labels: { font:{ size:11 }, boxWidth:11 } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:10},maxTicksLimit:14} },
+        y: {
+          grid:{color:'#f0f0f0'},
+          ticks:{font:{size:11},stepSize:50},
+          max:550, beginAtZero:true,
+        }
+      }
+    }
+  });
+}
+
+// ── Stage global analysis ────────────────────────────────────────────────────
+let stageAnalysisOpen = false;
+async function analyzeStageGlobal() {
+  if (stageAnalysisOpen) {
+    document.getElementById('stageAnalysisPanel').style.display = 'none';
+    stageAnalysisOpen = false;
+    return;
+  }
+  stageAnalysisOpen = true;
+  const panel   = document.getElementById('stageAnalysisPanel');
+  const loader  = document.getElementById('stageAnalysisLoader');
+  const content = document.getElementById('stageAnalysisContent');
+  panel.style.display = 'block';
+  loader.style.display = 'block';
+  content.style.display = 'none';
+
+  // Build vendor breakdown for this stage
+  const sfMeta = stageMeta[stageFilter] || {};
+  const vendors = vendorSummaries.map(vs => ({
+    vendor_name: vs.vendor_name,
+    count: vs[stageFilter] || 0,
+    frio: vs[stageFilter+'_frio'] || null,
+    tibio: vs[stageFilter+'_tibio'] || null,
+    caliente: vs[stageFilter+'_caliente'] || null,
+  }));
+
+  try {
+    const resp = await fetch('/lanzamiento/kpi/strategy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        totals: gt,
+        stage: stageFilter,
+        vendor_name: 'Equipo completo',
+        days: 30,
+        vendors,
+      })
+    });
+    const data = await resp.json();
+    loader.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = data.ok
+      ? renderStrategy(data.strategy, null, null)
+      : '<div style="color:#ef4444;font-size:12px;">Error al generar análisis.</div>';
+  } catch(e) {
+    loader.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error de conexión.</div>';
+  }
+}
+
+// ── Per-vendor strategy ──────────────────────────────────────────────────────
+const openVendors = new Set();
+async function analyzeVendor(vendorId, vendorName, vs) {
+  const panel   = document.getElementById(`strategy-${vendorId}`);
+  const loader  = document.getElementById(`strategy-loader-${vendorId}`);
+  const content = document.getElementById(`strategy-content-${vendorId}`);
+  if (openVendors.has(vendorId)) {
+    panel.style.display = 'none'; openVendors.delete(vendorId); return;
+  }
+  openVendors.add(vendorId);
+  panel.style.display = 'block'; loader.style.display = 'block'; content.style.display = 'none';
+  const totals = {
+    no_respondido: vs.no_respondido||0,
+    interaccion_leve: vs.interaccion_leve||0,
+    conversacion_fluida: vs.conversacion_fluida||0,
+    potencial_compra: vs.potencial_compra||0,
+    venta_realizada: vs.venta_realizada||0,
+    interaccion_leve_frio: vs.interaccion_leve_frio||0,
+    interaccion_leve_tibio: vs.interaccion_leve_tibio||0,
+    interaccion_leve_caliente: vs.interaccion_leve_caliente||0,
+    conversacion_fluida_frio: vs.conversacion_fluida_frio||0,
+    conversacion_fluida_tibio: vs.conversacion_fluida_tibio||0,
+    conversacion_fluida_caliente: vs.conversacion_fluida_caliente||0,
+    potencial_compra_frio: vs.potencial_compra_frio||0,
+    potencial_compra_tibio: vs.potencial_compra_tibio||0,
+    potencial_compra_caliente: vs.potencial_compra_caliente||0,
+  };
+  try {
+    const resp = await fetch('/lanzamiento/kpi/strategy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ totals, vendor_name: vendorName, days: 30 })
+    });
+    const data = await resp.json();
+    loader.style.display = 'none'; content.style.display = 'block';
+    content.innerHTML = data.ok
+      ? renderStrategy(data.strategy, data.bottleneck, data.bottleneck_rate)
+      : '<div style="color:#888;font-size:12px;">Error al generar estrategias.</div>';
+  } catch(e) {
+    loader.style.display = 'none'; content.style.display = 'block';
+    content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error de conexión.</div>';
+  }
+}
+
+// ── Render strategy markdown ─────────────────────────────────────────────────
+function renderStrategy(text, bottleneck, rate) {
+  let html = '';
+  if (bottleneck && rate !== null) {
+    html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;">
+      ⚠️ <strong>Cuello de botella:</strong> ${bottleneck} (${rate}%)
+    </div>`;
+  }
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (!t) { html += '<div style="margin:3px 0;"></div>'; continue; }
+    if (/^#{1,3}\s+/.test(t))    html += `<div class="strat-h">${t.replace(/^#{1,3}\s+/,'')}</div>`;
+    else if (/^[-•]\s+/.test(t)) html += `<div class="strat-b">${mdLine(t.replace(/^[-•]\s+/,''))}</div>`;
+    else                          html += `<div style="font-size:12px;color:#444;margin:2px 0;line-height:1.6;">${mdLine(t)}</div>`;
+  }
+  return html;
+}
+function mdLine(s) {
+  return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
+}
+</script>
+{% endblock %}

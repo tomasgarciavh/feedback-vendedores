@@ -1,0 +1,581 @@
+{% extends "base.html" %}
+{% block title %}Director Comercial — Lanzamiento VH{% endblock %}
+{% block page_title %}Mapa de Vendedores — Lanzamiento{% endblock %}
+
+{% block header_actions %}
+<span style="font-size:12px;color:#888;margin-right:8px;" id="lastRefresh"></span>
+<button class="btn btn-sm" style="background:linear-gradient(135deg,#3d0f1e,#c9a066);color:#fff;border-radius:8px;font-size:12px;" onclick="location.reload()">
+  <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+</button>
+{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --lanz-dark: #1a0810;
+    --lanz-mid: #3d0f1e;
+    --lanz-gold: #c9a066;
+    --lanz-green: #2d6a4f;
+    --lanz-red: #8b1a2b;
+  }
+
+  /* ── Global KPI row ── */
+  .dir-kpi {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .dir-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .dir-kpi.kpi-total::before   { background: linear-gradient(90deg,#667eea,#764ba2); }
+  .dir-kpi.kpi-done::before    { background: linear-gradient(90deg,#2d6a4f,#52b788); }
+  .dir-kpi.kpi-approved::before{ background: linear-gradient(90deg,#c9a066,#8b5a2b); }
+  .dir-kpi.kpi-score::before   { background: linear-gradient(90deg,#3d0f1e,#8b3a52); }
+  .dir-kpi.kpi-vendors::before { background: linear-gradient(90deg,#0369a1,#38bdf8); }
+  .dir-kpi .val {
+    font-size: 34px; font-weight: 900; color: #1e2235; line-height: 1;
+  }
+  .dir-kpi .lbl {
+    font-size: 11px; font-weight: 600; color: #888;
+    text-transform: uppercase; letter-spacing: .6px; margin-top: 4px;
+  }
+  .dir-kpi .sub {
+    font-size: 11px; color: #aaa; margin-top: 2px;
+  }
+
+  /* ── Vendor card ── */
+  .vc {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .15s;
+    height: 100%;
+  }
+  .vc:hover { box-shadow: 0 8px 28px rgba(61,15,30,.1); transform: translateY(-2px); }
+
+  .vc-banner {
+    height: 56px;
+    background: linear-gradient(135deg, var(--lanz-dark), var(--lanz-mid));
+    position: relative;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 14px;
+  }
+
+  /* Score circle in banner */
+  .vc-score {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900; color: #fff;
+    background: rgba(255,255,255,.08);
+    flex-shrink: 0;
+  }
+  .vc-score.high { border-color: #52b788; background: rgba(82,183,136,.2); color: #52b788; }
+  .vc-score.mid  { border-color: var(--lanz-gold); background: rgba(201,160,102,.15); color: var(--lanz-gold); }
+  .vc-score.low  { border-color: #e07070; background: rgba(224,112,112,.15); color: #e07070; }
+
+  .vc-avatar {
+    width: 60px; height: 60px; border-radius: 50%;
+    border: 3px solid #fff; object-fit: cover;
+    position: absolute; bottom: -30px; left: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+  .vc-avatar-initials {
+    width: 60px; height: 60px; border-radius: 50%;
+    border: 3px solid #fff;
+    background: linear-gradient(135deg, var(--lanz-mid), var(--lanz-gold));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: #fff;
+    position: absolute; bottom: -30px; left: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+
+  .vc-body { padding: 38px 18px 18px; }
+  .vc-name { font-size: 15px; font-weight: 800; color: var(--lanz-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vc-sub  { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+  /* Mini KPI chips */
+  .vc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .chip-blue   { background: #eff6ff; color: #1d4ed8; }
+  .chip-green  { background: #f0fdf4; color: #166534; }
+  .chip-gold   { background: #fffbeb; color: #92400e; }
+  .chip-gray   { background: #f3f4f6; color: #374151; }
+  .chip-red    { background: #fef2f2; color: #991b1b; }
+
+  /* Skill bars */
+  .skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; margin: 12px 0; }
+  .skill-row { }
+  .skill-label { font-size: 10px; color: #888; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .skill-bar { height: 5px; background: #f0e8e0; border-radius: 3px; overflow: hidden; }
+  .skill-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+
+  /* Action plan */
+  .action-plan { background: #faf8f5; border-radius: 10px; padding: 10px 12px; margin-top: 12px; border-left: 3px solid var(--lanz-gold); }
+  .action-plan-title { font-size: 10px; font-weight: 800; color: var(--lanz-mid); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 7px; display: flex; align-items: center; gap: 5px; }
+  .action-item { display: flex; gap: 7px; margin-bottom: 5px; font-size: 11px; line-height: 1.4; }
+  .action-item:last-child { margin-bottom: 0; }
+  .action-badge { flex-shrink: 0; background: var(--lanz-mid); color: var(--lanz-gold); font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px; height: fit-content; margin-top: 1px; }
+
+  /* Divider */
+  .vc-divider { border: none; border-top: 1px solid #f5ede0; margin: 10px 0; }
+
+  /* No data */
+  .no-data { text-align: center; padding: 60px 20px; color: #ccc; }
+
+  /* Search & sort bar */
+  .ctrl-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+  .ctrl-bar input { flex: 1; min-width: 180px; border: 1px solid #e0d4c8; border-radius: 10px; padding: 7px 14px; font-size: 13px; background: #fff; }
+  .ctrl-bar input:focus { outline: none; border-color: var(--lanz-gold); box-shadow: 0 0 0 3px rgba(201,160,102,.15); }
+  .sort-btn { padding: 7px 13px; border-radius: 10px; border: 1px solid #e0d4c8; background: #fff; font-size: 12px; font-weight: 600; color: #555; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .sort-btn.active, .sort-btn:hover { background: var(--lanz-mid); color: #fff; border-color: var(--lanz-mid); }
+
+  /* Section header */
+  .sec-hdr { font-size: 11px; font-weight: 800; color: var(--lanz-mid); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .sec-hdr::after { content: ''; flex: 1; height: 1px; background: #f0e8e0; }
+
+  /* Radar chart container */
+  .radar-wrap { position: relative; height: 180px; margin: 10px auto 0; max-width: 220px; }
+
+  /* Pulse dot for processing */
+  .dot-processing { width: 8px; height: 8px; border-radius: 50%; background: #667eea; display: inline-block; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+  /* Score pill on banner */
+  .score-pill {
+    position: absolute; top: 8px; right: 14px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: 13px; font-weight: 900; color: #fff;
+  }
+  .score-pill.high { background: rgba(82,183,136,.25); border-color: rgba(82,183,136,.5); color: #a7f3d0; }
+  .score-pill.mid  { background: rgba(201,160,102,.25); border-color: rgba(201,160,102,.5); color: #fde68a; }
+  .score-pill.low  { background: rgba(224,112,112,.2); border-color: rgba(224,112,112,.4); color: #fca5a5; }
+
+  /* Chart canvas per vendor */
+  .mini-radar { height: 140px; }
+
+  @media (max-width: 576px) {
+    .skills-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Compute global KPIs ───────────────────────────────────────────────── #}
+{% set total_feedbacks = vendor_stats | map(attribute='total') | sum %}
+{% set total_done = vendor_stats | map(attribute='done') | sum %}
+{% set total_approved = vendor_stats | map(attribute='approved') | sum %}
+{% set vendors_with_score = vendor_stats | selectattr('avg_score') | list %}
+{% set team_avg = (vendors_with_score | map(attribute='avg_score') | sum / vendors_with_score|length) if vendors_with_score else None %}
+
+<!-- Header intro -->
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:var(--lanz-dark);">Panel del Director Comercial</h4>
+    <p class="text-muted mb-0" style="font-size:13px;">Métricas en tiempo real de todos tus vendedores en el lanzamiento de 21 días.</p>
+  </div>
+  <span class="badge" style="background:linear-gradient(135deg,#3d0f1e,#c9a066);font-size:12px;padding:8px 14px;align-self:flex-start;">
+    <i class="bi bi-eye-fill me-1"></i>Vista Director
+  </span>
+</div>
+
+<!-- Global KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md col-lg">
+    <div class="dir-kpi kpi-vendors">
+      <div class="val">{{ vendor_stats | length }}</div>
+      <div class="lbl">Vendedores</div>
+      <div class="sub">activos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md col-lg">
+    <div class="dir-kpi kpi-total">
+      <div class="val">{{ total_feedbacks }}</div>
+      <div class="lbl">Feedbacks</div>
+      <div class="sub">total del equipo</div>
+    </div>
+  </div>
+  <div class="col-6 col-md col-lg">
+    <div class="dir-kpi kpi-done">
+      <div class="val">{{ total_done }}</div>
+      <div class="lbl">Completados</div>
+      <div class="sub">analizados por IA</div>
+    </div>
+  </div>
+  <div class="col-6 col-md col-lg">
+    <div class="dir-kpi kpi-approved">
+      <div class="val">{{ total_approved }}</div>
+      <div class="lbl">Aprobados</div>
+      <div class="sub">score ≥ 7 / 10</div>
+    </div>
+  </div>
+  <div class="col-12 col-md col-lg">
+    <div class="dir-kpi kpi-score">
+      {% if team_avg %}
+      <div class="val" style="color:{% if team_avg >= 7 %}var(--lanz-green){% elif team_avg >= 5 %}#8b6914{% else %}var(--lanz-red){% endif %};">{{ "%.1f"|format(team_avg) }}</div>
+      {% else %}
+      <div class="val" style="color:#ccc;">—</div>
+      {% endif %}
+      <div class="lbl">Score promedio</div>
+      <div class="sub">del equipo</div>
+    </div>
+  </div>
+</div>
+
+{% if vendor_stats %}
+
+<!-- ══ GROUPED BAR CHART ═══════════════════════════════════════════════════ -->
+{% set vendors_with_sections = vendor_stats | selectattr('avg_score') | list %}
+{% if vendors_with_sections %}
+<div class="card border-0 shadow-sm mb-4" style="border-radius:16px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:16px 22px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h5 class="fw-bold mb-0 text-white" style="font-size:15px;"><i class="bi bi-bar-chart-fill me-2" style="color:#c9a066;"></i>Comparativo de Habilidades — Todos los Vendedores</h5>
+      <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:3px;">Cada barra es un vendedor · Eje Y: puntaje 0–10</div>
+    </div>
+    <!-- Legend -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;" id="chartLegend"></div>
+  </div>
+  <div class="card-body p-3 p-md-4" style="background:#fff;">
+    <div style="position:relative;height:360px;">
+      <canvas id="skillsCompareChart"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Controls -->
+<div class="ctrl-bar">
+  <input type="text" id="vendorSearch" placeholder="🔍  Buscar vendedor..." oninput="filterCards()">
+  <button class="sort-btn active" id="sortScore" onclick="sortCards('score')">Mejor score</button>
+  <button class="sort-btn" id="sortTotal" onclick="sortCards('total')">Más feedbacks</button>
+  <button class="sort-btn" id="sortApproved" onclick="sortCards('approved')">Más aprobados</button>
+</div>
+
+<!-- Vendor cards -->
+<div class="sec-hdr"><i class="bi bi-people-fill" style="color:var(--lanz-gold);"></i>Vendedores</div>
+
+<div class="row g-3" id="vendorCardsRow">
+
+{% for v in vendor_stats %}
+{% set sc = v.avg_score %}
+{% set sc_class = 'high' if sc and sc >= 7 else ('mid' if sc and sc >= 5 else 'low') %}
+<div class="col-12 col-sm-6 col-xl-4 vendor-card-col"
+     data-name="{{ v.vendor_name | lower }}"
+     data-score="{{ v.avg_score or 0 }}"
+     data-total="{{ v.total }}"
+     data-approved="{{ v.approved }}">
+  <div class="vc">
+
+    <!-- Banner -->
+    <div class="vc-banner">
+      <!-- Avatar -->
+      {% if v.photo_path %}
+        <img src="{{ url_for('vendor_photo', filename=v.photo_path.split('/')[-1]) }}" class="vc-avatar" alt="{{ v.vendor_name }}">
+      {% else %}
+        <div class="vc-avatar-initials">{{ v.vendor_name[0]|upper }}</div>
+      {% endif %}
+      <!-- Score pill -->
+      {% if sc %}
+      <span class="score-pill {{ sc_class }}">{{ "%.1f"|format(sc) }}<span style="font-size:9px;font-weight:500;opacity:.7;"> /10</span></span>
+      {% else %}
+      <span class="score-pill" style="font-size:11px;font-weight:600;opacity:.5;">Sin score</span>
+      {% endif %}
+    </div>
+
+    <div class="vc-body">
+      <!-- Name & last activity -->
+      <div class="vc-name">{{ v.vendor_name }}</div>
+      <div class="vc-sub">
+        {% if v.last_submission %}
+          Último: {{ v.last_submission[:10] }}
+        {% else %}
+          Sin actividad aún
+        {% endif %}
+      </div>
+
+      <!-- Chips -->
+      <div class="vc-chips">
+        <span class="chip chip-blue"><i class="bi bi-file-earmark-text"></i>{{ v.total }} feedback{% if v.total != 1 %}s{% endif %}</span>
+        <span class="chip chip-green"><i class="bi bi-check-circle"></i>{{ v.done }} completado{% if v.done != 1 %}s{% endif %}</span>
+        {% if v.approved > 0 %}
+        <span class="chip chip-gold"><i class="bi bi-star-fill"></i>{{ v.approved }} aprobado{% if v.approved != 1 %}s{% endif %}</span>
+        {% endif %}
+        {% if v.processing > 0 %}
+        <span class="chip chip-gray"><span class="dot-processing"></span>{{ v.processing }} en proceso</span>
+        {% endif %}
+      </div>
+
+      <!-- Approval rate bar -->
+      {% if v.done > 0 %}
+      <div style="margin:8px 0 4px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-bottom:3px;">
+          <span>Tasa de aprobación</span>
+          <span style="font-weight:700;color:{% if v.approved / v.done >= 0.7 %}var(--lanz-green){% elif v.approved / v.done >= 0.4 %}#8b6914{% else %}var(--lanz-red){% endif %};">
+            {{ "%.0f"|format(v.approved / v.done * 100) }}%
+          </span>
+        </div>
+        <div style="height:6px;background:#f0e8e0;border-radius:3px;overflow:hidden;">
+          <div style="height:100%;border-radius:3px;width:{{ "%.0f"|format(v.approved / v.done * 100) }}%;background:{% if v.approved / v.done >= 0.7 %}var(--lanz-green){% elif v.approved / v.done >= 0.4 %}var(--lanz-gold){% else %}var(--lanz-red){% endif %};transition:width .5s;"></div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Skills section -->
+      {% set sections_with_data = v.sections | selectattr('score') | list %}
+      {% if sections_with_data %}
+      <hr class="vc-divider">
+      <div style="font-size:10px;font-weight:700;color:var(--lanz-mid);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+        <i class="bi bi-bar-chart-fill me-1" style="color:var(--lanz-gold);"></i>Habilidades de Venta
+      </div>
+      <div class="skills-grid">
+        {% for sec in v.sections %}
+        {% if sec.score is not none %}
+        <div class="skill-row">
+          <div class="skill-label">
+            <span>{{ sec.emoji }} {{ sec.label }}</span>
+            <span style="font-weight:700;color:{% if sec.score >= 7 %}var(--lanz-green){% elif sec.score >= 5 %}#8b6914{% else %}var(--lanz-red){% endif %};">{{ sec.score }}</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="width:{{ sec.score * 10 }}%;background:{% if sec.score >= 7 %}var(--lanz-green){% elif sec.score >= 5 %}var(--lanz-gold){% else %}var(--lanz-red){% endif %};"></div>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Action Plan -->
+      {% if v.action_plan %}
+      <div class="action-plan">
+        <div class="action-plan-title"><i class="bi bi-lightning-charge-fill" style="color:var(--lanz-gold);"></i>Plan de Acción</div>
+        {% for ap in v.action_plan %}
+        <div class="action-item">
+          <span class="action-badge">{{ ap.emoji }}</span>
+          <div>
+            <strong style="color:var(--lanz-mid);">{{ ap.label }}</strong>
+            <span style="color:#888;"> ({{ ap.score }}/10)</span><br>
+            <span style="color:#666;font-size:10.5px;">{{ ap.tip }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="action-plan" style="background:#f0fff4;border-left-color:var(--lanz-green);">
+        <div class="action-plan-title" style="color:var(--lanz-green);"><i class="bi bi-check-circle-fill"></i>Plan de Acción</div>
+        <div style="font-size:12px;color:#444;">
+          {% if v.total == 0 %}
+            Todavía no hay feedbacks de este vendedor. Pedile que suba una conversación.
+          {% else %}
+            Sin datos de habilidades por ahora. El plan se genera una vez que haya feedbacks completados.
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Link to vendor profile -->
+      {% if v.vendor_id %}
+      <a href="{{ url_for('vendor_profile', vendor_id=v.vendor_id) }}" class="btn btn-sm w-100 mt-3"
+         style="background:linear-gradient(135deg,var(--lanz-dark),var(--lanz-mid));color:#fff;border-radius:8px;font-size:12px;">
+        <i class="bi bi-person-lines-fill me-1"></i>Ver perfil completo
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+</div><!-- /row -->
+
+{% else %}
+<div class="no-data">
+  <div style="font-size:44px;margin-bottom:12px;">📊</div>
+  <div style="font-size:15px;font-weight:700;color:#999;">Todavía no hay datos</div>
+  <div style="font-size:12px;color:#bbb;margin-top:6px;">Cuando los vendedores suban feedbacks en Feedback Lanzamiento, aparecerán sus métricas acá.</div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Last refresh timestamp ────────────────────────────────────────────────
+document.getElementById('lastRefresh').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
+
+// ── Grouped bar chart ─────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('skillsCompareChart');
+  if (!canvas) return;
+
+  const SKILLS = [
+    { key: 'relacion',       label: 'Relación',       emoji: '❤️' },
+    { key: 'descubrimiento', label: 'Descubrim.',      emoji: '🔍' },
+    { key: 'siembra',        label: 'Siembra',         emoji: '🌱' },
+    { key: 'recomendacion',  label: 'Recomend.',       emoji: '🎯' },
+    { key: 'objeciones',     label: 'Objeciones',      emoji: '🛡️' },
+    { key: 'epp_formula',    label: 'E.P.P.',          emoji: '💬' },
+    { key: 'comunicacion',   label: 'Comunicac.',      emoji: '🧠' },
+    { key: 'mentalidad',     label: 'Mentalidad',      emoji: '⚡' },
+  ];
+
+  // Vendor data injected from server
+  const VENDORS = [
+    {% for v in vendor_stats | selectattr('avg_score') %}
+    {
+      name: {{ v.vendor_name | tojson }},
+      scores: {
+        {% for sec in v.sections %}
+        {{ sec.key | tojson }}: {{ sec.score if sec.score is not none else 'null' }},
+        {% endfor %}
+      },
+    },
+    {% endfor %}
+  ];
+
+  if (!VENDORS.length) return;
+
+  // Color palette — one per vendor
+  const PALETTE = [
+    '#667eea','#c9a066','#2d6a4f','#e07070','#38bdf8','#a78bfa','#fb923c','#34d399',
+    '#f472b6','#facc15','#818cf8','#4ade80','#f87171','#60a5fa','#c084fc','#a3e635',
+    '#fbbf24','#22d3ee','#fb7185','#84cc16',
+  ];
+
+  const datasets = VENDORS.map((v, i) => ({
+    label: v.name,
+    data: SKILLS.map(s => v.scores[s.key] ?? null),
+    backgroundColor: PALETTE[i % PALETTE.length] + 'cc',
+    borderColor: PALETTE[i % PALETTE.length],
+    borderWidth: 1.5,
+    borderRadius: 4,
+    borderSkipped: false,
+  }));
+
+  // Build legend
+  const legendEl = document.getElementById('chartLegend');
+  if (legendEl) {
+    VENDORS.forEach((v, i) => {
+      const pill = document.createElement('div');
+      pill.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);border-radius:20px;padding:3px 10px;';
+      pill.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${PALETTE[i % PALETTE.length]};flex-shrink:0;display:inline-block;"></span><span style="font-size:11px;font-weight:700;color:#fff;">${v.name}</span>`;
+      legendEl.appendChild(pill);
+    });
+  }
+
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: SKILLS.map(s => s.emoji + ' ' + s.label),
+      datasets,
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a0810',
+          titleColor: '#c9a066',
+          bodyColor: '#f1d7be',
+          borderColor: '#3d0f1e',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: (items) => SKILLS[items[0].dataIndex].emoji + ' ' + SKILLS[items[0].dataIndex].label,
+            label: (item) => {
+              const val = item.raw;
+              return ` ${item.dataset.label}: ${val !== null ? val.toFixed(1) + ' / 10' : 'Sin datos'}`;
+            },
+            afterBody: (items) => {
+              const scores = items.filter(i => i.raw !== null).map(i => i.raw);
+              if (!scores.length) return '';
+              const avg = scores.reduce((a,b) => a+b, 0) / scores.length;
+              return [`─────────────────`, `  Promedio equipo: ${avg.toFixed(1)} / 10`];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,0,0,.04)' },
+          ticks: { font: { size: 11, weight: '600' }, color: '#555' },
+        },
+        y: {
+          min: 0,
+          max: 10,
+          grid: {
+            color: (ctx) => ctx.tick.value === 7 ? 'rgba(45,106,79,.35)' : 'rgba(0,0,0,.06)',
+            lineWidth: (ctx) => ctx.tick.value === 7 ? 2 : 1,
+          },
+          ticks: {
+            stepSize: 1,
+            font: { size: 11 },
+            color: (ctx) => ctx.tick.value === 7 ? '#2d6a4f' : '#888',
+            callback: v => v === 7 ? '7 ✓' : v,
+          },
+          border: { dash: [4, 4] },
+        },
+      },
+    },
+  });
+})();
+
+// ── Auto-refresh every 60s ────────────────────────────────────────────────
+setTimeout(() => location.reload(), 60000);
+
+// ── Filter cards ──────────────────────────────────────────────────────────
+function filterCards() {
+  const q = document.getElementById('vendorSearch').value.toLowerCase().trim();
+  document.querySelectorAll('.vendor-card-col').forEach(col => {
+    const name = col.dataset.name || '';
+    col.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+}
+
+// ── Sort cards ────────────────────────────────────────────────────────────
+let currentSort = 'score';
+function sortCards(by) {
+  currentSort = by;
+  // Update button styles
+  ['sortScore','sortTotal','sortApproved'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById('sort' + by.charAt(0).toUpperCase() + by.slice(1)).classList.add('active');
+
+  const row = document.getElementById('vendorCardsRow');
+  const cols = Array.from(row.querySelectorAll('.vendor-card-col'));
+  cols.sort((a, b) => {
+    const av = parseFloat(a.dataset[by]) || 0;
+    const bv = parseFloat(b.dataset[by]) || 0;
+    return bv - av;
+  });
+  cols.forEach(c => row.appendChild(c));
+}
+
+// ── Animate skill bars on load ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.skill-fill').forEach(el => {
+    const w = el.style.width;
+    el.style.width = '0';
+    requestAnimationFrame(() => { el.style.width = w; });
+  });
+});
+</script>
+{% endblock %}

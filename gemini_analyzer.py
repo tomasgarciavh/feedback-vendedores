@@ -314,10 +314,135 @@ Respondé en {language}."""
     return feedback
 
 
-def analyze_lanzamiento(file_path: str, vendor_name: str) -> str:
+_EXTERNAL_RESOURCES = """
+━━━ BIBLIOTECA DE RECURSOS EXTERNOS ━━━
+
+Cuando detectes una debilidad específica, recomendá uno o más recursos externos además del material VH. Usá SOLO los recursos de esta lista y siempre incluí el link exacto.
+
+📚 LIBROS — con enlace de búsqueda Amazon:
+
+COMUNICACIÓN Y PERSUASIÓN:
+- "Influence: The Psychology of Persuasion" — Robert Cialdini → https://www.amazon.com/s?k=influence+the+psychology+of+persuasion+cialdini
+  *Cuándo recomendarlo:* falla en sesgos, no sabe crear urgencia, no usa prueba social, no genera autoridad.
+
+- "Pre-Suasion" — Robert Cialdini → https://www.amazon.com/s?k=pre-suasion+cialdini
+  *Cuándo recomendarlo:* los mensajes llegan en el momento equivocado, no prepara el terreno antes de hablar del programa.
+
+- "How to Win Friends and Influence People" — Dale Carnegie → https://www.amazon.com/s?k=how+to+win+friends+and+influence+people+carnegie
+  *Cuándo recomendarlo:* falla en relación, rapport, conexión genuina, escucha activa.
+
+- "Véndele a la Mente, No a la Gente" — Jürgen Klaric → https://www.amazon.com/s?k=vendele+a+la+mente+no+a+la+gente+klaric
+  *Cuándo recomendarlo:* argumenta lógicamente en lugar de conectar emocionalmente, habla de características en lugar de sensaciones.
+
+NEGOCIACIÓN:
+- "Never Split the Difference" — Chris Voss → https://www.amazon.com/s?k=never+split+the+difference+voss
+  *Cuándo recomendarlo:* falla en manejo de objeciones, presiona en lugar de escuchar, no valida las emociones del lead, no usa etiquetado emocional.
+
+- "Getting to Yes" — Fisher & Ury → https://www.amazon.com/s?k=getting+to+yes+fisher+ury
+  *Cuándo recomendarlo:* entra en conflicto con el lead, no separa la persona del problema, negocia posiciones en lugar de intereses.
+
+- "Pitch Anything" — Oren Klaff → https://www.amazon.com/s?k=pitch+anything+oren+klaff
+  *Cuándo recomendarlo:* el pitch no tiene estructura, no genera tensión de estatus, el lead no siente escasez real.
+
+VENTAS:
+- "SPIN Selling" — Neil Rackham → https://www.amazon.com/s?k=spin+selling+neil+rackham
+  *Cuándo recomendarlo:* no usa preguntas de implicación ni de necesidad/payoff, descubrimiento superficial.
+
+- "The Challenger Sale" — Dixon & Adamson → https://www.amazon.com/s?k=the+challenger+sale+dixon+adamson
+  *Cuándo recomendarlo:* no enseña nada nuevo al lead, no reencuadra la situación, sigue el guión en lugar de enseñar.
+
+- "To Sell Is Human" — Daniel Pink → https://www.amazon.com/s?k=to+sell+is+human+daniel+pink
+  *Cuándo recomendarlo:* mentalidad negativa sobre las ventas, cree que "vender es manipular", falta de propósito.
+
+- "Fanatical Prospecting" — Jeb Blount → https://www.amazon.com/s?k=fanatical+prospecting+jeb+blount
+  *Cuándo recomendarlo:* no hace seguimiento consistente, abandona leads fácilmente, no tiene un sistema de contacto.
+
+ORATORIA Y COMUNICACIÓN:
+- "Talk Like TED" — Carmine Gallo → https://www.amazon.com/s?k=talk+like+ted+carmine+gallo
+  *Cuándo recomendarlo:* storytelling débil, no conecta emocionalmente con historias, los mensajes son aburridos o planos.
+
+- "Simply Speaking" — Peggy Noonan → https://www.amazon.com/s?k=simply+speaking+peggy+noonan
+  *Cuándo recomendarlo:* mensajes demasiado complejos, no es claro, usa jerga, el lead no entiende el valor.
+
+- "The Art of Explanation" — Lee LeFever → https://www.amazon.com/s?k=the+art+of+explanation+lefever
+  *Cuándo recomendarlo:* no puede explicar el programa de forma simple, se pierde en detalles técnicos.
+
+MENTALIDAD Y ALTO RENDIMIENTO:
+- "Mindset: The New Psychology of Success" — Carol Dweck → https://www.amazon.com/s?k=mindset+the+new+psychology+of+success+carol+dweck
+  *Cuándo recomendarlo:* miedo al fracaso, se rinde ante el primer "no", mentalidad fija sobre sus habilidades de ventas.
+
+- "The Way of the Wolf" — Jordan Belfort → https://www.amazon.com/s?k=the+way+of+the+wolf+jordan+belfort
+  *Cuándo recomendarlo:* falta de certeza en la voz, no transmite seguridad, no cierra con convicción.
+
+- "Atomic Habits" — James Clear → https://www.amazon.com/s?k=atomic+habits+james+clear
+  *Cuándo recomendarlo:* no tiene consistencia en el seguimiento, olvida leads, no construye rutinas de venta.
+
+- "Man's Search for Meaning" — Viktor Frankl → https://www.amazon.com/s?k=man+search+for+meaning+viktor+frankl
+  *Cuándo recomendarlo:* crisis de propósito, vende por comisión y no por ayudar, se afecta emocionalmente con el rechazo.
+
+PSICOLOGÍA:
+- "Thinking, Fast and Slow" — Daniel Kahneman → https://www.amazon.com/s?k=thinking+fast+and+slow+kahneman
+  *Cuándo recomendarlo:* no entiende cómo toman decisiones los leads, no sabe cuándo hablar al sistema 1 (emocional) vs sistema 2 (racional).
+
+- "Predictably Irrational" — Dan Ariely → https://www.amazon.com/s?k=predictably+irrational+dan+ariely
+  *Cuándo recomendarlo:* no usa anclaje de precio, no entiende el efecto de la gratuidad, no aprovecha la comparación relativa.
+
+🌐 RECURSOS WEB — artículos, blogs y cursos con link directo:
+
+VENTAS:
+- Blog de Sales Hacker (mejores prácticas de ventas modernas) → https://www.saleshacker.com/blog/
+  *Cuándo recomendarlo:* necesita actualizar técnicas de prospección, seguimiento y cierre.
+
+- HubSpot Sales Blog (guías de ventas consultivas) → https://blog.hubspot.com/sales
+  *Cuándo recomendarlo:* necesita mejorar la estructura de conversaciones de venta y uso de CRM mental.
+
+- Artículo "The SPIN Selling Methodology Explained" — HubSpot → https://blog.hubspot.com/sales/spin-selling
+  *Cuándo recomendarlo:* no domina preguntas de descubrimiento profundo.
+
+COMUNICACIÓN Y STORYTELLING:
+- TED Masterclass de Storytelling → https://www.masterclass.com/articles/how-to-tell-a-story
+  *Cuándo recomendarlo:* siembra débil, no conecta con historias, mensajes planos.
+
+- Artículo "How to Use Storytelling in Sales" — HubSpot → https://blog.hubspot.com/sales/storytelling-in-sales
+  *Cuándo recomendarlo:* no usa mini historias o las usa de forma forzada.
+
+MENTALIDAD:
+- Blog de James Clear (hábitos y mentalidad) → https://jamesclear.com/articles
+  *Cuándo recomendarlo:* problemas de consistencia, gestión del tiempo, hábitos de seguimiento.
+
+- Artículo "Growth Mindset vs Fixed Mindset" → https://fs.blog/carol-dweck-mindset/
+  *Cuándo recomendarlo:* se bloquea ante el rechazo, cree que "no es bueno para las ventas".
+
+NEGOCIACIÓN:
+- Blog del Programa de Negociación de Harvard (PON) → https://www.pon.harvard.edu/blog/
+  *Cuándo recomendarlo:* falla en negociación de precio, no sabe cómo crear acuerdos mutuamente beneficiosos.
+
+- Artículo "How to Use the Tactical Empathy" — Black Swan Group → https://www.blackswanltd.com/the-edge
+  *Cuándo recomendarlo:* no valida emociones del lead, pelea contra las objeciones en lugar de escucharlas.
+
+━━━ CÓMO INCLUIR ESTOS RECURSOS ━━━
+
+En la sección "PLAN DE ACCIÓN" y "RECOMENDACIONES DE ESTUDIO", para cada debilidad detectada incluí:
+1. El recurso VH específico (clase del programa)
+2. UNO O DOS recursos externos de esta lista (libro + artículo web cuando sea posible)
+3. Por qué específicamente este recurso para esta persona y esta debilidad
+4. El link exacto, siempre clickeable
+
+Formato de presentación:
+📚 **[Título del libro/recurso]** — [Autor/Fuente]
+🔗 [link exacto]
+💡 *Por qué para {vendor_name}:* [conexión directa con lo observado en el chat]
+"""
+
+
+def analyze_lanzamiento(file_path: str, vendor_name: str,
+                        analysis_phase: str = None,
+                        custom_instructions: str = None) -> str:
     """
     Analyzes a WhatsApp conversation (video screen-recording OR image screenshot)
     and returns structured SCI + Próximo Paso feedback for the 21-day launch methodology.
+    If analysis_phase is set, the analysis focuses on that specific phase.
+    If custom_instructions is set, those instructions guide the analysis.
     """
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured.")
@@ -365,8 +490,49 @@ def analyze_lanzamiento(file_path: str, vendor_name: str) -> str:
     if uploaded_file.state.name == "FAILED":
         raise RuntimeError("Gemini failed to process the file. Verificá el formato (mp4, mov, jpg, png, webp).")
 
+    # ── Phase-specific focus block ──────────────────────────────────────────
+    PHASE_LABELS = {
+        "relacion":       ("RELACIÓN", "Días 1–5", "Crear vínculo genuino usando E.P.P. Activar reciprocidad emocional, identificación y espejo. NO mencionar clases ni programa todavía."),
+        "descubrimiento": ("DESCUBRIMIENTO", "Días 5–10", "Mapear dolores profundos, miedos, deseos, situación actual, problemas y costo de oportunidad. Preguntas de re-pregunta. Los 7 puntos clave."),
+        "siembra":        ("SIEMBRA & STORYTELLING", "Días 10–16", "Mini historias reales que generan curiosidad, identificación e imaginación. Romper creencias limitantes. Invitar a la Clase 2 conectándola con el dolor específico del lead."),
+        "objeciones":     ("OBJECIONES & RECOMENDACIÓN", "Días 16–21", "Manejar objeciones con preguntas y acuerdos, nunca argumentando. Recomendación personalizada que une el programa con los dolores exactos del lead."),
+    }
+
+    phase_focus_block = ""
+    if analysis_phase and analysis_phase in PHASE_LABELS:
+        ph_label, ph_days, ph_goal = PHASE_LABELS[analysis_phase]
+        phase_focus_block = f"""
+---
+
+## ⚠️ ANÁLISIS ENFOCADO — SOLO ESTA ETAPA
+
+Esta sesión de análisis está enfocada **únicamente en la etapa de {ph_label}** ({ph_days}).
+
+**Objetivo de esta etapa:** {ph_goal}
+
+INSTRUCCIONES ESPECIALES:
+- Ignorá las etapas que NO sean {ph_label}. No las evalúes ni las comentes.
+- Todo el análisis, el FODA, el plan de acción y las recomendaciones de estudio deben girar 100% alrededor de cómo el vendedor ejecutó (o no) la etapa de {ph_label}.
+- En la sección de scores, ponés 0 en todas las etapas que no sean {ph_label}.
+- El plan de acción debe ser 100% específico para mejorar en {ph_label}.
+- Las recomendaciones de recursos (VH + externos) deben ser las más relevantes para {ph_label}.
+"""
+
+    custom_block = ""
+    if custom_instructions and custom_instructions.strip():
+        custom_block = f"""
+---
+
+## 📋 INSTRUCCIONES ESPECIALES DEL INSTRUCTOR
+
+{custom_instructions.strip()}
+
+Seguí estas instrucciones al pie de la letra. Tienen prioridad sobre cualquier estructura estándar si hay conflicto.
+"""
+
     prompt = f"""Sos un coach experto en ventas conversacionales por WhatsApp para lanzamientos digitales de 21 días, especializado en psicología de ventas y neuroventas.
 Tu misión: dar feedback honesto, humano y profundamente accionable a **{vendor_name}**, un asesor comercial que está aprendiendo el proceso de venta conversacional por WhatsApp.
+{phase_focus_block}{custom_block}
 
 ---
 
@@ -653,6 +819,18 @@ Analizá lo que hizo **{vendor_name}** y respondé exactamente con esta estructu
 
 #### La pregunta que lo cambiaría todo
 [La pregunta que {vendor_name} podría haber hecho en algún momento de ESTE chat que hubiera cambiado completamente la dirección de la conversación. Sé específico con el momento y la pregunta.]
+
+---
+
+### 9. RECOMENDACIONES DE ESTUDIO Y FORMACIÓN 📖
+
+#### Clases VH recomendadas
+[Listá las clases VH específicas más relevantes para las debilidades detectadas. Conectalas directamente con lo observado en el chat.]
+
+#### Recursos externos recomendados
+{_EXTERNAL_RESOURCES}
+
+Basándote en las debilidades específicas de {vendor_name} en ESTE chat, elegí de la biblioteca de arriba los 3-5 recursos más relevantes. Para cada uno: el título, el link, y por qué específicamente le sirve a {vendor_name} en base a lo que viste.
 
 ---
 

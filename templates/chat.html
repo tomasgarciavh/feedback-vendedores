@@ -333,19 +333,27 @@
 
 <!-- FEEDBACK MODAL -->
 <div class="modal fade" id="feedbackModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
-      <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:20px 24px;display:flex;align-items:center;gap:12px;">
-        <i class="bi bi-stars" style="font-size:24px;color:#c9a066;"></i>
-        <div>
-          <div style="font-weight:700;color:#fff;font-size:16px;">Feedback de tu roleplay</div>
-          <div style="font-size:12px;color:#c9a066;">Evaluación según metodología Vendedores Humanos</div>
+      <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:18px 22px;display:flex;align-items:center;gap:12px;">
+        <!-- VH Logo -->
+        <div style="width:38px;height:38px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:13px;font-weight:900;color:#c9a066;">VH</span>
         </div>
-        <button class="ms-auto btn btn-sm" style="background:#c9a066;color:#1a0810;border:none;border-radius:8px;" id="closeFeedbackBtn">
-          Cerrar
-        </button>
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:15px;">Feedback de tu roleplay</div>
+          <div style="font-size:11px;color:#c9a066;">Evaluación según metodología Vendedores Humanos</div>
+        </div>
+        <div class="ms-auto d-flex gap-2">
+          <button id="printFeedbackBtn" class="btn btn-sm" style="background:rgba(201,160,102,.2);color:#c9a066;border:1px solid rgba(201,160,102,.4);border-radius:8px;font-size:12px;">
+            <i class="bi bi-printer me-1"></i>Imprimir
+          </button>
+          <button class="btn btn-sm" style="background:#c9a066;color:#1a0810;border:none;border-radius:8px;font-size:12px;font-weight:700;" id="closeFeedbackBtn">
+            Cerrar
+          </button>
+        </div>
       </div>
-      <div style="max-height:70vh;overflow-y:auto;padding:24px;">
+      <div style="max-height:80vh;overflow-y:auto;padding:0;" id="feedbackScrollArea">
         <div id="feedbackLoader" class="text-center py-5">
           <div class="spinner-border" style="color:#c9a066;"></div>
           <div style="margin-top:12px;color:#888;font-size:13px;">Analizando tu roleplay con IA...<br>Esto puede demorar unos segundos.</div>
@@ -468,6 +476,7 @@ async function sendMessage() {
     document.getElementById('typingIndicator').style.display = 'none';
     if (data.ok) {
       appendMessage('lead', data.reply);
+      if (data.coaching_tip) appendMicroCoaching(data.coaching_tip);
     } else {
       appendMessage('lead', '⚠️ Error al obtener respuesta. Intentá de nuevo.');
     }
@@ -478,6 +487,43 @@ async function sendMessage() {
   document.getElementById('sendBtn').disabled = false;
   scrollChat();
   input.focus();
+}
+
+function appendMicroCoaching(raw) {
+  const container = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'align-self:stretch;margin:4px 0;';
+
+  // Parse lines
+  let lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+  let html = '';
+  for (const line of lines) {
+    if (line.startsWith('✅')) {
+      html += `<div style="padding:5px 0 3px;color:#1a7a4a;font-size:12px;">${mdLine(line)}</div>`;
+    } else if (line.startsWith('⚠️')) {
+      html += `<div style="padding:3px 0;color:#8b6914;font-size:12px;">${mdLine(line)}</div>`;
+    } else if (line.startsWith('💡')) {
+      html += `<div style="padding:3px 0;color:#1a3a6a;font-size:12px;">${mdLine(line)}</div>`;
+    } else if (line.startsWith('🎯')) {
+      html += `<div style="padding:3px 0 5px;color:#6a1a1a;font-size:12px;">${mdLine(line)}</div>`;
+    } else if (line) {
+      html += `<div style="font-size:12px;color:#555;padding:2px 0;">${mdLine(line)}</div>`;
+    }
+  }
+
+  wrap.innerHTML = `
+    <details style="background:rgba(201,160,102,.08);border:1px solid rgba(201,160,102,.3);border-radius:10px;padding:6px 10px;cursor:pointer;">
+      <summary style="font-size:11px;font-weight:700;color:#8b5a2b;list-style:none;display:flex;align-items:center;gap:5px;user-select:none;">
+        <span>🧠</span><span>Coaching — tocá para ver</span>
+      </summary>
+      <div style="padding-top:6px;border-top:1px solid rgba(201,160,102,.2);margin-top:6px;">${html}</div>
+    </details>`;
+  container.appendChild(wrap);
+  scrollChat();
+}
+
+function mdLine(s) {
+  return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
 document.getElementById('sendBtn').addEventListener('click', sendMessage);
@@ -581,24 +627,67 @@ document.getElementById('closeFeedbackBtn').addEventListener('click', () => {
 });
 
 function renderFeedback(text, score) {
-  // Convert markdown-ish to HTML
-  let html = text
-    .replace(/## (.*)/g, '<h5 class="fw-bold mt-4 mb-2" style="color:#1a0810;">$1</h5>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n- /g, '\n• ')
-    .replace(/\n/g, '<br>');
-
   const color = score >= 7 ? '#1a7a4a' : (score >= 5 ? '#c9a066' : '#c0392b');
+  const bgGrad = score >= 7 ? 'linear-gradient(135deg,#1a3a2a,#2d6a4f)' : (score >= 5 ? 'linear-gradient(135deg,#3a2a0a,#8b6914)' : 'linear-gradient(135deg,#3a0a0a,#8b1a2b)');
+  const label = score >= 7 ? 'Buen trabajo' : (score >= 5 ? 'Hay margen para mejorar' : 'Necesitás más práctica');
+
   const scoreHtml = score ? `
-    <div class="text-center mb-4 p-4 rounded-3" style="background:linear-gradient(135deg,#f8f2eb,#f0e0c8);">
-      <div style="font-size:56px;font-weight:800;color:${color};line-height:1;">${score}</div>
-      <div style="font-size:14px;color:#888;">/ 10</div>
-      <a href="/chat/session/${currentSessionId}" class="btn btn-sm mt-2" style="background:#1a0810;color:#c9a066;border:none;border-radius:8px;">
-        <i class="bi bi-eye me-1"></i> Ver conversación completa
+    <div style="background:${bgGrad};padding:24px;text-align:center;">
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Puntuación General</div>
+      <div style="font-size:64px;font-weight:900;color:#fff;line-height:1;">${score}</div>
+      <div style="font-size:16px;color:rgba(255,255,255,.5);">/ 10</div>
+      <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,.8);">${label}</div>
+      <a href="/chat/session/${currentSessionId}" class="btn btn-sm mt-3" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;font-size:12px;">
+        <i class="bi bi-eye me-1"></i>Ver conversación completa
       </a>
     </div>` : '';
 
-  return scoreHtml + `<div style="line-height:1.7;font-size:14px;">${html}</div>`;
+  // Parse markdown into structured HTML
+  const lines = text.split('\n');
+  let bodyHtml = '';
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { bodyHtml += '<div style="margin:4px 0;"></div>'; continue; }
+    // Score lines — hide (shown in bars)
+    if (/^\w+:\s*\d+(\.\d+)?\s*$/.test(t)) continue;
+    // Headers
+    if (/^#{1,3}\s+/.test(t)) {
+      const content = t.replace(/^#{1,3}\s+/, '');
+      bodyHtml += `<div style="font-weight:700;color:#1a0810;font-size:13px;margin:18px 0 8px;padding:8px 12px;background:linear-gradient(135deg,#f8f2eb,#f0e8d8);border-left:3px solid #c9a066;border-radius:0 8px 8px 0;">${mdInline(content)}</div>`;
+      continue;
+    }
+    // Bullets
+    if (/^[-•]\s+/.test(t)) {
+      const content = t.replace(/^[-•]\s+/, '');
+      bodyHtml += `<div style="padding:4px 0 4px 18px;position:relative;line-height:1.6;font-size:13px;color:#333;"><span style="position:absolute;left:5px;color:#c9a066;font-weight:700;">•</span>${mdInline(content)}</div>`;
+      continue;
+    }
+    bodyHtml += `<div style="margin:2px 0;line-height:1.65;font-size:13px;color:#333;">${mdInline(t)}</div>`;
+  }
+
+  return scoreHtml + `<div style="padding:20px 24px;">${bodyHtml}</div>`;
 }
+
+document.getElementById('printFeedbackBtn').addEventListener('click', () => {
+  const content = document.getElementById('feedbackContent').innerHTML;
+  const vendor = '{{ vendor.name }}';
+  const date = new Date().toLocaleDateString('es-AR');
+  const w = window.open('', '_blank', 'width=800,height:900');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Feedback Roleplay VH</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:0;background:#fff;color:#333;}
+      .ph{display:flex;align-items:center;gap:16px;padding:20px 28px;background:linear-gradient(135deg,#1a0810,#3d0f1e);}
+      .ph-logo{width:48px;height:48px;background:rgba(201,160,102,.2);border:1px solid #c9a066;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#c9a066;}
+      .ph-title{font-size:18px;font-weight:700;color:#fff;} .ph-sub{font-size:12px;color:#c9a066;}
+      .body{padding:20px 28px;}
+      @page{margin:1cm;}
+    </style></head><body>
+    <div class="ph"><div class="ph-logo">VH</div><div><div class="ph-title">Vendedores Humanos</div><div class="ph-sub">Feedback de Roleplay · ${vendor} · ${date}</div></div></div>
+    <div class="body">${content}</div>
+    <script>window.onload=()=>{window.print();window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
+});
 </script>
 {% endblock %}

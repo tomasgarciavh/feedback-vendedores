@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Roleplay Lanzamiento — {{ vendor.name }}{% endblock %}
+{% block title %}Asistente Lanzamiento — {{ vendor.name }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -155,128 +155,16 @@
     {% endif %}
     <div>
       <h5 class="mb-0 fw-bold">Hola, {{ vendor.name.split()[0] }} 👋</h5>
-      <small class="text-muted">Roleplay — Lanzamiento 21 días</small>
+      <small class="text-muted">Asistente en Vivo — Lanzamiento 21 días</small>
     </div>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{{ url_for('chat') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
-      <i class="bi bi-chat-dots me-1"></i>Roleplay VH
-    </a>
-    <a href="{{ url_for('chat_logout') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
-      <i class="bi bi-box-arrow-right me-1"></i>Salir
-    </a>
-  </div>
+  <a href="{{ url_for('chat_logout') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
+    <i class="bi bi-box-arrow-right me-1"></i>Salir
+  </a>
 </div>
-
-<!-- Mode tabs -->
-<div class="mode-tabs" id="modeTabs">
-  <div class="mode-tab active" id="tabRoleplay" onclick="switchMode('roleplay')">
-    <span class="tab-icon">🎭</span>
-    Roleplay por Fase
-    <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px;">Practicá con un lead IA según la semana</div>
-  </div>
-  <div class="mode-tab" id="tabAsistente" onclick="switchMode('asistente')">
-    <span class="tab-icon">💬</span>
-    Asistente en Vivo
-    <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px;">Pedí ayuda durante una conversación real</div>
-  </div>
-</div>
-
-<!-- ══════════════════════ ROLEPLAY MODE ══════════════════════ -->
-<div id="panelRoleplay">
-
-  <div id="rpSetup">
-    <div class="setup-card mb-4">
-      <div class="setup-card-head">
-        <div style="font-size:14px;font-weight:800;">🎭 Configurá tu práctica</div>
-        <div style="font-size:11px;opacity:.7;margin-top:2px;">Elegí la fase a practicar y describí al lead</div>
-      </div>
-      <div class="setup-card-body">
-
-        <!-- Phase selector -->
-        <label class="form-label-sm mb-2">1. ¿Qué fase del lanzamiento querés practicar?</label>
-        <div class="phase-grid" id="phaseGrid">
-          {% for key, ph in phases.items() %}
-          <div class="phase-card {% if loop.first %}selected{% endif %}" data-phase="{{ key }}" onclick="selectPhase('{{ key }}', this)">
-            <div class="ph-emoji">{{ ph.emoji }}</div>
-            <div class="ph-label">{{ ph.label }}</div>
-            <div class="ph-days">{{ ph.days }}</div>
-            <div class="ph-goal">{{ ph.goal }}</div>
-          </div>
-          {% endfor %}
-        </div>
-
-        <!-- Preset lead selector -->
-        <label class="form-label-sm mt-3 mb-2">2. Elegí un lead predeterminado (o creá el tuyo abajo)</label>
-        <div id="presetLeadGrid" class="preset-grid">
-          {% for phase_key, leads in preset_leads.items() %}
-          {% for lead in leads %}
-          <div class="preset-lead-card" data-phase="{{ phase_key }}" data-name="{{ lead.name }}" data-context="{{ lead.context }}"
-               onclick="selectPresetLead(this)">
-            <div class="preset-lead-top">
-              <span class="preset-lead-emoji">{{ lead.emoji }}</span>
-              <span class="preset-diff preset-diff-{{ lead.difficulty|replace('á','a')|replace('é','e')|replace('í','i')|replace('ó','o') }}">{{ lead.difficulty }}</span>
-            </div>
-            <div class="preset-lead-name">{{ lead.name }}</div>
-            <div class="preset-lead-short">{{ lead.short }}</div>
-          </div>
-          {% endfor %}
-          {% endfor %}
-        </div>
-
-        <!-- Lead config -->
-        <label class="form-label-sm mt-3 mb-1">3. Nombre del lead</label>
-        <input type="text" id="rpLeadName" class="form-control-sm2" placeholder="Ej: Carla, Martín..." style="max-width:280px;">
-
-        <label class="form-label-sm mt-3 mb-1">4. Perfil del lead (mientras más detalle, mejor práctica)</label>
-        <textarea id="rpLeadContext" class="form-control-sm2" rows="3"
-          placeholder="Ej: Mamá de 35 años, trabaja en relación de dependencia, le gustaría tener algo propio pero cree que no tiene el perfil. Llegó al lanzamiento por un anuncio. Tiene miedo de gastar plata en algo que no le funcione."></textarea>
-
-        <button class="btn mt-4 fw-bold" style="background:var(--lz-mid);color:#fff;border-radius:10px;padding:10px 28px;"
-                onclick="startRoleplay()">
-          <i class="bi bi-play-fill me-1"></i>Empezar práctica
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Chat window (hidden until started) -->
-  <div id="rpChat" style="display:none;">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div>
-        <span id="rpChatTitle" class="fw-bold" style="font-size:14px;color:var(--lz-mid);"></span>
-        <span id="rpChatSub" style="font-size:11px;color:#888;margin-left:8px;"></span>
-      </div>
-      <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;font-size:12px;" onclick="endRoleplay()">
-        <i class="bi bi-stop-circle me-1"></i>Finalizar y ver feedback
-      </button>
-    </div>
-
-    <div class="chat-area">
-      <div class="chat-messages" id="rpMessages"></div>
-      <div class="chat-input-row">
-        <textarea id="rpInput" placeholder="Escribí tu mensaje como si fuera WhatsApp..." onkeydown="rpKeydown(event)" oninput="autoResize(this)"></textarea>
-        <button id="rpSendBtn" onclick="sendRoleplay()"><i class="bi bi-send-fill"></i></button>
-      </div>
-    </div>
-
-    <div id="rpFeedback" style="display:none;">
-      <div class="d-flex align-items-center gap-2 mt-4 mb-2">
-        <span style="font-size:16px;">📋</span>
-        <span class="fw-bold" style="color:var(--lz-mid);">Feedback de la práctica</span>
-      </div>
-      <div class="feedback-panel" id="rpFeedbackContent"></div>
-      <button class="btn btn-sm mt-3" style="background:var(--lz-mid);color:#fff;border-radius:8px;" onclick="newRoleplay()">
-        <i class="bi bi-arrow-counterclockwise me-1"></i>Nueva práctica
-      </button>
-    </div>
-  </div>
-
-</div><!-- /panelRoleplay -->
-
 
 <!-- ══════════════════════ ASISTENTE MODE ══════════════════════ -->
-<div id="panelAsistente" style="display:none;">
+<div id="panelAsistente">
 
   <!-- ── Contexto del lead (siempre visible, colapsable) ── -->
   <div style="background:#fff;border:1px solid #e9ecef;border-radius:14px;overflow:hidden;margin-bottom:14px;">
@@ -381,19 +269,19 @@
 
 
 <!-- ══════════════════════ HISTORY ══════════════════════ -->
-{% if sessions %}
+{% set as_sessions = sessions | selectattr('mode', 'equalto', 'asistente') | list %}
+{% if as_sessions %}
 <div class="mt-5">
   <h6 class="fw-bold mb-3" style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.5px;">Sesiones anteriores</h6>
-  {% for s in sessions[:10] %}
+  {% for s in as_sessions[:10] %}
   <div class="hist-card">
     <div class="d-flex justify-content-between align-items-center">
       <div class="d-flex align-items-center gap-2">
-        <span class="hist-badge {{ s.mode }}">{{ '🎭 Roleplay' if s.mode == 'roleplay' else '💬 Asistente' }}</span>
+        <span class="hist-badge asistente">💬 Asistente</span>
         {% for key, ph in phases.items() %}{% if key == s.phase %}<span style="font-size:12px;">{{ ph.emoji }} {{ ph.label }}</span>{% endif %}{% endfor %}
         {% if s.lead_name %}<span style="font-size:12px;color:#666;">— {{ s.lead_name }}</span>{% endif %}
       </div>
       <div class="d-flex align-items-center gap-2">
-        {% if s.score %}<span style="font-size:12px;font-weight:800;color:{% if s.score >= 7 %}#2d6a4f{% elif s.score >= 5 %}#8b6914{% else %}#8b1a2b{% endif %};">{{ "%.1f"|format(s.score) }}/10</span>{% endif %}
         <span style="font-size:11px;color:#aaa;">{{ s.started_at[:10] if s.started_at else '' }}</span>
       </div>
     </div>
@@ -407,43 +295,10 @@
 {% block scripts %}
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-let currentMode = 'roleplay';
-let rpSessionId = null;
 let asSessionId = null;
-let rpPhase = '{{ phases.keys()|list|first }}';
 let asPhase = '{{ phases.keys()|list|first }}';
-let rpEnded = false;
-
-// ── Mode switch ────────────────────────────────────────────────────────────
-function switchMode(mode) {
-  currentMode = mode;
-  document.getElementById('tabRoleplay').classList.toggle('active', mode === 'roleplay');
-  document.getElementById('tabAsistente').classList.toggle('active', mode === 'asistente');
-  document.getElementById('panelRoleplay').style.display = mode === 'roleplay' ? '' : 'none';
-  document.getElementById('panelAsistente').style.display = mode === 'asistente' ? '' : 'none';
-}
 
 // ── Phase selectors ────────────────────────────────────────────────────────
-function selectPhase(key, el) {
-  rpPhase = key;
-  document.querySelectorAll('#phaseGrid .phase-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  // Show only preset leads for this phase, deselect current
-  document.querySelectorAll('.preset-lead-card').forEach(c => {
-    c.style.display = c.dataset.phase === key ? '' : 'none';
-    c.classList.remove('selected');
-  });
-  // Clear lead fields when phase changes
-  document.getElementById('rpLeadName').value = '';
-  document.getElementById('rpLeadContext').value = '';
-}
-
-function selectPresetLead(el) {
-  document.querySelectorAll('.preset-lead-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('rpLeadName').value = el.dataset.name;
-  document.getElementById('rpLeadContext').value = el.dataset.context;
-}
 function selectAsPhase(key, el) {
   asPhase = key;
   document.querySelectorAll('#asPhaseGrid .phase-card').forEach(c => c.classList.remove('selected'));
@@ -474,6 +329,32 @@ function appendCoachCard(containerId, html) {
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   return div;
+}
+
+function appendMicroCoaching(containerId, raw) {
+  const container = document.getElementById(containerId);
+  // Render markdown-lite: **bold**, *italic*, emojis already in text
+  const html = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/\n/g,'<br>');
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'align-self:stretch;margin:2px 0 8px;';
+
+  wrapper.innerHTML = `
+    <details style="background:#fefce8;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;font-size:12px;line-height:1.6;">
+      <summary style="padding:8px 12px;cursor:pointer;font-weight:700;color:#92400e;list-style:none;display:flex;align-items:center;gap:6px;user-select:none;">
+        <span style="font-size:14px;">🧠</span>
+        <span>Coaching — click para ver</span>
+        <span style="margin-left:auto;font-size:10px;opacity:.6;">▼</span>
+      </summary>
+      <div style="padding:4px 12px 10px;color:#374151;">${html}</div>
+    </details>`;
+
+  container.appendChild(wrapper);
+  container.scrollTop = container.scrollHeight;
 }
 
 function addLoadingBubble(containerId, role) {
@@ -614,101 +495,6 @@ function renderFeedback(text) {
     return '<p>' + b.replace(/\n/g, '<br>') + '</p>';
   }).join('\n');
 }
-
-// ══════════════════ ROLEPLAY ══════════════════════════════════════════════
-
-async function startRoleplay() {
-  const leadName = document.getElementById('rpLeadName').value.trim() || 'Lead';
-  const leadContext = document.getElementById('rpLeadContext').value.trim();
-
-  const res = await fetch('/chat/lanzamiento/session/start', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ mode:'roleplay', phase:rpPhase, lead_name:leadName, lead_context:leadContext })
-  });
-  const data = await res.json();
-  if (!data.ok) { alert('Error: ' + data.error); return; }
-
-  rpSessionId = data.session_id;
-  rpEnded = false;
-
-  // Get phase label
-  const phaseCard = document.querySelector('#phaseGrid .phase-card.selected');
-  const phaseLabel = phaseCard ? phaseCard.querySelector('.ph-label').textContent : '';
-  const phaseGoal  = phaseCard ? phaseCard.querySelector('.ph-goal').textContent : '';
-
-  document.getElementById('rpChatTitle').textContent = '🎭 Practicando: ' + phaseLabel;
-  document.getElementById('rpChatSub').textContent = 'Lead: ' + leadName;
-
-  // Clear and show chat
-  document.getElementById('rpMessages').innerHTML = '';
-  document.getElementById('rpFeedback').style.display = 'none';
-  document.getElementById('rpSetup').style.display = 'none';
-  document.getElementById('rpChat').style.display = '';
-
-  appendBubble('rpMessages', 'system',
-    '🎭 Práctica iniciada — <strong>' + phaseLabel + '</strong><br><em>' + phaseGoal + '</em><br><br>Escribí tu primer mensaje como si fuera WhatsApp real. El lead va a responder según cómo lo trabajés.');
-}
-
-function rpKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendRoleplay(); }
-}
-
-async function sendRoleplay() {
-  if (!rpSessionId || rpEnded) return;
-  const input = document.getElementById('rpInput');
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = '';
-  input.style.height = '44px';
-  document.getElementById('rpSendBtn').disabled = true;
-
-  appendBubble('rpMessages', 'vendor', text);
-  addLoadingBubble('rpMessages', 'lead');
-
-  const res = await fetch('/chat/lanzamiento/session/' + rpSessionId + '/message', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ text })
-  });
-  removeLoading();
-  document.getElementById('rpSendBtn').disabled = false;
-
-  const data = await res.json();
-  if (data.ok) {
-    appendBubble('rpMessages', 'lead', data.reply);
-  } else {
-    appendBubble('rpMessages', 'system', '⚠️ Error: ' + data.error);
-  }
-  input.focus();
-}
-
-async function endRoleplay() {
-  if (!rpSessionId || rpEnded) return;
-  rpEnded = true;
-  document.querySelector('#rpChat button[onclick="endRoleplay()"]').disabled = true;
-
-  appendBubble('rpMessages', 'system', '⏳ Generando feedback...');
-
-  const res = await fetch('/chat/lanzamiento/session/' + rpSessionId + '/end', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
-  });
-  const data = await res.json();
-
-  if (data.ok && data.feedback) {
-    document.getElementById('rpFeedback').style.display = '';
-    document.getElementById('rpFeedbackContent').innerHTML = renderFeedback(data.feedback);
-    document.getElementById('rpFeedback').scrollIntoView({behavior:'smooth', block:'start'});
-  }
-}
-
-function newRoleplay() {
-  rpSessionId = null; rpEnded = false;
-  document.getElementById('rpSetup').style.display = '';
-  document.getElementById('rpChat').style.display = 'none';
-  document.getElementById('rpMessages').innerHTML = '';
-  document.getElementById('rpFeedback').style.display = 'none';
-}
-
 
 // ══════════════════ ASISTENTE ═════════════════════════════════════════════
 
@@ -865,12 +651,5 @@ function resetAsistente() {
   if (btn) btn.style.display = 'none';
 }
 
-// ── Init preset leads: show only first phase on load ─────────────────────
-(function() {
-  const firstPhase = '{{ phases.keys()|list|first }}';
-  document.querySelectorAll('.preset-lead-card').forEach(c => {
-    if (c.dataset.phase !== firstPhase) c.style.display = 'none';
-  });
-})();
 </script>
 {% endblock %}

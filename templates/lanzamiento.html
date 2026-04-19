@@ -89,8 +89,45 @@
   .pulse { animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
 
+  /* Delete mode */
+  .fb-card.selected-for-delete { border-color: #8b1a2b; box-shadow: 0 0 0 2px rgba(139,26,43,.2); }
+  .delete-bar {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1a0810; color: #fff; padding: 12px 20px; border-radius: 50px;
+    display: flex; align-items: center; gap: 14px; box-shadow: 0 8px 32px rgba(0,0,0,.35);
+    transition: transform .25s ease; z-index: 1000; white-space: nowrap;
+  }
+  .delete-bar.visible { transform: translateX(-50%) translateY(0); }
+  .delete-bar-count { font-size: 13px; font-weight: 700; color: #c9a066; }
+  .cb-wrap { display: flex; align-items: center; gap-8; padding: 0 2px; }
+  .card-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: #8b1a2b; flex-shrink: 0; }
+
   .step-label { font-size: 11px; font-weight: 700; color: #3d0f1e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
   .step-num { width: 20px; height: 20px; background: #3d0f1e; color: #c9a066; border-radius: 50%; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+
+  /* Analysis mode toggle */
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+  .mode-btn {
+    flex: 1; padding: 10px 12px; border-radius: 10px; border: 2px solid #e9ecef;
+    background: #fff; cursor: pointer; text-align: center; font-size: 12px; font-weight: 700;
+    color: #555; transition: all .15s;
+  }
+  .mode-btn:hover { border-color: var(--lanz-gold); color: var(--lanz-mid); }
+  .mode-btn.active { border-color: var(--lanz-mid); background: linear-gradient(135deg,rgba(61,15,30,.07),rgba(201,160,102,.1)); color: var(--lanz-mid); }
+  .mode-btn .mode-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+
+  /* Phase grid for targeted analysis */
+  .phase-pick-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 12px; }
+  @media(min-width:576px) { .phase-pick-grid { grid-template-columns: repeat(4,1fr); } }
+  .phase-pick-btn {
+    padding: 10px 8px; border-radius: 10px; border: 2px solid #e9ecef;
+    background: #fff; cursor: pointer; text-align: center; transition: all .15s;
+  }
+  .phase-pick-btn:hover { border-color: var(--lanz-gold); }
+  .phase-pick-btn.selected { border-color: var(--lanz-mid); background: linear-gradient(135deg,rgba(61,15,30,.07),rgba(201,160,102,.1)); }
+  .phase-pick-btn .ph-emoji { font-size: 20px; }
+  .phase-pick-btn .ph-label { font-size: 11px; font-weight: 800; color: var(--lanz-mid); margin-top: 3px; }
+  .phase-pick-btn .ph-days  { font-size: 10px; color: #888; }
 </style>
 
 {% endblock %}
@@ -174,7 +211,54 @@
         {% endfor %}
       </div>
 
-      <div class="step-label mt-2"><span class="step-num">2</span>Subí tu conversación <span style="font-weight:400;color:#888;">(captura jpg/png/webp o grabación mp4/mov)</span></div>
+      <!-- Analysis mode selector -->
+      <div class="step-label mt-3"><span class="step-num">2</span>Tipo de análisis</div>
+      <div class="mode-toggle">
+        <div class="mode-btn active" id="modeGeneral" onclick="setMode('general')">
+          <span class="mode-icon">🔍</span>
+          Análisis completo
+          <div style="font-size:10px;font-weight:400;color:#888;margin-top:2px;">Evalúa todo el proceso de 21 días</div>
+        </div>
+        <div class="mode-btn" id="modePhase" onclick="setMode('phase')">
+          <span class="mode-icon">🎯</span>
+          Por etapa
+          <div style="font-size:10px;font-weight:400;color:#888;margin-top:2px;">Enfocado en una sola fase</div>
+        </div>
+      </div>
+
+      <!-- Phase picker (shown only in "por etapa" mode) -->
+      <div id="phasePicker" style="display:none;">
+        <input type="hidden" name="analysis_phase" id="analysisPhaseInput">
+        <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:8px;">¿Qué etapa querés analizar?</div>
+        <div class="phase-pick-grid">
+          <div class="phase-pick-btn" onclick="selectPhase(this,'relacion')">
+            <div class="ph-emoji">❤️</div>
+            <div class="ph-label">Relación</div>
+            <div class="ph-days">Días 1–5</div>
+          </div>
+          <div class="phase-pick-btn" onclick="selectPhase(this,'descubrimiento')">
+            <div class="ph-emoji">🔍</div>
+            <div class="ph-label">Descubrimiento</div>
+            <div class="ph-days">Días 5–10</div>
+          </div>
+          <div class="phase-pick-btn" onclick="selectPhase(this,'siembra')">
+            <div class="ph-emoji">🌱</div>
+            <div class="ph-label">Siembra</div>
+            <div class="ph-days">Días 10–16</div>
+          </div>
+          <div class="phase-pick-btn" onclick="selectPhase(this,'objeciones')">
+            <div class="ph-emoji">🛡️</div>
+            <div class="ph-label">Objeciones</div>
+            <div class="ph-days">Días 16–21</div>
+          </div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:6px;margin-top:4px;">Instrucciones adicionales <span style="font-weight:400;color:#aaa;">(opcional)</span></div>
+        <textarea name="custom_instructions" id="customInstructions" rows="3"
+          placeholder="Ej: Analizá específicamente si el vendedor usó E.P.P. correctamente. Ignorá todo lo que sea siembra o invitación a clases..."
+          style="width:100%;border:1px solid #e9ecef;border-radius:8px;padding:9px 12px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>
+      </div>
+
+      <div class="step-label mt-3"><span class="step-num">3</span>Subí tu conversación <span style="font-weight:400;color:#888;">(captura jpg/png/webp o grabación mp4/mov)</span></div>
       <div class="upload-zone" id="lanzDropZone" onclick="document.getElementById('lanzFileInput').click()">
         <input type="file" id="lanzFileInput" name="file" style="display:none"
                accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.jpg,.jpeg,.png,.webp">
@@ -201,14 +285,23 @@
 
 <!-- Historial -->
 {% if submissions %}
-<div style="font-size:12px;font-weight:700;color:#3d0f1e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">
-  <i class="bi bi-clock-history me-1"></i>Historial de Análisis
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div style="font-size:12px;font-weight:700;color:#3d0f1e;text-transform:uppercase;letter-spacing:.5px;">
+    <i class="bi bi-clock-history me-1"></i>Historial de Análisis
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <label style="font-size:12px;color:#888;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;" id="selectAllLabel">
+      <input type="checkbox" id="selectAllCb" style="width:16px;height:16px;accent-color:#8b1a2b;cursor:pointer;">
+      Seleccionar todos
+    </label>
+  </div>
 </div>
 
 {% for s in submissions %}
 <div class="fb-card" id="card-{{ s.file_id }}">
   <div class="fb-card-header">
-    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+    <div class="d-flex align-items-center gap-3" style="min-width:0;flex:1;">
+      <input type="checkbox" class="card-checkbox" data-id="{{ s.file_id }}" onchange="updateDeleteBar()" title="Seleccionar para eliminar">
       <!-- Score -->
       {% if s.score %}
       {% set sc = s.score %}
@@ -304,6 +397,17 @@
 </div>
 {% endif %}
 
+<!-- ══ DELETE BAR ══════════════════════════════════════════════════════════════ -->
+<div class="delete-bar" id="deleteBar">
+  <span class="delete-bar-count" id="deleteBarCount">0 seleccionados</span>
+  <button class="btn btn-sm fw-bold" style="background:#8b1a2b;color:#fff;border-radius:20px;font-size:12px;padding:5px 16px;" onclick="deleteSelected()">
+    <i class="bi bi-trash me-1"></i>Eliminar
+  </button>
+  <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#ccc;border-radius:20px;font-size:12px;padding:5px 12px;" onclick="clearSelection()">
+    Cancelar
+  </button>
+</div>
+
 <!-- ══ FEEDBACK MODAL ══════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="feedbackModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -333,6 +437,25 @@
 
 {% block scripts %}
 <script>
+// ── Analysis mode toggle ──────────────────────────────────────────────────
+let _analysisMode = 'general';
+function setMode(mode) {
+  _analysisMode = mode;
+  document.getElementById('modeGeneral').classList.toggle('active', mode === 'general');
+  document.getElementById('modePhase').classList.toggle('active', mode === 'phase');
+  document.getElementById('phasePicker').style.display = mode === 'phase' ? 'block' : 'none';
+  if (mode === 'general') {
+    document.getElementById('analysisPhaseInput').value = '';
+  }
+}
+
+function selectPhase(el, phase) {
+  document.querySelectorAll('.phase-pick-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('analysisPhaseInput').value = phase;
+  checkSubmit();
+}
+
 // ── Vendor picker ─────────────────────────────────────────────────────────
 function selectVendor(el, name) {
   document.querySelectorAll('#lanzVendorPicker .vendor-pick-btn').forEach(b => b.classList.remove('selected'));
@@ -368,8 +491,10 @@ function showPreview(file) {
 }
 
 function checkSubmit() {
-  const ok = document.getElementById('lanzVendorInput').value.trim() && fileInput.files.length > 0;
-  document.getElementById('lanzSubmitBtn').disabled = !ok;
+  const hasVendor = !!document.getElementById('lanzVendorInput').value.trim();
+  const hasFile = fileInput.files.length > 0;
+  const phaseOk = _analysisMode === 'general' || !!document.getElementById('analysisPhaseInput').value;
+  document.getElementById('lanzSubmitBtn').disabled = !(hasVendor && hasFile && phaseOk);
 }
 
 document.getElementById('lanzForm').addEventListener('submit', () => {
@@ -474,5 +599,79 @@ function pollCard(id) {
 }
 
 processingIds.forEach(id => setTimeout(() => pollCard(id), 6000));
+
+// ── Delete functionality ───────────────────────────────────────────────────
+function getChecked() {
+  return Array.from(document.querySelectorAll('.card-checkbox:checked'));
+}
+
+function updateDeleteBar() {
+  const checked = getChecked();
+  const bar = document.getElementById('deleteBar');
+  const count = document.getElementById('deleteBarCount');
+  count.textContent = checked.length + (checked.length === 1 ? ' seleccionado' : ' seleccionados');
+  bar.classList.toggle('visible', checked.length > 0);
+
+  // Highlight selected cards
+  document.querySelectorAll('.card-checkbox').forEach(cb => {
+    const card = cb.closest('.fb-card');
+    if (card) card.classList.toggle('selected-for-delete', cb.checked);
+  });
+
+  // Sync select-all checkbox state
+  const all = document.querySelectorAll('.card-checkbox');
+  const selectAllCb = document.getElementById('selectAllCb');
+  if (selectAllCb) {
+    selectAllCb.indeterminate = checked.length > 0 && checked.length < all.length;
+    selectAllCb.checked = all.length > 0 && checked.length === all.length;
+  }
+}
+
+function clearSelection() {
+  document.querySelectorAll('.card-checkbox').forEach(cb => { cb.checked = false; });
+  const selectAllCb = document.getElementById('selectAllCb');
+  if (selectAllCb) { selectAllCb.checked = false; selectAllCb.indeterminate = false; }
+  updateDeleteBar();
+}
+
+const selectAllCb = document.getElementById('selectAllCb');
+if (selectAllCb) {
+  selectAllCb.addEventListener('change', function() {
+    document.querySelectorAll('.card-checkbox').forEach(cb => { cb.checked = this.checked; });
+    updateDeleteBar();
+  });
+}
+
+async function deleteSelected() {
+  const checked = getChecked();
+  if (!checked.length) return;
+  const n = checked.length;
+  if (!confirm(`¿Eliminar ${n} análisis seleccionado${n > 1 ? 's' : ''}? Esta acción no se puede deshacer.`)) return;
+
+  const btn = document.querySelector('#deleteBar .btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...';
+
+  let deleted = 0;
+  for (const cb of checked) {
+    const fileId = cb.dataset.id;
+    try {
+      const r = await fetch('/lanzamiento/submissions/' + fileId, { method: 'DELETE' });
+      if (r.ok) {
+        const card = document.getElementById('card-' + fileId);
+        if (card) { card.style.opacity = '0'; card.style.transition = 'opacity .3s'; setTimeout(() => card.remove(), 300); }
+        deleted++;
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-trash me-1"></i>Eliminar';
+
+  clearSelection();
+
+  // Reload if any item was removed to refresh KPI counters
+  if (deleted > 0) setTimeout(() => location.reload(), 400);
+}
 </script>
 {% endblock %}

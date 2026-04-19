@@ -246,7 +246,7 @@
     </div>
   </div>
 
-  <div class="nav-section-title">Menú</div>
+  <div class="nav-section-title">VH</div>
 
   <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
     <i class="bi bi-speedometer2"></i> Dashboard
@@ -260,16 +260,36 @@
   <a href="{{ url_for('formacion_vh') }}" class="nav-link {% if request.endpoint == 'formacion_vh' %}active{% endif %}">
     <i class="bi bi-journal-richtext"></i> Formación VH
   </a>
-
-  <div class="nav-section-title" style="padding-top:10px;">Práctica</div>
   <a href="{{ url_for('chat') }}" class="nav-link {% if request.endpoint in ('chat','chat_login','chat_view_session') %}active{% endif %}">
     <i class="bi bi-chat-dots-fill"></i> Roleplay VH
   </a>
+  <a href="{{ url_for('videollamadas') }}" class="nav-link {% if request.endpoint == 'videollamadas' %}active{% endif %}">
+    <i class="bi bi-camera-video-fill"></i> Videollamadas
+    <span style="font-size:9px;font-weight:700;background:rgba(201,160,102,.25);color:#c9a066;border-radius:6px;padding:1px 5px;margin-left:auto;">Soon</span>
+  </a>
+  <a href="{{ url_for('llamadas') }}" class="nav-link {% if request.endpoint == 'llamadas' %}active{% endif %}">
+    <i class="bi bi-telephone-fill"></i> Llamadas
+    <span style="font-size:9px;font-weight:700;background:rgba(201,160,102,.25);color:#c9a066;border-radius:6px;padding:1px 5px;margin-left:auto;">Soon</span>
+  </a>
+
+  <div class="nav-section-title" style="padding-top:10px;">Lanzamiento</div>
   <a href="{{ url_for('chat_lanzamiento') }}" class="nav-link {% if request.endpoint in ('chat_lanzamiento','chat_lanzamiento_start','chat_lanzamiento_message','chat_lanzamiento_end') %}active{% endif %}">
     <i class="bi bi-chat-quote-fill"></i> Asistente Lanzamiento
   </a>
+  <a href="{{ url_for('roleplay_lanzamiento') }}" class="nav-link {% if request.endpoint == 'roleplay_lanzamiento' %}active{% endif %}">
+    <i class="bi bi-controller"></i> Roleplay Lanzamiento
+  </a>
   <a href="{{ url_for('lanzamiento') }}" class="nav-link {% if request.endpoint in ('lanzamiento','lanzamiento_upload','lanzamiento_feedback_json') %}active{% endif %}">
     <i class="bi bi-rocket-takeoff-fill"></i> Feedback Lanzamiento
+  </a>
+  <a href="{{ url_for('lanzamiento_kpi') }}" class="nav-link {% if request.endpoint == 'lanzamiento_kpi' %}active{% endif %}">
+    <i class="bi bi-graph-up"></i> KPI
+  </a>
+  <a href="{{ url_for('lanzamiento_director') }}" class="nav-link {% if request.endpoint == 'lanzamiento_director' %}active{% endif %}">
+    <i class="bi bi-speedometer"></i> Director Comercial
+  </a>
+  <a href="{{ url_for('lanzamiento_kpi_director') }}" class="nav-link {% if request.endpoint == 'lanzamiento_kpi_director' %}active{% endif %}">
+    <i class="bi bi-graph-up-arrow"></i> KPI Director
   </a>
 
   {% if session.get('producer_auth') %}

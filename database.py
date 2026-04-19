@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -10,11 +11,30 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import psycopg2
+import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
+
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+
+# Simple TTL cache — (value, expires_at)
+_cache: dict[str, tuple] = {}
+
+def _cached(key: str, ttl: int, fn):
+    entry = _cache.get(key)
+    if entry and time.monotonic() < entry[1]:
+        return entry[0]
+    value = fn()
+    _cache[key] = (value, time.monotonic() + ttl)
+    return value
+
+def _invalidate(prefix: str):
+    for k in list(_cache.keys()):
+        if k.startswith(prefix):
+            del _cache[k]
 
 
 def _database_url() -> str:
@@ -27,6 +47,17 @@ def _database_url() -> str:
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}sslmode=require"
     return url
+
+
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None or _pool.closed:
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2, maxconn=10,
+            dsn=_database_url(),
+            cursor_factory=RealDictCursor,
+        )
+    return _pool
 
 
 class _Result:
@@ -49,6 +80,7 @@ class _Conn:
 
     def __init__(self, raw):
         self._raw = raw
+        self._pool_ref = None
 
     def execute(self, sql, params=None):
         sql = sql.replace("?", "%s").replace("excluded.", "EXCLUDED.")
@@ -68,13 +100,25 @@ class _Conn:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
             self._raw.rollback()
-        self._raw.close()
+        else:
+            self._raw.commit()
+        if self._pool_ref:
+            try:
+                self._pool_ref.putconn(self._raw)
+            except Exception:
+                self._raw.close()
+        else:
+            self._raw.close()
         return False
 
 
 def get_connection():
-    conn = psycopg2.connect(_database_url(), cursor_factory=RealDictCursor)
-    return _Conn(conn)
+    pool = _get_pool()
+    raw = pool.getconn()
+    raw.autocommit = False
+    conn = _Conn(raw)
+    conn._pool_ref = pool
+    return conn
 
 
 def _now() -> str:
@@ -191,6 +235,29 @@ def init_db():
                 badges_json TEXT DEFAULT '[]'
             )
         """)
+        # Seed KPI vendors
+        _KPI_VENDORS = [
+            ("Gianina Yelme", "gianina.yelme@vh.com"),
+            ("Nadya Deliberto", "nadya.deliberto@vh.com"),
+            ("Debora Roldan", "debora.roldan@vh.com"),
+            ("Gisse Guille", "gisse.guille@vh.com"),
+            ("Leila Varga", "leila.varga@vh.com"),
+            ("Nestor Cardozo", "nestor.cardozo@vh.com"),
+            ("Sofia Moyano", "sofia.moyano@vh.com"),
+            ("Rocio Lopez", "rocio.lopez@vh.com"),
+            ("Daniela Ruiz Diaz", "daniela.ruizdiaz@vh.com"),
+            ("Roxana Molina", "roxana.molina@vh.com"),
+        ]
+        for name, email in _KPI_VENDORS:
+            try:
+                conn.execute(
+                    "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 1) "
+                    "ON CONFLICT(name) DO UPDATE SET kpi_vendor=1",
+                    (name, email)
+                )
+            except Exception:
+                pass
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_kpi_entries (
                 id SERIAL PRIMARY KEY,
@@ -217,20 +284,146 @@ def init_db():
     logger.info("Database initialized.")
 
 
+# ── KPI Lanzamiento ─────────────────────────────────────────────────────────
+
+KPI_NUMERIC_FIELDS = [
+    "no_respondido",
+    "interaccion_leve_frio", "interaccion_leve_tibio", "interaccion_leve_caliente",
+    "conversacion_fluida_frio", "conversacion_fluida_tibio", "conversacion_fluida_caliente",
+    "potencial_compra_frio", "potencial_compra_tibio", "potencial_compra_caliente",
+    "venta_realizada",
+]
+
+
+def kpi_upsert_entry(vendor_id: int, entry_date: str, data: dict) -> None:
+    fields = {k: int(data.get(k, 0) or 0) for k in KPI_NUMERIC_FIELDS}
+    notes = (data.get("notes") or "").strip()
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO lanzamiento_kpi_entries
+                (vendor_id, entry_date, {', '.join(KPI_NUMERIC_FIELDS)}, notes, created_at, updated_at)
+            VALUES (?, ?, {', '.join(['?']*len(KPI_NUMERIC_FIELDS))}, ?, ?, ?)
+            ON CONFLICT(vendor_id, entry_date) DO UPDATE SET
+                {', '.join(f'{k}=excluded.{k}' for k in KPI_NUMERIC_FIELDS)},
+                notes=excluded.notes, updated_at=excluded.updated_at
+            """,
+            [vendor_id, entry_date] + [fields[k] for k in KPI_NUMERIC_FIELDS] + [notes, now, now]
+        )
+        conn.commit()
+
+
+def kpi_get_entry(vendor_id: int, entry_date: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM lanzamiento_kpi_entries WHERE vendor_id=? AND entry_date=?",
+            (vendor_id, entry_date)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def kpi_delete_entries(vendor_id: int, entry_dates: list[str]) -> int:
+    """Elimina entradas KPI por fecha. Devuelve cantidad eliminada."""
+    if not entry_dates:
+        return 0
+    placeholders = ",".join(["?"] * len(entry_dates))
+    with get_connection() as conn:
+        result = conn.execute(
+            f"DELETE FROM lanzamiento_kpi_entries WHERE vendor_id=? AND entry_date IN ({placeholders})",
+            [vendor_id] + list(entry_dates)
+        )
+        conn.commit()
+    return result.rowcount
+
+
+def kpi_get_vendor_entries(vendor_id: int, days: int = 30) -> list[dict]:
+    from datetime import date, timedelta
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM lanzamiento_kpi_entries
+               WHERE vendor_id=? AND entry_date >= ?
+               ORDER BY entry_date DESC""",
+            (vendor_id, cutoff)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def kpi_get_all_entries(from_date: str = None, to_date: str = None, vendor_id: int = None) -> list[dict]:
+    clauses = []
+    params = []
+    if from_date:
+        clauses.append("k.entry_date >= ?"); params.append(from_date)
+    if to_date:
+        clauses.append("k.entry_date <= ?"); params.append(to_date)
+    if vendor_id:
+        clauses.append("k.vendor_id = ?"); params.append(vendor_id)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""SELECT k.*, v.name as vendor_name, v.photo_path
+                FROM lanzamiento_kpi_entries k
+                LEFT JOIN vendors v ON k.vendor_id = v.id
+                {where}
+                ORDER BY k.entry_date DESC, v.name""",
+            params
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def kpi_aggregate_entries(entries: list[dict]) -> dict:
+    """Sum all numeric KPI fields across a list of entries."""
+    totals = {k: 0 for k in KPI_NUMERIC_FIELDS}
+    for e in entries:
+        for k in KPI_NUMERIC_FIELDS:
+            totals[k] += int(e.get(k, 0) or 0)
+    # Derived totals
+    totals["interaccion_leve"] = sum(totals[k] for k in ["interaccion_leve_frio","interaccion_leve_tibio","interaccion_leve_caliente"])
+    totals["conversacion_fluida"] = sum(totals[k] for k in ["conversacion_fluida_frio","conversacion_fluida_tibio","conversacion_fluida_caliente"])
+    totals["potencial_compra"] = sum(totals[k] for k in ["potencial_compra_frio","potencial_compra_tibio","potencial_compra_caliente"])
+    totals["total_leads"] = sum(totals[k] for k in ["no_respondido","interaccion_leve","conversacion_fluida","potencial_compra","venta_realizada"])
+    return totals
+
+
+def kpi_get_all_vendors_summary(from_date: str = None, to_date: str = None) -> list[dict]:
+    """Per-vendor aggregated KPI summary for director dashboard."""
+    entries = kpi_get_all_entries(from_date=from_date, to_date=to_date)
+    by_vendor: dict[int, list] = {}
+    vendor_info: dict[int, dict] = {}
+    for e in entries:
+        vid = e["vendor_id"]
+        by_vendor.setdefault(vid, []).append(e)
+        vendor_info[vid] = {"vendor_name": e.get("vendor_name", "—"), "photo_path": e.get("photo_path")}
+    result = []
+    for vid, vendor_entries in by_vendor.items():
+        agg = kpi_aggregate_entries(vendor_entries)
+        agg["vendor_id"] = vid
+        agg["vendor_name"] = vendor_info[vid]["vendor_name"]
+        agg["photo_path"] = vendor_info[vid]["photo_path"]
+        agg["entry_count"] = len(vendor_entries)
+        result.append(agg)
+    result.sort(key=lambda x: x.get("venta_realizada", 0), reverse=True)
+    return result
+
+
 # ── Lanzamiento submissions ─────────────────────────────────────────────────
 
-def lanzamiento_mark_processing(file_id: str, file_name: str, vendor_name: str, file_type: str = "video"):
+def lanzamiento_mark_processing(file_id: str, file_name: str, vendor_name: str,
+                                file_type: str = "video",
+                                analysis_phase: str = None, custom_instructions: str = None):
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO lanzamiento_submissions (file_id, file_name, vendor_name, submitted_at, status, file_type)
-            VALUES (?, ?, ?, ?, 'processing', ?)
+            INSERT INTO lanzamiento_submissions
+                (file_id, file_name, vendor_name, submitted_at, status, file_type, analysis_phase, custom_instructions)
+            VALUES (?, ?, ?, ?, 'processing', ?, ?, ?)
             ON CONFLICT(file_id) DO UPDATE SET
                 status = 'processing',
                 submitted_at = excluded.submitted_at,
                 error_message = NULL
             """,
-            (file_id, file_name, vendor_name, _now(), file_type),
+            (file_id, file_name, vendor_name, _now(), file_type, analysis_phase, custom_instructions),
         )
         conn.commit()
 
@@ -272,6 +465,138 @@ def lanzamiento_get_by_vendor(vendor_name: str, limit: int = 50):
             (vendor_name, limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def lanzamiento_delete_submission(file_id: str) -> bool:
+    """Delete a lanzamiento submission by file_id. Returns True if a row was deleted."""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM lanzamiento_submissions WHERE file_id = ?", (file_id,)
+        )
+        conn.commit()
+    return cursor.rowcount > 0
+
+
+def lanzamiento_get_vendor_stats():
+    """Returns per-vendor aggregated stats for the director dashboard."""
+    import json as _json
+    from collections import defaultdict
+
+    SECTION_KEYS = [
+        "relacion", "descubrimiento", "siembra", "recomendacion",
+        "objeciones", "epp_formula", "comunicacion", "mentalidad",
+    ]
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT vendor_name, status, score, section_scores, submitted_at FROM lanzamiento_submissions ORDER BY submitted_at DESC"
+        ).fetchall()
+        # Get vendor photos and IDs
+        vendor_rows = conn.execute("SELECT id, name, photo_path FROM vendors").fetchall()
+
+    vendor_photo_map = {v["name"]: v["photo_path"] for v in vendor_rows}
+    vendor_id_map = {v["name"]: v["id"] for v in vendor_rows}
+
+    data = defaultdict(lambda: {
+        "total": 0, "done": 0, "processing": 0, "error": 0,
+        "scores": [], "section_totals": {k: 0.0 for k in SECTION_KEYS},
+        "section_counts": {k: 0 for k in SECTION_KEYS},
+        "last_submission": None,
+    })
+
+    for row in rows:
+        v = data[row["vendor_name"]]
+        v["total"] += 1
+        status = row["status"] or "error"
+        v[status] = v.get(status, 0) + 1
+        if v["last_submission"] is None:
+            v["last_submission"] = row["submitted_at"]
+        if row["score"] and row["status"] == "done":
+            v["scores"].append(float(row["score"]))
+        if row["section_scores"] and row["status"] == "done":
+            try:
+                sections = _json.loads(row["section_scores"])
+                for k in SECTION_KEYS:
+                    val = sections.get(k)
+                    if val is not None:
+                        v["section_totals"][k] += float(val)
+                        v["section_counts"][k] += 1
+            except Exception:
+                pass
+
+    SECTION_LABELS = {
+        "relacion": ("Relación", "❤️"),
+        "descubrimiento": ("Descubrimiento", "🔍"),
+        "siembra": ("Siembra", "🌱"),
+        "recomendacion": ("Recomendación", "🎯"),
+        "objeciones": ("Objeciones", "🛡️"),
+        "epp_formula": ("E.P.P.", "💬"),
+        "comunicacion": ("Comunicación", "🧠"),
+        "mentalidad": ("Mentalidad", "⚡"),
+    }
+    ACTION_TIPS = {
+        "relacion": "Practicar apertura genuina y E.P.P. — preguntas que toquen algo real de la vida del lead.",
+        "descubrimiento": "Trabajar preguntas de re-pregunta para mapear dolores, miedos y costo de oportunidad.",
+        "siembra": "Mejorar el storytelling — conectar historias específicas al dolor particular del lead.",
+        "recomendacion": "Practicar recomendaciones personalizadas que unan el programa al dolor descubierto.",
+        "objeciones": "Trabajar manejo de objeciones con preguntas y acuerdos en lugar de argumentar.",
+        "epp_formula": "Aplicar E.P.P. (Escucho–Participo–Profundizo) de forma consistente en cada mensaje.",
+        "comunicacion": "Mejorar claridad, tono argentino informal y estructura de los mensajes de WhatsApp.",
+        "mentalidad": "Fortalecer mentalidad de vendedor: desapego del resultado y confianza en el proceso.",
+    }
+
+    result = []
+    for vendor_name, d in data.items():
+        avg_score = round(sum(d["scores"]) / len(d["scores"]), 1) if d["scores"] else None
+        approved = sum(1 for s in d["scores"] if s >= 7)
+
+        avg_sections = {}
+        for k in SECTION_KEYS:
+            if d["section_counts"][k] > 0:
+                avg_sections[k] = round(d["section_totals"][k] / d["section_counts"][k], 1)
+
+        # Action plan: 3 weakest skills
+        action_plan = []
+        if avg_sections:
+            weakest = sorted(avg_sections.items(), key=lambda x: x[1])[:3]
+            action_plan = [
+                {
+                    "key": k,
+                    "label": SECTION_LABELS[k][0],
+                    "emoji": SECTION_LABELS[k][1],
+                    "score": v,
+                    "tip": ACTION_TIPS[k],
+                }
+                for k, v in weakest
+            ]
+
+        # Full sections list for display
+        sections_display = [
+            {
+                "key": k,
+                "label": SECTION_LABELS[k][0],
+                "emoji": SECTION_LABELS[k][1],
+                "score": avg_sections.get(k),
+            }
+            for k in SECTION_KEYS
+        ]
+
+        result.append({
+            "vendor_name": vendor_name,
+            "vendor_id": vendor_id_map.get(vendor_name),
+            "photo_path": vendor_photo_map.get(vendor_name),
+            "total": d["total"],
+            "done": d.get("done", 0),
+            "processing": d.get("processing", 0),
+            "approved": approved,
+            "avg_score": avg_score,
+            "sections": sections_display,
+            "action_plan": action_plan,
+            "last_submission": d["last_submission"],
+        })
+
+    result.sort(key=lambda x: (x["avg_score"] or 0, x["total"]), reverse=True)
+    return result
 
 
 def is_processed(file_id: str) -> bool:
@@ -353,11 +678,23 @@ def get_vendor_records(vendor_name: str) -> list:
 
 
 def get_vendors() -> list:
-    with get_connection() as conn:
-        rows = conn.execute(
-            "SELECT id, name, email, photo_path, role, status, joined_program FROM vendors ORDER BY name"
-        ).fetchall()
-    return [dict(row) for row in rows]
+    def _fetch():
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, email, photo_path, role, status, joined_program FROM vendors ORDER BY name"
+            ).fetchall()
+        return [dict(row) for row in rows]
+    return _cached("vendors:all", 60, _fetch)
+
+
+def get_kpi_vendors() -> list:
+    def _fetch():
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, email, photo_path FROM vendors WHERE kpi_vendor=1 ORDER BY name"
+            ).fetchall()
+        return [dict(row) for row in rows]
+    return _cached("vendors:kpi", 60, _fetch)
 
 
 def get_vendor_by_id(vendor_id: int):
@@ -396,6 +733,7 @@ def upsert_vendor(name: str, email: str):
             (name.strip(), email.strip()),
         )
         conn.commit()
+    _invalidate("vendors:")
 
 
 def update_vendor_testimonial(vendor_id: int, filename: str):
@@ -420,6 +758,7 @@ def delete_vendor(vendor_id: int):
     with get_connection() as conn:
         conn.execute("DELETE FROM vendors WHERE id = ?", (vendor_id,))
         conn.commit()
+    _invalidate("vendors:")
 
 
 def get_vendor_email(vendor_name: str) -> str | None:

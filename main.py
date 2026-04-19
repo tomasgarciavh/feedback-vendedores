@@ -4,6 +4,10 @@ import os
 import queue
 import threading
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_from_directory, session as flask_session, url_for
 
@@ -75,11 +79,15 @@ def _lanzamiento_worker():
         file_id = item["file_id"]
         file_path = item["file_path"]
         vendor_name = item["vendor_name"]
+        analysis_phase = item.get("analysis_phase")
+        custom_instructions = item.get("custom_instructions")
         try:
             import gemini_analyzer
             raw_feedback = gemini_analyzer.analyze_lanzamiento(
                 file_path=file_path,
                 vendor_name=vendor_name,
+                analysis_phase=analysis_phase,
+                custom_instructions=custom_instructions,
             )
             # Extract scores JSON block
             score, section_scores, clean_feedback = None, None, raw_feedback
@@ -782,40 +790,73 @@ def chat_message(session_id: int):
         for m in messages
     )
 
-    system_prompt = f"""Estás haciendo un roleplay de práctica de ventas para un vendedor de Vendedores Humanos.
+    # Last vendor message for coaching reference
+    last_vendor_msg = user_text
 
+    system_prompt = f"""Sos coach de ventas y actor simultáneo. Tu trabajo tiene DOS partes.
+
+=== PARTE 1: RESPUESTA DEL LEAD ===
 Interpretás el personaje: {lead['name']}
 Descripción: {lead['description']}
 Personalidad y comportamiento: {lead['personality']}
 Objeciones típicas: {lead['objections']}
 
-REGLAS:
+REGLAS DEL PERSONAJE:
 - Respondé SOLO como {lead['name']}, nunca rompas el personaje.
 - Tus respuestas son cortas: 1 a 3 oraciones máximo, como mensajes de WhatsApp.
 - Hablá en español argentino informal.
 - No digas que sos una IA ni que esto es un roleplay.
-- Si el vendedor te pregunta algo relevante sobre tu situación, respondé con detalles verosímiles coherentes con tu perfil.
 - Si el vendedor comete errores graves (presión, falta de escucha, promesas vacías), reaccioná enfriándote o poniendo más resistencia.
 - Si el vendedor hace un buen trabajo (escucha activa, empatía, preguntas buenas), comenzá a abrirte un poco más.
 
-Historial de la conversación:
-{history_text}
+=== PARTE 2: COACHING INMEDIATO ===
+Analizá el ÚLTIMO mensaje del vendedor: "{last_vendor_msg}"
 
-Respondé ahora como {lead['name']} (solo tu próximo mensaje, sin incluir tu nombre):"""
+Sé ESTRICTO y honesto. No regales puntos. Si el mensaje fue mediocre, decilo. Si fue un error, marcalo claramente.
+Cada punto debe ser concreto, específico y accionable — nada de frases genéricas.
+
+=== FORMATO DE RESPUESTA (obligatorio, exacto) ===
+
+LEAD:
+[tu respuesta como {lead['name']}]
+
+COACHING:
+✅ **Bien:** [qué hizo bien — citá exactamente qué parte del mensaje funcionó, o escribí "nada destacable" si no hubo nada bueno]
+⚠️ **A mejorar:** [qué error cometió o qué le faltó — sé específico, no suavices]
+💡 **Alternativa:** [un mensaje listo para copiar y pegar que sería mejor]
+🎯 **Por qué:** [el impacto concreto de ese error en la venta — qué pierde si lo sigue haciendo]
+
+Historial de la conversación:
+{history_text}"""
 
     try:
         genai.configure(api_key=config.GEMINI_API_KEY)
         model = genai.GenerativeModel(config.GEMINI_MODEL)
         response = model.generate_content(system_prompt)
-        lead_reply = response.text.strip()
+        raw = response.text.strip()
     except Exception as e:
         logger.error("Gemini chat error: %s", e)
         return jsonify({"ok": False, "error": "Error al generar respuesta"}), 500
 
+    # Parse LEAD and COACHING sections
+    coaching_tip = None
+    if "COACHING:" in raw:
+        parts = raw.split("COACHING:", 1)
+        lead_part = parts[0]
+        coaching_tip = parts[1].strip()
+    else:
+        lead_part = raw
+
+    # Extract lead reply
+    if "LEAD:" in lead_part:
+        lead_reply = lead_part.split("LEAD:", 1)[1].strip()
+    else:
+        lead_reply = lead_part.strip()
+
     messages.append({"role": "lead", "text": lead_reply})
     database.update_session_messages(session_id, _json.dumps(messages))
 
-    return jsonify({"ok": True, "reply": lead_reply, "messages": messages})
+    return jsonify({"ok": True, "reply": lead_reply, "coaching_tip": coaching_tip, "messages": messages})
 
 
 @app.route("/chat/session/<int:session_id>/end", methods=["POST"])
@@ -844,7 +885,7 @@ def chat_end_session(session_id: int):
         for m in messages
     )
 
-    feedback_prompt = f"""Sos un coach experto en ventas de la metodología Vendedores Humanos (VH).
+    feedback_prompt = f"""Sos un coach experto y EXIGENTE en ventas de la metodología Vendedores Humanos (VH).
 Acabás de observar este roleplay de práctica: el VENDEDOR practicó una conversación por chat con el lead "{lead['name']}" ({lead['description']}).
 
 CONVERSACIÓN COMPLETA:
@@ -856,21 +897,33 @@ CONVERSACIÓN COMPLETA:
 
 ---
 
-Analizá la conversación completa y generá un feedback detallado en español argentino con esta estructura EXACTA:
+INSTRUCCIONES DE EVALUACIÓN — LEELAS ANTES DE ESCRIBIR:
+- Sé ESTRICTO. No regales puntos. Un 7 significa buen trabajo real, no "estuvo más o menos".
+- Marcá CADA error, no solo los más grandes. Si algo estuvo mal, decilo con cita exacta del mensaje.
+- No suavices críticas con frases como "podrías mejorar un poco". Di qué está mal y por qué.
+- Para cada error, mostrá EXACTAMENTE cómo debería haberlo dicho.
+- El objetivo es aprendizaje activo: el vendedor debe saber qué cambiar y cómo, no solo que algo estuvo mal.
+- Si la conversación fue corta o superficial, bajá la puntuación significativamente.
+- Si el vendedor no aplicó ninguna técnica VH, señalalo claramente.
+
+Analizá la conversación completa y generá un feedback en español argentino con esta estructura EXACTA:
 
 ## 🎯 Puntuación General
-[Un número del 1 al 10 y una oración de síntesis]
+[Número del 1 al 10 — sé honesto. Incluí una oración de síntesis que explique por qué ese número]
 
-## ✅ Lo que hiciste muy bien
-[3-5 puntos concretos con ejemplos de la conversación]
+## ✅ Lo que hiciste bien (con evidencia)
+[2-4 puntos. Para cada uno: citá exactamente qué dijo el vendedor y explicá por qué funcionó técnicamente]
 
-## ⚠️ Áreas a mejorar
-[3-5 puntos concretos con qué dijo y qué debería haber dicho]
+## ❌ Errores y qué cambiar
+[Para CADA error encontrado en la conversación:
+- Citá exactamente qué dijo
+- Explicá qué está mal y el impacto en la venta
+- Mostrá cómo debería haberlo dicho (mensaje alternativo listo para usar)]
 
-## 💡 Técnica clave para trabajar
-[La técnica VH más importante que necesita practicar, con ejemplo concreto de cómo aplicarla]
+## 💡 La técnica VH más urgente para practicar
+[La habilidad más débil identificada. Explicá qué es, por qué importa, y 2-3 ejercicios concretos para trabajarla]
 
-## 📊 Puntajes por sección
+## 📊 Puntajes por área
 diagnostico_desapego: [0-10]
 descubrimiento_acuerdos: [0-10]
 empatia_escucha: [0-10]
@@ -880,8 +933,8 @@ storytelling: [0-10]
 pitch_personalizado: [0-10]
 mentalidad: [0-10]
 
-## 🔁 Cómo repetir este roleplay mejor
-[2-3 recomendaciones específicas para cuando lo vuelva a hacer]
+## 🔁 Plan de acción para la próxima práctica
+[3 cambios específicos y concretos para aplicar la próxima vez que haga este roleplay. Ordenalos por impacto]
 """
 
     try:
@@ -994,11 +1047,32 @@ LANZAMIENTO_PRESET_LEADS = {
             "alt_strategy": "Si después de 2-3 mensajes sigue respondiendo con frases solas ('sí', 'entiendo', 'ok'), no insistas por texto. Proponé una videollamada de 10 minutos sin presión: *'Sebastián, me parece que por acá no te termino de explicar bien. ¿Tenés 10 minutos esta semana para una llamada rápida, sin compromiso?'* — las personas reservadas muchas veces conectan mejor hablando que escribiendo.",
         },
         {
+            "difficulty": "medio", "emoji": "😅", "name": "Rodrigo",
+            "short": "Curioso pero se escapa cuando siente que le quieren vender",
+            "context": "Rodrigo, 35 años, responsable de RRHH en una mediana empresa. Entró al taller porque le interesa el tema de equipos y crecimiento. Es receptivo cuando la conversación gira en torno a liderazgo y personas, pero en cuanto siente que le están vendiendo algo, pone distancia — responde más tarde, con menos palabras. Hay que construir relación desde su mundo (equipos, gestión, personas) antes de hablar de ventas.",
+            "behavior_pattern": "CAUTELOSO CON LA VENTA — se abre en temas de su interés, se cierra si detecta intención comercial",
+            "alt_strategy": "Si Rodrigo empieza a responder más tarde y con menos palabras, es señal de que detectó intención de venta. Volvé al tema que lo mueve: su trabajo, su equipo, su crecimiento. Una vez que vuelva a abrirse, considerá proponer una llamada corta encuadrada como 'quería entender mejor tu situación antes de contarte algo que podría aplicar a tu caso específico'.",
+        },
+        {
             "difficulty": "difícil", "emoji": "😶", "name": "Valeria",
             "short": "Casi no interactúa, responde con monosílabos",
             "context": "Valeria, 44 años, empleada pública. Se inscribió al taller pero casi no interactuó. Responde con monosílabos ('sí', 'ok', 'puede ser'). Hay que generar conexión desde cero con mucha paciencia.",
             "behavior_pattern": "MONOSILÁBICA — respuestas de 1 palabra, casi no interactúa",
             "alt_strategy": "Con Valeria, el chat por texto solo no va a funcionar. Después de 2-3 monosílabos, cambiá de canal: enviá un audio personal de WhatsApp (30 segundos, cálido, sin presión) preguntando algo puntual sobre su situación. Si tampoco responde al audio en 48hs, proponé una videollamada corta: *'Valeria, sería más fácil contarte todo en 10 minutos por videollamada, ¿te parece? Elegís vos el día y hora.'* — el cambio de canal rompe el patrón de no-respuesta.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "🙄", "name": "Lorena",
+            "short": "Ya compró cursos que no le sirvieron, muy escéptica",
+            "context": "Lorena, 43 años, vendedora de seguros hace 12 años. Entró al taller 'a ver qué onda'. Ya invirtió en 2 cursos online de ventas que 'no le aportaron nada'. Cada vez que se menciona algo que suene a formación o programa, responde con frases como 'eso ya lo sé', 'todos dicen lo mismo' o 'los cursos no funcionan para mi rubro'. El cinismo es su mecanismo de defensa.",
+            "behavior_pattern": "ESCÉPTICA CON HISTORIAL — responde con cinismo ante cualquier promesa o contenido de ventas",
+            "alt_strategy": "Con Lorena no funciona hablar del programa directamente. Primero hay que validar su experiencia: 'Entiendo, la mayoría de los cursos son genéricos y no sirven de nada'. Luego trabajar el descubrimiento profundo de su situación actual. Si después de 4-5 intercambios sigue muy cerrada, proponé hablar con un alumno que tenga su mismo perfil (vendedor con experiencia) — el testimonio de par a par rompe el escepticismo mejor que cualquier argumento tuyo.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "🤐", "name": "Esteban",
+            "short": "Responde largo pero siempre evade comprometerse",
+            "context": "Esteban, 55 años, gerente de área que quiere lanzarse como consultor independiente pero tiene miedo. Escribe mensajes largos y bien redactados — parece abierto — pero cuando llegás a algo concreto ('¿qué te frena?', '¿cuándo sería buen momento?') siempre desvía: habla de factores externos, de que 'el mercado está difícil', de que 'primero tiene que terminar de ordenar unas cosas'. Nunca dice no, pero nunca avanza.",
+            "behavior_pattern": "EVASIVO VERBAL — escribe mucho, comparte poco de verdad, evita todo compromiso concreto",
+            "alt_strategy": "Con Esteban, el texto juega en su contra — le permite construir respuestas largas y evasivas sin presión. Si después de varias respuestas notás que habla mucho pero no dice nada concreto, proponé una videollamada: 'Esteban, me parece que hay algo importante que no te estoy pudiendo transmitir bien por acá. ¿Tenés 20 minutos para que lo hablemos? Quiero entender de verdad qué te está frenando.' — en videollamada es mucho más difícil evadir.",
         },
     ],
     "descubrimiento": [
@@ -1017,11 +1091,32 @@ LANZAMIENTO_PRESET_LEADS = {
             "alt_strategy": "Si Marcos responde a preguntas pero sus respuestas son siempre cortas y racionales (nunca emocionales), el texto por chat limita el descubrimiento. Proponé una videollamada de 15 min presentándola como 'para entender mejor tu situación puntual y ver si el programa tiene sentido para vos específicamente' — Marcos como contador valora que le dediquen tiempo en serio.",
         },
         {
+            "difficulty": "medio", "emoji": "🌀", "name": "Claudia",
+            "short": "Habla de sus productos pero evita hablar de sus problemas reales",
+            "context": "Claudia, 38 años, emprendedora de cosmética natural con marca propia. Está orgullosa de sus productos y los describe en detalle, pero cuando las preguntas van hacia sus dolores reales (ingresos, escala, distribución) desvía la conversación hacia sus logros. No es que mienta — es que hablarle del dolor se siente amenazante para su identidad de emprendedora. Hay que redirigirla al dolor sin que se sienta cuestionada.",
+            "behavior_pattern": "DESVÍA AL LOGRO — cuando preguntás por sus problemas, habla de sus productos y éxitos",
+            "alt_strategy": "Con Claudia el riesgo es hacer descubrimiento superficial — ella responde mucho pero sin ir al fondo. Si después de 3-4 mensajes solo hablaste de sus productos y no de sus problemas, cambiá el ángulo: 'Claudia, con todo lo que lograste, ¿qué es lo que todavía no te cierra como te gustaría?' — reformulá el dolor como algo que 'le falta completar', no como un fracaso. En videollamada podés profundizar mucho más sin que ella prepare mentalmente sus respuestas.",
+        },
+        {
             "difficulty": "difícil", "emoji": "🛡️", "name": "Romina",
             "short": "Se pone a la defensiva si preguntás mucho",
             "context": "Romina, 36 años, vendedora freelance de seguros. Interpreta las preguntas como un interrogatorio. Si preguntás mucho dice '¿para qué necesitás saber eso?' o 'estoy bien como estoy'. Hay que avanzar muy despacio y con mucha empatía.",
             "behavior_pattern": "DEFENSIVA — se cierra si siente que la están interrogando",
             "alt_strategy": "Con Romina, el chat puede volverse tenso fácilmente. Si nota resistencia (respuestas cortas + tono defensivo), no insistas por texto — eso escala la tensión. En cambio, bajá la guardia vos primero: contale algo personal o una historia propia antes de pedir que ella cuente. O propone una videollamada diciéndole que 'así es más fácil charlar sin que parezca un formulario' — el cara a cara reduce la sensación de interrogatorio.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "👑", "name": "Antonella",
+            "short": "Tiene ego — si no la tratás como experta, se cierra",
+            "context": "Antonella, 31 años, influencer con 40K seguidores en Instagram y ingresos irregulares que no logra estabilizar. Sabe mucho de contenido y redes, pero tiene un punto ciego con la parte comercial. Si el vendedor le hace preguntas que implican que ella no sabe algo, reacciona con distancia o sarcasmo ('eso ya lo sé', 'obvio que lo intenté'). Hay que hacer descubrimiento tratándola como alguien con expertise, no como alguien que necesita ayuda.",
+            "behavior_pattern": "EGO ALTO — se cierra inmediatamente si siente que la subestiman",
+            "alt_strategy": "Con Antonella la clave es el encuadre: hacé las preguntas desde un lugar de curiosidad genuina por su mundo, no de diagnóstico. 'Alguien con tu audiencia, ¿cómo está manejando la parte de monetización?' suena diferente a '¿cuánto facturás?'. Si por texto la energía se vuelve tensa, en videollamada podés trabajar desde el respeto mutuo con mucho más matices.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "🏰", "name": "Jorge",
+            "short": "Cree que su problema es único, no conecta con lo genérico",
+            "context": "Jorge, 47 años, dueño de una PyME de impresión gráfica. Tiene problemas de ingresos irregulares y dependencia de 2 o 3 clientes grandes. Responde bien a preguntas superficiales pero cuando el vendedor intenta ir al fondo ('¿y eso cómo te afecta a vos?', '¿qué te genera eso?') se cierra: 'mi caso es muy específico', 'el rubro gráfico es diferente', 'eso aplica para otros negocios'. No es que no quiera hablar — es que desconfía de soluciones que no sean 100% de su rubro.",
+            "behavior_pattern": "EL CASO ÚNICO — bloquea el descubrimiento profundo con 'mi rubro es diferente'",
+            "alt_strategy": "Con Jorge tenés que validar la especificidad antes de preguntar: 'Entiendo que la gráfica tiene sus particularidades. ¿Me contás cómo funciona en tu caso específicamente?' — pedirle que te eduque sobre su rubro lo abre. Después de que explique, podés redirigir: 'Entiendo. Y en ese contexto, ¿qué es lo que más te preocupa hoy?'. En videollamada podés profundizar con mucho más ritmo y redirigir sin que el texto quede frío.",
         },
     ],
     "siembra": [
@@ -1040,11 +1135,32 @@ LANZAMIENTO_PRESET_LEADS = {
             "alt_strategy": "Si por chat Gustavo sigue diciendo 'mi caso es diferente' después de 2 historias, el formato texto no está funcionando para él. Propone una videollamada breve y encuadrala como 'quiero entender bien qué hace tu negocio para ver si tengo casos similares que te pueda mostrar' — esto le da lo que necesita (personalización) y te permite sembrar mejor con su propio lenguaje.",
         },
         {
+            "difficulty": "medio", "emoji": "📊", "name": "Ramiro",
+            "short": "Solo conecta con historias de equipos de ventas, no de emprendedores",
+            "context": "Ramiro, 40 años, director comercial de una empresa mediana. Tiene a cargo un equipo de 8 vendedores. Le interesa el programa para él y para su equipo, pero cuando las historias son de emprendedores solos ('un chico que armó su negocio desde cero'), se desconecta: 'yo trabajo en empresa, no es lo mismo'. Solo engancha cuando los casos son de managers, líderes de equipos o empresas.",
+            "behavior_pattern": "SELECTIVO CON LOS EJEMPLOS — solo conecta con casos de su mundo corporativo",
+            "alt_strategy": "Con Ramiro tenés que adaptar los casos: antes de contar una historia, alineá el perfil ('Ramiro, tengo el caso de un director comercial que tenía un equipo de 6 personas y el mismo problema que describís...'). Si por texto no tenés casos exactamente de su perfil, en videollamada podés adaptarlos con más libertad y leer cómo reacciona en tiempo real.",
+        },
+        {
             "difficulty": "difícil", "emoji": "🧱", "name": "Alejandro",
             "short": "No cree en los cursos, mucha resistencia",
             "context": "Alejandro, 50 años, gerente de ventas con 20 años de experiencia. Cuando mencionás el programa dice 'eso es para gente que no sabe'. No cree en la formación. Hay que sembrar con prueba social muy fuerte sin mencionar el programa directamente.",
             "behavior_pattern": "MUY RESISTENTE — descarta la formación, cree que ya sabe todo",
             "alt_strategy": "Con Alejandro, sembrar por texto es muy difícil porque puede ignorar o refutar con 1 línea. El cambio de canal más efectivo acá es proponerle hablar con un alumno que tenga su mismo perfil (gerente o dueño de empresa con experiencia) — 'Alejandro, tengo un alumno que pensaba exactamente lo mismo que vos antes de entrar, ¿te interesaría charlar 5 minutos con él?' Esto saca la siembra de tu boca y la pone en alguien con quien se pueda identificar.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "😔", "name": "Lucas",
+            "short": "Fracasó antes, corta las historias de éxito con 'eso no aplica para mí'",
+            "context": "Lucas, 28 años, emprendedor digital que intentó 2 negocios que no funcionaron. Tiene mucho miedo de ilusionarse y volver a fracasar. Cuando contás historias de éxito, reacciona con frases como 'eso es porque tenían más recursos', 'yo ya lo intenté y no funcionó', 'eso no aplica para mí'. No rechaza el contenido por soberbia — lo rechaza por autoprotección.",
+            "behavior_pattern": "MIEDO A ILUSIONARSE — corta cada historia de éxito con una razón por la que 'su caso es diferente'",
+            "alt_strategy": "Con Lucas la siembra directa no funciona — cada historia de éxito activa su mecanismo de defensa. En cambio, usá el 'antipatrón': antes de contar el caso de éxito, validá el fracaso ('Lo que describís es lo más normal del mundo, la mayoría que arranca sin un método correcto pasa por eso'). Después del caso, preguntá qué parte siente que aplica, en lugar de afirmar que aplica. En videollamada podés manejar el tono emocional con mucho más precisión.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "🔬", "name": "Patricia",
+            "short": "20 años de experiencia, solo conecta con contenido muy avanzado",
+            "context": "Patricia, 52 años, consultora independiente con 20 años de experiencia en empresas. Leyó varios libros de ventas, hizo cursos. Cuando contás historias o siembras algo, responde con 'eso ya lo sé' o 'eso es básico'. Solo reacciona bien si el contenido es sorprendente o muy específico para ella. Tiene una barrera de 'ya sé todo esto' que hay que romper sin atacar su identidad.",
+            "behavior_pattern": "BARRERA DEL EXPERTO — descarta la siembra si la percibe como contenido básico",
+            "alt_strategy": "Con Patricia la siembra tiene que ser disruptiva: en lugar de contar casos de éxito, planteá una pregunta que desafíe algo que ella cree que ya sabe ('Patricia, ¿sabés cuál es la diferencia entre un vendedor que factura 300K y uno que factura 3M, si el producto es el mismo?'). Esto la pone en modo curioso en lugar de modo 'ya sé'. En videollamada podés generar ese momento de insight con más control y profundidad.",
         },
     ],
     "objeciones": [
@@ -1063,11 +1179,32 @@ LANZAMIENTO_PRESET_LEADS = {
             "alt_strategy": "Con Fernando, la clave es la pareja. Por chat es difícil llegar a ella. Ofrecé incluirla directamente: *'Fernando, con gusto te explico lo mismo a los dos juntos en una videollamada de 15 minutos. Así tu mujer tiene toda la info y lo pueden decidir con claridad juntos.'* — esto saca la objeción de la pareja del juego porque la traés al proceso en vez de luchar contra ella.",
         },
         {
+            "difficulty": "medio", "emoji": "💔", "name": "Carla",
+            "short": "Su pareja no la apoya, la objeción es emocional",
+            "context": "Carla, 34 años, empleada administrativa que quiere independizarse y emprender. Está muy convencida del programa, pero su pareja cree que 'gastar en cursos es tirar plata'. La objeción no es racional — es miedo a conflicto con su pareja. Dice 'yo quiero pero mi familia no entiende', 'si entro va a haber quilombo en casa'.",
+            "behavior_pattern": "OBJECIÓN EMOCIONAL FAMILIAR — el freno no es el precio ni el tiempo, es el apoyo del entorno",
+            "alt_strategy": "Con Carla no sirve responder la objeción del precio porque ese no es el problema real. Primero validá la situación ('Entiendo, es difícil cuando las personas que querés no ven lo mismo que vos'). Luego trabajá su certeza interna: '¿Qué necesitarías vos para estar segura de que esto es lo correcto, independientemente de lo que piense tu pareja?'. Si la conversación se pone cargada emocionalmente, una videollamada te permite manejar el tono con mucho más cuidado.",
+        },
+        {
             "difficulty": "difícil", "emoji": "🔥", "name": "Nicolás",
             "short": "Múltiples objeciones en cadena, la más difícil",
             "context": "Nicolás, 42 años, ex-emprendedor que tuvo un negocio y le fue mal. Múltiples objeciones en cadena: 'es caro', 'no tengo tiempo', 'ya probé cosas así y no funcionaron', 'no sé si esto es para mí'. Cuando resolvés una, aparece la siguiente. Practicá persistencia con desapego.",
             "behavior_pattern": "OBJECIONES EN CADENA — cada vez que resolvés una, aparece otra",
             "alt_strategy": "Cuando las objeciones se encadenan en texto, es una señal de que el canal no está funcionando — por chat es fácil objetar porque no hay costo social. Cambiá de estrategia: en vez de seguir respondiendo objeciones, proponé parar: *'Nicolás, veo que tenés varias dudas importantes — por chat es difícil que te las pueda responder bien. ¿Hacemos una llamada de 15 minutos y las vemos todas juntas?'* — la llamada te da control del ritmo, no puede objetar todo al mismo tiempo, y el tono de voz baja la guardia.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "⏱️", "name": "Pablo",
+            "short": "No tiene tiempo — y es verdad, trabaja 60hs por semana",
+            "context": "Pablo, 46 años, médico con consultorio propio y guardia en hospital. La objeción del tiempo no es excusa — es real. Trabaja 60 horas por semana y tiene familia. Cuando le decís 'son solo 2 horas por semana', responde 'en serio, no tengo NI 2 horas libres'. Es inteligente y detecta rápido cuando alguien minimiza su situación.",
+            "behavior_pattern": "TIEMPO GENUINAMENTE LIMITADO — la objeción no es excusa, es real y se cierra si la minimizás",
+            "alt_strategy": "Con Pablo no podés decir 'son solo 2 horas' porque él sabe que su tiempo es más escaso que el de la mayoría. En cambio, validá completamente: 'Entiendo que tu situación es diferente a la mayoría'. Luego llevá la conversación al costo de oportunidad: '¿Cuánto te está costando hoy no tener esto resuelto?' — si el dolor es suficientemente grande, el tiempo se encuentra. En videollamada podés hacer este trabajo con mucho más precisión emocional.",
+        },
+        {
+            "difficulty": "difícil", "emoji": "🌀", "name": "Silvia",
+            "short": "Siempre pide más tiempo para decidir, no importa qué le digas",
+            "context": "Silvia, 39 años, contadora con buen pasar económico. Tiene el dinero, el interés y el tiempo. El problema es la indecisión crónica: siempre hay una razón para esperar. 'Déjame pensar hasta el jueves', 'la semana que viene te digo', 'espero ver cómo está el dólar'. Cuando el jueves llega, pide otro plazo. No está mintiendo — genuinamente se paraliza ante decisiones de inversión.",
+            "behavior_pattern": "INDECISIÓN CRÓNICA — pide más tiempo indefinidamente, no importa qué objeciones resuelvas",
+            "alt_strategy": "Con Silvia el peligro es entrar en el juego del 'cuando esté lista'. No existe ese momento — hay que crear una condición de urgencia genuina. En texto podés usar escasez real ('El precio sube el viernes', 'quedan X lugares'). Si sigue posponiendo, preguntá directamente: 'Silvia, en serio te pregunto: ¿qué tendría que pasar para que digas que sí hoy?' — esa pregunta externaliza la decisión y la obliga a articular lo que realmente le falta.",
         },
     ],
 }
@@ -1082,6 +1219,33 @@ def chat_lanzamiento():
     return render_template("chat_lanzamiento.html", vendor=vendor,
                            sessions=sessions, phases=LANZAMIENTO_PHASES,
                            preset_leads=LANZAMIENTO_PRESET_LEADS)
+
+
+@app.route("/lanzamiento/roleplay")
+def roleplay_lanzamiento():
+    vendor = _vendor_session()
+    if not vendor:
+        return redirect(url_for("chat_login"))
+    sessions = database.lanzamiento_coach_get_vendor_sessions(vendor["id"])
+    return render_template("roleplay_lanzamiento.html", vendor=vendor,
+                           sessions=sessions, phases=LANZAMIENTO_PHASES,
+                           preset_leads=LANZAMIENTO_PRESET_LEADS)
+
+
+@app.route("/videollamadas")
+def videollamadas():
+    vendor = _vendor_session()
+    if not vendor:
+        return redirect(url_for("chat_login"))
+    return render_template("videollamadas.html", vendor=vendor)
+
+
+@app.route("/llamadas")
+def llamadas():
+    vendor = _vendor_session()
+    if not vendor:
+        return redirect(url_for("chat_login"))
+    return render_template("llamadas.html", vendor=vendor)
 
 
 @app.route("/chat/lanzamiento/session/start", methods=["POST"])
@@ -1218,13 +1382,22 @@ REGLAS ESTRICTAS:
 Historial:
 {history_text}
 
-Respondé solo como {lead_name} (tu próximo mensaje, sin poner tu nombre):"""
+Respondé con EXACTAMENTE este formato (sin agregar nada más):
+
+LEAD:
+[tu respuesta como {lead_name}, 1-3 oraciones, tono WhatsApp argentino informal]
+
+COACHING:
+✅ **Bien:** [una cosa concreta que hizo bien el vendedor en este último mensaje — citá las palabras exactas si es posible]
+⚠️ **A mejorar:** [una cosa específica que podría haber hecho mejor — sé concreto, no genérico]
+💡 **Alternativa:** [una versión mejorada o una pregunta diferente que hubiera funcionado mejor, lista para copiar]
+🎯 **Por qué:** [en 1 oración: el impacto que tiene ese cambio en el lead]"""
 
         try:
             genai.configure(api_key=config.GEMINI_API_KEY)
             model = genai.GenerativeModel(config.GEMINI_MODEL)
             response = model.generate_content(system_prompt)
-            lead_reply = response.text.strip()
+            raw = response.text.strip()
         except Exception as e:
             logger.error("Gemini lanzamiento roleplay error: %s", e)
             return jsonify({"ok": False, "error": "Error al generar respuesta"}), 500
@@ -1235,9 +1408,25 @@ Respondé solo como {lead_name} (tu próximo mensaje, sin poner tu nombre):"""
                 except Exception:
                     pass
 
+        # Parse lead reply and coaching tip from combined response
+        lead_reply = raw
+        coaching_tip = None
+        if "COACHING:" in raw:
+            parts = raw.split("COACHING:", 1)
+            lead_part = parts[0]
+            coaching_tip = parts[1].strip()
+            # Clean lead reply
+            if "LEAD:" in lead_part:
+                lead_reply = lead_part.split("LEAD:", 1)[1].strip()
+            else:
+                lead_reply = lead_part.strip()
+        elif "LEAD:" in raw:
+            lead_reply = raw.split("LEAD:", 1)[1].strip()
+
         messages.append({"role": "lead", "text": lead_reply})
         database.lanzamiento_coach_update_messages(session_id, _json.dumps(messages))
-        return jsonify({"ok": True, "reply": lead_reply, "role": "lead"})
+        return jsonify({"ok": True, "reply": lead_reply, "role": "lead",
+                        "coaching_tip": coaching_tip})
 
     else:
         # ── MODO ASISTENTE EN VIVO ──────────────────────────────────────────
@@ -1884,6 +2073,323 @@ def ventas():
 
 # ── Lanzamiento feedback ──────────────────────────────────────────────────────
 
+@app.route("/lanzamiento/kpi")
+def lanzamiento_kpi():
+    vendor_id = request.args.get("vendor_id", type=int)
+    saved = request.args.get("saved", "")
+    vendors_list = database.get_kpi_vendors()
+    today = datetime.now(TZ).date().isoformat()
+
+    if not vendor_id:
+        return render_template("lanzamiento_kpi.html",
+                               vendors_list=vendors_list, vendor=None,
+                               today=today, today_entry={},
+                               entries=[], totals={}, saved="")
+
+    vendor = next((v for v in vendors_list if v["id"] == vendor_id), None)
+    if not vendor:
+        return redirect(url_for("lanzamiento_kpi"))
+
+    today_entry = database.kpi_get_entry(vendor_id, today) or {}
+    entries = database.kpi_get_vendor_entries(vendor_id, days=90)
+    totals = database.kpi_aggregate_entries(entries)
+    return render_template("lanzamiento_kpi.html",
+                           vendors_list=vendors_list, vendor=vendor,
+                           today=today, today_entry=today_entry,
+                           entries=entries, totals=totals, saved=saved)
+
+
+@app.route("/lanzamiento/kpi/save", methods=["POST"])
+def lanzamiento_kpi_save():
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    if not vendor_id:
+        return jsonify({"ok": False, "error": "Falta el vendedor"}), 400
+    entry_date = (data.get("entry_date") or "").strip()
+    if not entry_date:
+        entry_date = datetime.now(TZ).date().isoformat()
+    database.kpi_upsert_entry(int(vendor_id), entry_date, data)
+    redirect_url = url_for("lanzamiento_kpi", vendor_id=vendor_id, saved=1)
+    return jsonify({"ok": True, "redirect": redirect_url})
+
+
+@app.route("/lanzamiento/kpi/history")
+def lanzamiento_kpi_history():
+    vendor_id = request.args.get("vendor_id", type=int)
+    if not vendor_id:
+        return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
+    days = int(request.args.get("days", 90))
+    entries = database.kpi_get_vendor_entries(vendor_id, days=days)
+    return jsonify({"ok": True, "entries": entries})
+
+
+@app.route("/lanzamiento/kpi/delete", methods=["POST"])
+def lanzamiento_kpi_delete():
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    entry_dates = data.get("entry_dates", [])
+    if not vendor_id or not entry_dates:
+        return jsonify({"ok": False, "error": "Faltan datos"}), 400
+    deleted = database.kpi_delete_entries(vendor_id, entry_dates)
+    return jsonify({"ok": True, "deleted": deleted})
+
+
+@app.route("/lanzamiento/kpi/strategy", methods=["POST"])
+def lanzamiento_kpi_strategy():
+    # No auth required — open endpoint for vendors and director
+    import google.generativeai as genai
+
+    data = request.get_json()
+    totals = data.get("totals", {})
+    vendor_name = data.get("vendor_name", "el vendedor")
+    days = data.get("days", 30)
+    focus_stage = data.get("stage", "")          # e.g. "interaccion_leve"
+    vendor_breakdown = data.get("vendors", [])   # list of {vendor_name, count, frio, tibio, caliente}
+
+    def pct(a, b): return round(a / b * 100, 1) if b > 0 else 0
+
+    # ── Stage-focused analysis (used by director stage filter view) ──────────
+    if focus_stage:
+        STAGE_LABELS = {
+            "no_respondido": "No Respondido",
+            "interaccion_leve": "Interacción Leve",
+            "conversacion_fluida": "Conversación Fluida",
+            "potencial_compra": "Potencial Compra",
+            "venta_realizada": "Venta Realizada",
+        }
+        NEXT_STAGE = {
+            "no_respondido": "Interacción Leve",
+            "interaccion_leve": "Conversación Fluida",
+            "conversacion_fluida": "Potencial Compra",
+            "potencial_compra": "Venta Realizada",
+            "venta_realizada": "(ya es la etapa final)",
+        }
+        stage_label = STAGE_LABELS.get(focus_stage, focus_stage)
+        next_stage = NEXT_STAGE.get(focus_stage, "la siguiente etapa")
+        stage_total = int(totals.get(focus_stage, 0))
+        frio_k = f"{focus_stage}_frio"
+        tibio_k = f"{focus_stage}_tibio"
+        caliente_k = f"{focus_stage}_caliente"
+        frio = int(totals.get(frio_k, 0))
+        tibio = int(totals.get(tibio_k, 0))
+        caliente = int(totals.get(caliente_k, 0))
+        has_temp = frio + tibio + caliente > 0
+
+        vendor_lines = ""
+        if vendor_breakdown:
+            vendor_lines = "\nDETALLE POR VENDEDOR en esta etapa:\n"
+            for vb in sorted(vendor_breakdown, key=lambda x: x.get("count", 0), reverse=True):
+                line = f"  - {vb['vendor_name']}: {vb['count']} leads"
+                if vb.get("frio") is not None:
+                    line += f" (❄️{vb['frio']} 🌡️{vb.get('tibio',0)} 🔥{vb.get('caliente',0)})"
+                vendor_lines += line + "\n"
+
+        temp_line = f"\nDistribución de temperatura: ❄️ Frío:{frio} / 🌡️ Tibio:{tibio} / 🔥 Caliente:{caliente}" if has_temp else ""
+
+        prompt = f"""Sos un experto en estrategia comercial y psicología de ventas aplicada a equipos de venta digital.
+
+El director comercial está analizando la etapa "{stage_label}" del funnel de su equipo de {len(vendor_breakdown) or 10} vendedores.
+
+DATOS DE LA ETAPA "{stage_label.upper()}":
+- Total de leads en esta etapa: {stage_total}{temp_line}
+{vendor_lines}
+CONTEXTO: Esta etapa precede a "{next_stage}". El objetivo es entender por qué tantos leads están acumulados aquí y no avanzan.
+
+---
+
+Generá un análisis estratégico en español argentino con esta estructura exacta:
+
+## 🔍 ¿Por qué están acumulados en {stage_label}?
+[2-3 oraciones: diagnóstico psicológico y comercial del patrón. ¿Qué está bloqueando el avance? Basate en comportamiento del comprador digital]
+
+## 🧠 Plan de acción inmediato para el equipo (esta semana)
+[4-5 acciones concretas que los vendedores pueden tomar YA para mover estos leads a "{next_stage}". Para cada acción: nombre, por qué funciona, y MENSAJE O GUIÓN EXACTO para usar con el lead]
+
+## 📊 Cómo leer la temperatura en {stage_label}
+[Explica qué significa tener muchos Frío/Tibio/Caliente en esta etapa y qué hacer diferente con cada temperatura. Incluí mensajes específicos para Tibio y Caliente]
+
+## 🎯 Vendedor a priorizar y por qué
+[Basándote en los datos por vendedor, ¿a quién ayudar primero y qué hacer específicamente con ese vendedor para mejorar sus números en esta etapa?]
+
+## 📈 Meta para los próximos 5 días
+[Un número concreto: cuántos leads de {stage_label} deberían pasar a {next_stage} esta semana, y la acción específica del equipo para lograrlo]
+
+Sé MUY específico. Usá ejemplos de mensajes reales. No des consejos genéricos."""
+
+        try:
+            genai.configure(api_key=config.GEMINI_API_KEY)
+            model = genai.GenerativeModel(config.GEMINI_MODEL)
+            response = model.generate_content(prompt)
+            strategy_text = response.text.strip()
+        except Exception as e:
+            logger.error("KPI stage strategy error: %s", e)
+            return jsonify({"ok": False, "error": "Error al generar análisis"}), 500
+
+        return jsonify({
+            "ok": True,
+            "strategy": strategy_text,
+            "bottleneck": stage_label,
+            "bottleneck_rate": 0,
+        })
+
+    # ── Full funnel analysis (single vendor or all-vendor summary) ────────────
+    nr = int(totals.get("no_respondido", 0))
+    il = int(totals.get("interaccion_leve", 0) or
+             sum(int(totals.get(k, 0)) for k in ["interaccion_leve_frio","interaccion_leve_tibio","interaccion_leve_caliente"]))
+    cf = int(totals.get("conversacion_fluida", 0) or
+             sum(int(totals.get(k, 0)) for k in ["conversacion_fluida_frio","conversacion_fluida_tibio","conversacion_fluida_caliente"]))
+    pc = int(totals.get("potencial_compra", 0) or
+             sum(int(totals.get(k, 0)) for k in ["potencial_compra_frio","potencial_compra_tibio","potencial_compra_caliente"]))
+    vr = int(totals.get("venta_realizada", 0))
+    total = nr + il + cf + pc + vr
+
+    responded = il + cf + pc + vr
+    conv_respuesta = pct(responded, total)
+    conv_escalada = pct(cf + pc + vr, responded) if responded > 0 else 0
+    conv_interes = pct(pc + vr, cf + pc + vr) if (cf + pc + vr) > 0 else 0
+    conv_cierre = pct(vr, pc + vr) if (pc + vr) > 0 else 0
+
+    rates = [("respuesta (apertura/primer mensaje)", conv_respuesta),
+             ("escalada (pasar de charla leve a conversación real)", conv_escalada),
+             ("generación de interés/deseo de compra", conv_interes),
+             ("cierre (convertir interés en venta)", conv_cierre)]
+    bottleneck = min(rates, key=lambda x: x[1])
+
+    il_breakdown = f"Frío:{totals.get('interaccion_leve_frio',0)} / Tibio:{totals.get('interaccion_leve_tibio',0)} / Caliente:{totals.get('interaccion_leve_caliente',0)}"
+    cf_breakdown = f"Frío:{totals.get('conversacion_fluida_frio',0)} / Tibio:{totals.get('conversacion_fluida_tibio',0)} / Caliente:{totals.get('conversacion_fluida_caliente',0)}"
+    pc_breakdown = f"Frío:{totals.get('potencial_compra_frio',0)} / Tibio:{totals.get('potencial_compra_tibio',0)} / Caliente:{totals.get('potencial_compra_caliente',0)}"
+
+    prompt = f"""Sos un experto en estrategia comercial y psicología de ventas. Analizás el funnel de un vendedor y dás estrategias concretas, accionables y basadas en evidencia.
+
+DATOS DEL VENDEDOR: {vendor_name}
+Período analizado: últimos {days} días
+
+FUNNEL DE CONVERSACIÓN:
+- No Respondido: {nr}
+- Interacción Leve: {il} ({il_breakdown})
+- Conversación Fluida: {cf} ({cf_breakdown})
+- Potencial Compra: {pc} ({pc_breakdown})
+- Venta Realizada: {vr}
+- Total leads trabajados: {total}
+
+TASAS DE CONVERSIÓN:
+- Tasa de respuesta: {conv_respuesta}%
+- Escalada (IL → CF): {conv_escalada}%
+- Generación de interés (CF → PC): {conv_interes}%
+- Tasa de cierre (PC → Venta): {conv_cierre}%
+
+CUELLO DE BOTELLA PRINCIPAL IDENTIFICADO: {bottleneck[0]} ({bottleneck[1]}%)
+
+---
+
+Basándote en esta información, entregá un análisis estratégico en español argentino con esta estructura:
+
+## 🔍 Diagnóstico del cuello de botella
+[2-3 oraciones explicando por qué está pasando esto psicológicamente — basado en comportamiento del comprador]
+
+## 🧠 Estrategias inmediatas (esta semana)
+[4-5 estrategias concretas y accionables basadas en neuroventas, psicología de ventas, sesgos cognitivos (scarcity, social proof, reciprocity, anchoring, etc.). Para cada estrategia: nombre, explicación breve, y MENSAJE EXACTO o ACCIÓN ESPECÍFICA para implementarla]
+
+## 📊 Qué observar en los números de "tibio" y "caliente"
+[Cómo interpretar la distribución frío/tibio/caliente en cada etapa y qué significa para la estrategia de seguimiento]
+
+## 💡 Idea de seguimiento diferencial
+[Una táctica específica para mover los leads "tibios" de {bottleneck[0].split('(')[0].strip()} hacia la siguiente etapa — con mensaje o acción lista para usar]
+
+## 📈 Meta realista para los próximos 7 días
+[Un número concreto y una acción específica para mejorar la tasa de {bottleneck[0].split('(')[0].strip()}]
+
+Sé MUY específico. Incluí frases, mensajes y ejemplos reales. No des consejos genéricos."""
+
+    try:
+        genai.configure(api_key=config.GEMINI_API_KEY)
+        model = genai.GenerativeModel(config.GEMINI_MODEL)
+        response = model.generate_content(prompt)
+        strategy_text = response.text.strip()
+    except Exception as e:
+        logger.error("KPI strategy error: %s", e)
+        return jsonify({"ok": False, "error": "Error al generar estrategias"}), 500
+
+    return jsonify({
+        "ok": True,
+        "strategy": strategy_text,
+        "bottleneck": bottleneck[0],
+        "bottleneck_rate": bottleneck[1],
+        "conv_rates": {
+            "respuesta": conv_respuesta,
+            "escalada": conv_escalada,
+            "interes": conv_interes,
+            "cierre": conv_cierre,
+        }
+    })
+
+
+@app.route("/lanzamiento/kpi/director")
+def lanzamiento_kpi_director():
+    from collections import defaultdict
+
+    from_date = request.args.get("from_date", "")
+    to_date = request.args.get("to_date", "")
+    vendor_filter = request.args.get("vendor_id", "")
+    stage_filter = request.args.get("stage", "")
+    vid = int(vendor_filter) if vendor_filter else None
+
+    entries = database.kpi_get_all_entries(
+        from_date=from_date or None,
+        to_date=to_date or None,
+        vendor_id=vid
+    )
+    # All-vendor summaries (unfiltered by vendor for comparison chart)
+    vendor_summaries = database.kpi_get_all_vendors_summary(
+        from_date=from_date or None,
+        to_date=to_date or None
+    )
+    global_totals = database.kpi_aggregate_entries(entries)
+    vendors_list = database.get_kpi_vendors()
+
+    # Daily series: group by date
+    daily_by_date: dict = defaultdict(list)
+    for e in entries:
+        daily_by_date[e["entry_date"]].append(e)
+    daily_series = sorted([
+        {"date": d, "totals": database.kpi_aggregate_entries(es)}
+        for d, es in daily_by_date.items()
+    ], key=lambda x: x["date"])
+
+    # Today's breakdown by vendor
+    today = datetime.now(TZ).date().isoformat()
+    today_entries = [e for e in entries if e["entry_date"] == today]
+    today_totals = database.kpi_aggregate_entries(today_entries)
+    today_by_vendor = sorted([
+        {
+            "vendor_id": e["vendor_id"],
+            "vendor_name": e.get("vendor_name", ""),
+            "photo_path": e.get("photo_path"),
+            "totals": database.kpi_aggregate_entries([e])
+        }
+        for e in today_entries
+    ], key=lambda x: x["totals"].get("venta_realizada", 0), reverse=True)
+
+    return render_template("lanzamiento_kpi_director.html",
+                           entries=entries,
+                           vendor_summaries=vendor_summaries,
+                           global_totals=global_totals,
+                           vendors_list=vendors_list,
+                           daily_series=daily_series,
+                           today_totals=today_totals,
+                           today_by_vendor=today_by_vendor,
+                           today=today,
+                           from_date=from_date, to_date=to_date,
+                           vendor_filter=vendor_filter,
+                           stage_filter=stage_filter)
+
+
+@app.route("/lanzamiento/director")
+def lanzamiento_director():
+    vendor_stats = database.lanzamiento_get_vendor_stats()
+    return render_template("lanzamiento_director.html", vendor_stats=vendor_stats)
+
+
 @app.route("/lanzamiento")
 def lanzamiento():
     import json as _json
@@ -1914,8 +2420,12 @@ def lanzamiento_upload():
 
     file = request.files["file"]
     if not _allowed_lanzamiento(file.filename):
-        flash(f"Formato no soportado. Usá: mp4, mov, jpg, jpeg, png, webp", "danger")
+        flash("Formato no soportado. Usá: mp4, mov, jpg, jpeg, png, webp", "danger")
         return redirect(url_for("lanzamiento"))
+
+    # Optional: phase-specific analysis
+    analysis_phase = (request.form.get("analysis_phase") or "").strip() or None
+    custom_instructions = (request.form.get("custom_instructions") or "").strip() or None
 
     ext = file.filename.rsplit(".", 1)[1].lower()
     file_id = str(uuid.uuid4())
@@ -1937,15 +2447,22 @@ def lanzamiento_upload():
         flash(f"Error al guardar el archivo: {exc}", "danger")
         return redirect(url_for("lanzamiento"))
 
-    database.lanzamiento_mark_processing(file_id, file.filename, vendor_name, file_type)
+    database.lanzamiento_mark_processing(file_id, file.filename, vendor_name, file_type,
+                                         analysis_phase=analysis_phase,
+                                         custom_instructions=custom_instructions)
     _lanzamiento_queue.put({
         "file_id": file_id,
         "file_path": file_path,
         "vendor_name": vendor_name,
         "file_name": file.filename,
+        "analysis_phase": analysis_phase,
+        "custom_instructions": custom_instructions,
     })
 
-    flash(f"Archivo de {vendor_name} en análisis. El feedback estará listo en unos minutos.", "success")
+    phase_label = {"relacion": "Relación", "descubrimiento": "Descubrimiento",
+                   "siembra": "Siembra", "objeciones": "Objeciones"}.get(analysis_phase, "")
+    phase_msg = f" (enfocado en {phase_label})" if phase_label else ""
+    flash(f"Análisis de {vendor_name}{phase_msg} en proceso. El feedback estará listo en unos minutos.", "success")
     return redirect(url_for("lanzamiento"))
 
 
@@ -1969,6 +2486,14 @@ def lanzamiento_feedback_json(file_id: str):
                     result["section_scores"] = {}
             return jsonify(result)
     return jsonify({"error": "not found"}), 404
+
+
+@app.route("/lanzamiento/submissions/<file_id>", methods=["DELETE"])
+def lanzamiento_delete_submission(file_id: str):
+    deleted = database.lanzamiento_delete_submission(file_id)
+    if deleted:
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "not found"}), 404
 
 
 @app.route("/lanzamiento/print/<file_id>")
@@ -2010,11 +2535,49 @@ def analisis_chats():
 
 @app.route("/feedback/<file_id>")
 def get_feedback(file_id: str):
+    import json as _json
     records = database.get_recent_records(limit=1000)
     for r in records:
         if r["file_id"] == file_id:
-            return jsonify({"feedback": r.get("feedback_text", ""), "vendor_name": r["vendor_name"]})
+            result = {
+                "feedback": r.get("feedback_text", ""),
+                "vendor_name": r["vendor_name"],
+                "score": r.get("score"),
+                "processed_at": r.get("processed_at", ""),
+            }
+            if r.get("section_scores"):
+                try:
+                    result["section_scores"] = _json.loads(r["section_scores"])
+                except Exception:
+                    result["section_scores"] = {}
+            return jsonify(result)
     return jsonify({"error": "not found"}), 404
+
+
+@app.route("/roleplay/print/<file_id>")
+def roleplay_print(file_id: str):
+    """Standalone print-ready HTML page for Roleplay VH feedback."""
+    import json as _json
+    records = database.get_recent_records(limit=1000)
+    for r in records:
+        if r["file_id"] == file_id:
+            if r["status"] != "done":
+                return "El feedback aún no está disponible.", 404
+            section_scores_dict = {}
+            if r.get("section_scores"):
+                try:
+                    section_scores_dict = _json.loads(r["section_scores"])
+                except Exception:
+                    pass
+            return render_template(
+                "roleplay_print.html",
+                vendor_name=r["vendor_name"],
+                score=r.get("score"),
+                processed_at=r.get("processed_at", ""),
+                feedback_text=r.get("feedback_text", ""),
+                section_scores_dict=section_scores_dict,
+            )
+    return "Registro no encontrado.", 404
 
 
 @app.route("/status")

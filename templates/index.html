@@ -59,6 +59,10 @@
     text-overflow:ellipsis;white-space:nowrap;
   }
 
+  /* Feedback modal section grid */
+  #fbSectionScores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 18px; flex: 1; min-width: 0; }
+  @media (max-width: 600px) { #fbSectionScores { grid-template-columns: repeat(2, 1fr); } }
+
   /* Table delete btn */
   .btn-delete-row {
     border:none;background:none;color:#d1d5db;cursor:pointer;
@@ -384,18 +388,33 @@
 
 <!-- Feedback modal -->
 <div class="modal fade" id="feedbackModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content" style="border-radius:14px;border:none;">
-      <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:14px 14px 0 0;border:none;">
-        <h5 class="modal-title" id="feedbackModalTitle">Feedback</h5>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#fff;border:none;padding:16px 24px;">
+        <div>
+          <h5 class="modal-title fw-bold mb-0" id="feedbackModalTitle">Feedback</h5>
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;" id="feedbackModalSub">Roleplay VH · Evaluación de llamada de ventas</div>
+        </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" style="white-space:pre-wrap;font-size:14px;line-height:1.7;" id="feedbackModalBody"></div>
-      <div class="modal-footer">
-        <button class="btn btn-sm btn-outline-secondary" onclick="copyFeedback()">
-          <i class="bi bi-clipboard me-1"></i>Copiar
+
+      <!-- Score + section bars -->
+      <div id="feedbackScoreBar" style="display:none;padding:14px 24px;background:#faf8f5;border-bottom:1px solid #f0e8e0;">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+          <div id="fbScoreBadge"></div>
+          <div id="fbSectionScores" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px 18px;flex:1;min-width:0;"></div>
+        </div>
+      </div>
+
+      <div class="modal-body p-4" id="feedbackModalBody" style="min-height:300px;"></div>
+      <div class="modal-footer" style="background:#faf8f5;border-top:1px solid #f0e8e0;">
+        <button class="btn btn-sm fw-bold" style="background:#c9a066;color:#1a0810;border-radius:8px;" onclick="openRoleplayPrint()">
+          <i class="bi bi-printer me-1"></i>Imprimir / PDF
         </button>
-        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-sm" style="background:#3d0f1e;color:#fff;border-radius:8px;" onclick="copyFeedback()">
+          <i class="bi bi-clipboard me-1"></i>Copiar texto
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:8px;">Cerrar</button>
       </div>
     </div>
   </div>
@@ -567,18 +586,151 @@
 
   // ── Feedback modal ──
   let _currentFeedback = '';
+  let _currentFileId = '';
+
+  const SECTION_META_RP = {
+    descubrimiento_acuerdos: '🔍 Descubrimiento',
+    diagnostico_desapego:    '🩺 Diagnóstico',
+    empatia_escucha:         '❤️ Empatía',
+    gestion_creencias:       '🧠 Creencias',
+    ingenieria_preguntas:    '❓ Preguntas',
+    mentalidad:              '⚡ Mentalidad',
+    pitch_personalizado:     '🎯 Pitch',
+    storytelling:            '📖 Storytelling',
+  };
+
+  function renderMarkdownRP(text) {
+    const lines = text.split('\n');
+    let out = '';
+    let inUL = false, inOL = false, inTable = false;
+
+    function applyInline(t) {
+      return t
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g,'<em>$1</em>')
+        .replace(/✓/g,'<span style="color:#2d6a4f;font-weight:700;">✓</span>')
+        .replace(/✗/g,'<span style="color:#8b1a2b;font-weight:700;">✗</span>');
+    }
+    function closeLists() {
+      if (inUL) { out += '</ul>'; inUL = false; }
+      if (inOL) { out += '</ol>'; inOL = false; }
+    }
+    function closeTable() {
+      if (inTable) { out += '</tbody></table>'; inTable = false; }
+    }
+    function closeAll() { closeLists(); closeTable(); }
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+      if (line.startsWith('```json_scores') || line.startsWith('```json')) {
+        while (i < lines.length) { i++; if (lines[i] && lines[i].startsWith('```')) break; }
+        continue;
+      }
+      if (line.trim() === '```') continue;
+
+      if (line.startsWith('|')) {
+        closeLists();
+        const cells = line.split('|').slice(1,-1).map(c => c.trim());
+        const isSep = cells.every(c => /^[-: ]+$/.test(c));
+        if (!inTable) {
+          closeTable();
+          out += '<table class="table table-sm table-bordered" style="font-size:13px;margin:10px 0;"><thead style="background:#3d0f1e;color:#fff;"><tr>';
+          cells.forEach(c => { out += `<th style="padding:6px 10px;">${applyInline(c)}</th>`; });
+          out += '</tr></thead><tbody>';
+          inTable = true;
+        } else if (!isSep) {
+          out += '<tr>';
+          cells.forEach(c => { out += `<td style="padding:5px 10px;">${applyInline(c)}</td>`; });
+          out += '</tr>';
+        }
+        continue;
+      } else { closeTable(); }
+
+      if (/^#### /.test(line)) { closeAll(); out += `<h4 style="font-size:13px;font-weight:700;color:#1a0810;margin:14px 0 4px;">${applyInline(line.slice(5))}</h4>`; continue; }
+      if (/^### /.test(line))  { closeAll(); out += `<h3 style="font-size:15px;font-weight:800;color:#3d0f1e;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid #f0e8e0;">${applyInline(line.slice(4))}</h3>`; continue; }
+      if (/^## /.test(line))   { closeAll(); out += `<h3 style="font-size:15px;font-weight:800;color:#3d0f1e;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid #f0e8e0;">${applyInline(line.slice(3))}</h3>`; continue; }
+      if (/^---+$/.test(line.trim())) { closeAll(); out += '<hr style="border:none;border-top:1px solid #f0e8e0;margin:18px 0;">'; continue; }
+      if (line.startsWith('> ')) { closeAll(); out += `<blockquote style="border-left:3px solid #c9a066;padding:6px 12px;margin:8px 0;background:#faf8f5;border-radius:0 6px 6px 0;font-style:italic;color:#555;font-size:13px;">${applyInline(line.slice(2))}</blockquote>`; continue; }
+
+      if (/^[-*] /.test(line)) {
+        closeTable();
+        if (inOL) { out += '</ol>'; inOL = false; }
+        if (!inUL) { out += '<ul style="padding-left:18px;margin:6px 0 10px;">'; inUL = true; }
+        out += `<li style="margin-bottom:4px;">${applyInline(line.slice(2))}</li>`; continue;
+      }
+      if (/^\d+\. /.test(line)) {
+        closeTable();
+        if (inUL) { out += '</ul>'; inUL = false; }
+        if (!inOL) { out += '<ol style="padding-left:18px;margin:6px 0 10px;">'; inOL = true; }
+        out += `<li style="margin-bottom:4px;">${applyInline(line.replace(/^\d+\.\s+/, ''))}</li>`; continue;
+      }
+
+      if (!line.trim()) { closeAll(); continue; }
+      closeAll();
+      out += `<p style="margin:0 0 8px;font-size:13.5px;line-height:1.8;color:#374151;">${applyInline(line)}</p>`;
+    }
+    closeAll();
+    return out;
+  }
+
   async function loadFeedback(fileId) {
+    _currentFileId = fileId;
     try {
       const resp = await fetch('/feedback/' + fileId);
       const data = await resp.json();
       _currentFeedback = data.feedback || '';
-      document.getElementById('feedbackModalTitle').textContent = 'Feedback — ' + (data.vendor_name || '');
-      document.getElementById('feedbackModalBody').textContent = _currentFeedback;
+      const vendorName = data.vendor_name || '';
+      const score = data.score;
+      const sections = data.section_scores || {};
+
+      document.getElementById('feedbackModalTitle').textContent = 'Feedback — ' + vendorName;
+
+      // Score + section bars
+      const scoreBar = document.getElementById('feedbackScoreBar');
+      const scoreBadge = document.getElementById('fbScoreBadge');
+      const sectionsEl = document.getElementById('fbSectionScores');
+      const hasData = score || Object.keys(sections).length > 0;
+      scoreBar.style.display = hasData ? '' : 'none';
+
+      if (score) {
+        const color = score >= 7 ? '#2d6a4f' : score >= 5 ? '#c9a066' : '#8b1a2b';
+        const bg    = score >= 7 ? '#f0fff4' : score >= 5 ? '#fffbf0' : '#fff5f5';
+        scoreBadge.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;width:64px;">
+          <div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;border:3px solid ${color};background:${bg};color:${color};">${score.toFixed(1)}</div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">Score</div>
+        </div>`;
+      } else { scoreBadge.innerHTML = ''; }
+
+      const sectionKeys = Object.keys(SECTION_META_RP).filter(k => sections[k] !== undefined);
+      Object.keys(sections).forEach(k => { if (!SECTION_META_RP[k]) sectionKeys.push(k); });
+      if (sectionKeys.length > 0) {
+        sectionsEl.innerHTML = sectionKeys.map(k => {
+          const val = sections[k] || 0;
+          const label = SECTION_META_RP[k] || k;
+          const color = val >= 7 ? '#2d6a4f' : val >= 5 ? '#c9a066' : '#8b1a2b';
+          return `<div>
+            <div style="font-size:10px;color:#888;">${label}</div>
+            <div style="height:4px;background:#e9ecef;border-radius:2px;overflow:hidden;margin:2px 0;">
+              <div style="height:100%;width:${val*10}%;background:${color};border-radius:2px;"></div>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:${color};">${val}/10</div>
+          </div>`;
+        }).join('');
+      } else { sectionsEl.innerHTML = ''; }
+
+      document.getElementById('feedbackModalBody').innerHTML = renderMarkdownRP(_currentFeedback);
       new bootstrap.Modal(document.getElementById('feedbackModal')).show();
     } catch { showToast('Error al cargar el feedback.', 'danger'); }
   }
+
   function copyFeedback() {
-    navigator.clipboard.writeText(_currentFeedback).then(() => showToast('Copiado.', 'success'));
+    navigator.clipboard.writeText(_currentFeedback).then(() => showToast('Copiado al portapapeles.', 'success'));
+  }
+
+  function openRoleplayPrint() {
+    if (!_currentFileId) return;
+    window.open('/roleplay/print/' + _currentFileId, '_blank');
   }
 
   // ── Delete record ──

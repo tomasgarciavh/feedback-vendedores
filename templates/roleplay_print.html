@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback Roleplay — {{ vendor_name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.75;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 40px 48px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #3d0f1e;
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  .doc-header-left h1 {
+    font-size: 20pt;
+    color: #1a0810;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .doc-header-left .program {
+    font-size: 10pt;
+    color: #888;
+    margin-bottom: 2px;
+  }
+  .doc-header-left .date {
+    font-size: 9pt;
+    color: #aaa;
+  }
+  .doc-header-right { text-align: right; flex-shrink: 0; margin-left: 24px; }
+  .brand-tag {
+    font-size: 9pt;
+    font-weight: 800;
+    color: #c9a066;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .score-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #3d0f1e, #c9a066);
+    color: #fff;
+    font-size: 15pt;
+    font-weight: 900;
+    padding: 8px 20px;
+    border-radius: 10px;
+  }
+  .score-label { font-size: 9pt; color: #999; margin-top: 4px; }
+
+  /* ── Section scores ── */
+  .sections-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 16px;
+    background: #faf8f5;
+    border: 1px solid #ede0cf;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 28px;
+  }
+  .sec-item { }
+  .sec-name { font-size: 9pt; color: #888; margin-bottom: 3px; }
+  .sec-bar-wrap { height: 5px; background: #e9ecef; border-radius: 3px; overflow: hidden; margin-bottom: 2px; }
+  .sec-bar-fill { height: 100%; border-radius: 3px; }
+  .sec-val { font-size: 9pt; font-weight: 700; }
+
+  /* ── Typography ── */
+  h3 {
+    font-size: 13pt;
+    font-weight: 800;
+    color: #3d0f1e;
+    margin: 28px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 1.5px solid #d4a867;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1a0810;
+    margin: 16px 0 5px;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 9px; }
+  strong { color: #1a0810; font-weight: 700; }
+  em { color: #555; font-style: italic; }
+
+  hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+  ul { padding-left: 22px; margin: 6px 0 12px; }
+  ol { padding-left: 22px; margin: 6px 0 12px; }
+  li { margin-bottom: 5px; }
+
+  blockquote {
+    border-left: 3px solid #c9a066;
+    padding: 8px 14px;
+    margin: 10px 0 14px;
+    background: #fdf8f0;
+    font-style: italic;
+    color: #555;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 18px;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+  table th {
+    background: #3d0f1e;
+    color: #fff;
+    padding: 7px 11px;
+    text-align: left;
+    font-size: 9.5pt;
+    font-weight: 700;
+  }
+  table td {
+    padding: 6px 11px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+  }
+  table tr:nth-child(even) td { background: #fafafa; }
+
+  .check-ok  { color: #1a7a4a; font-weight: 700; }
+  .check-bad { color: #9b1c1c; font-weight: 700; }
+
+  /* ── Footer ── */
+  .doc-footer {
+    margin-top: 40px;
+    border-top: 1px solid #e0d4c4;
+    padding-top: 12px;
+    font-size: 8.5pt;
+    color: #bbb;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Print button (hidden when printing) ── */
+  .print-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: linear-gradient(135deg, #3d0f1e, #c9a066);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 26px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,.25);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .print-btn:hover { opacity: .9; }
+
+  /* ── Print media ── */
+  @media print {
+    @page { size: A4; margin: 18mm 15mm 20mm; }
+    body { padding: 0; font-size: 10.5pt; }
+    .print-btn { display: none !important; }
+    h3 { page-break-before: auto; }
+    table, blockquote { page-break-inside: avoid; }
+    .sections-grid { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">
+  🖨️ Guardar como PDF
+</button>
+
+<!-- Header -->
+<div class="doc-header">
+  <div class="doc-header-left">
+    <h1>{{ vendor_name }}</h1>
+    <div class="program">Roleplay VH · Evaluación de llamada de ventas</div>
+    <div class="date">{{ processed_at[:10] if processed_at else "" }}</div>
+  </div>
+  <div class="doc-header-right">
+    <div class="brand-tag">Vendedores Humanos</div>
+    {% if score %}
+    <div class="score-badge">{{ "%.1f"|format(score) }} / 10</div>
+    <div class="score-label">Score global</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Section scores -->
+{% if section_scores_dict %}
+<div class="sections-grid" id="sectionsGrid">
+  <!-- Rendered by JS from JSON data -->
+</div>
+{% endif %}
+
+<!-- Feedback body -->
+<div id="feedbackBody"></div>
+
+<!-- Footer -->
+<div class="doc-footer">
+  <span>Vendedores Humanos — Programa de Entrenamiento en Ventas</span>
+  <span>Feedback generado por IA · Confidencial</span>
+</div>
+
+<script>
+const rawFeedback = {{ feedback_text | tojson }};
+const sectionData = {{ section_scores_dict | tojson }};
+
+const SECTION_META = {
+  descubrimiento_acuerdos: { label: '🔍 Descubrimiento / Acuerdos',  order: 0 },
+  diagnostico_desapego:    { label: '🩺 Diagnóstico / Desapego',      order: 1 },
+  empatia_escucha:         { label: '❤️ Empatía / Escucha',           order: 2 },
+  gestion_creencias:       { label: '🧠 Gestión de Creencias',        order: 3 },
+  ingenieria_preguntas:    { label: '❓ Ingeniería de Preguntas',      order: 4 },
+  mentalidad:              { label: '⚡ Mentalidad',                  order: 5 },
+  pitch_personalizado:     { label: '🎯 Pitch Personalizado',         order: 6 },
+  storytelling:            { label: '📖 Storytelling',                order: 7 },
+};
+
+// Render section scores
+const grid = document.getElementById('sectionsGrid');
+if (grid && sectionData && Object.keys(sectionData).length > 0) {
+  const keys = Object.keys(SECTION_META).filter(k => sectionData[k] !== undefined);
+  // Also include any extra keys not in SECTION_META
+  Object.keys(sectionData).forEach(k => { if (!SECTION_META[k]) keys.push(k); });
+  if (keys.length === 0) { grid.style.display = 'none'; }
+  else {
+    grid.innerHTML = keys.map(k => {
+      const val = sectionData[k] || 0;
+      const meta = SECTION_META[k];
+      const label = meta ? meta.label : k;
+      const color = val >= 7 ? '#2d6a4f' : val >= 5 ? '#c9a066' : '#8b1a2b';
+      return `<div class="sec-item">
+        <div class="sec-name">${label}</div>
+        <div class="sec-bar-wrap"><div class="sec-bar-fill" style="width:${val*10}%;background:${color};"></div></div>
+        <div class="sec-val" style="color:${color};">${val}/10</div>
+      </div>`;
+    }).join('');
+  }
+} else if (grid) {
+  grid.style.display = 'none';
+}
+
+// Markdown renderer
+function applyInline(text) {
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  text = text.replace(/✓/g, '<span class="check-ok">✓</span>');
+  text = text.replace(/✗/g, '<span class="check-bad">✗</span>');
+  return text;
+}
+
+function renderFeedback(text) {
+  const lines = text.split('\n');
+  let out = '';
+  let inUL = false, inOL = false, inTable = false;
+
+  function closeLists() {
+    if (inUL) { out += '</ul>\n'; inUL = false; }
+    if (inOL) { out += '</ol>\n'; inOL = false; }
+  }
+  function closeTable() {
+    if (inTable) { out += '</tbody></table>\n'; inTable = false; }
+  }
+  function closeAll() { closeLists(); closeTable(); }
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // Skip json_scores block
+    if (line.startsWith('```json_scores') || line.startsWith('```json')) {
+      while (i < lines.length) {
+        i++;
+        if (lines[i] && lines[i].startsWith('```')) break;
+      }
+      continue;
+    }
+    if (line.trim() === '```') continue;
+
+    // Table rows
+    if (line.startsWith('|')) {
+      closeLists();
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
+      const isSep = cells.every(c => /^[-: ]+$/.test(c));
+      if (!inTable) {
+        closeTable();
+        out += '<table><thead><tr>';
+        cells.forEach(c => { out += `<th>${applyInline(c)}</th>`; });
+        out += '</tr></thead><tbody>\n';
+        inTable = true;
+      } else if (!isSep) {
+        out += '<tr>';
+        cells.forEach(c => { out += `<td>${applyInline(c)}</td>`; });
+        out += '</tr>\n';
+      }
+      continue;
+    } else { closeTable(); }
+
+    if (/^#### /.test(line)) { closeAll(); out += `<h4>${applyInline(line.slice(5))}</h4>\n`; continue; }
+    if (/^### /.test(line))  { closeAll(); out += `<h3>${applyInline(line.slice(4))}</h3>\n`; continue; }
+    if (/^## /.test(line))   { closeAll(); out += `<h3>${applyInline(line.slice(3))}</h3>\n`; continue; }
+    if (/^---+$/.test(line.trim())) { closeAll(); out += '<hr>\n'; continue; }
+    if (line.startsWith('> ')) { closeAll(); out += `<blockquote>${applyInline(line.slice(2))}</blockquote>\n`; continue; }
+
+    if (/^[-*] /.test(line)) {
+      closeTable();
+      if (inOL) { out += '</ol>\n'; inOL = false; }
+      if (!inUL) { out += '<ul>\n'; inUL = true; }
+      out += `<li>${applyInline(line.slice(2))}</li>\n`; continue;
+    }
+    if (/^\d+\. /.test(line)) {
+      closeTable();
+      if (inUL) { out += '</ul>\n'; inUL = false; }
+      if (!inOL) { out += '<ol>\n'; inOL = true; }
+      out += `<li>${applyInline(line.replace(/^\d+\.\s+/, ''))}</li>\n`; continue;
+    }
+
+    if (!line.trim()) { closeAll(); out += '\n'; continue; }
+    closeAll();
+    out += `<p>${applyInline(line)}</p>\n`;
+  }
+  closeAll();
+  return out;
+}
+
+document.getElementById('feedbackBody').innerHTML = renderFeedback(rawFeedback);
+
+// Auto-open print dialog
+window.addEventListener('load', function() {
+  setTimeout(function() { window.print(); }, 700);
+});
+</script>
+</body>
+</html>
