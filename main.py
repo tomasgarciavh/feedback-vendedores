@@ -129,6 +129,15 @@ app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024
 app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # solo 1 MB en RAM, el resto va a disco
 
 
+@app.context_processor
+def inject_current_vendor():
+    vid = flask_session.get("vendor_id")
+    if vid:
+        vendor = database.get_vendor_by_id(vid)
+        return {"current_vendor": vendor}
+    return {"current_vendor": None}
+
+
 @app.after_request
 def add_no_cache(response):
     # Skip no-cache for images so the browser can display them
@@ -144,6 +153,8 @@ def add_no_cache(response):
 
 @app.route("/")
 def index():
+    redir = _require_vendor()
+    if redir: return redir
     records = database.get_recent_records(limit=200)
     vendors = database.get_vendors()
     missing_configs = config.get_missing_configs()
@@ -321,6 +332,8 @@ def upload_drive():
 
 @app.route("/vendors", methods=["GET", "POST"])
 def vendors():
+    redir = _require_vendor()
+    if redir: return redir
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         email = (request.form.get("email") or "sin-email@local").strip() or "sin-email@local"
@@ -397,6 +410,8 @@ def delete_vendor(vendor_id: int):
 
 @app.route("/vendors/<int:vendor_id>/profile")
 def vendor_profile(vendor_id: int):
+    redir = _require_vendor()
+    if redir: return redir
     vendor = database.get_vendor_by_id(vendor_id)
     if not vendor:
         flash("Vendedor no encontrado.", "danger")
@@ -619,12 +634,16 @@ def serve_testimonial(filename: str):
 
 @app.route("/analytics")
 def analytics():
+    redir = _require_vendor()
+    if redir: return redir
     data = database.get_analytics_data()
     return render_template("analytics.html", **data)
 
 
 @app.route("/formacion")
 def formacion_vh():
+    redir = _require_vendor()
+    if redir: return redir
     return render_template("formacion_vh.html")
 
 
@@ -632,10 +651,17 @@ def formacion_vh():
 
 def _vendor_session():
     """Returns the logged-in vendor dict from Flask session, or None."""
-    vid = flask_session.get("chat_vendor_id")
+    vid = flask_session.get("vendor_id") or flask_session.get("chat_vendor_id")
     if not vid:
         return None
     return database.get_vendor_by_id(vid)
+
+
+def _require_vendor():
+    """Redirects to vendor login if not authenticated."""
+    if not flask_session.get("vendor_id"):
+        return redirect(url_for("vendor_login", next=request.path))
+    return None
 
 
 def _require_producer():
@@ -643,6 +669,63 @@ def _require_producer():
     if not flask_session.get("producer_auth"):
         return redirect(url_for("productor_login", next=request.path))
     return None
+
+
+# ── Vendor login / logout ───────────────────────────────────────────────────────
+
+@app.route("/login", methods=["GET", "POST"])
+def vendor_login():
+    if flask_session.get("vendor_id"):
+        return redirect(url_for("index"))
+    vendors = database.get_vendors()
+    error = None
+    first_time = False
+
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        password = (request.form.get("password") or "").strip()
+        confirm = (request.form.get("confirm") or "").strip()
+
+        vendor = database.get_vendor_by_name(name)
+        if not vendor:
+            error = "Nombre no encontrado. Revisá que esté escrito igual que en la lista."
+        else:
+            has_pin = bool(vendor.get("pin"))
+            if not has_pin:
+                # Primera vez — crear clave
+                if not password:
+                    first_time = True
+                elif len(password) < 4:
+                    error = "La clave debe tener al menos 4 caracteres."
+                    first_time = True
+                elif password != confirm:
+                    error = "Las claves no coinciden."
+                    first_time = True
+                else:
+                    database.update_vendor_pin(vendor["id"], password)
+                    flask_session["vendor_id"] = vendor["id"]
+                    flask_session["chat_vendor_id"] = vendor["id"]
+                    next_url = request.args.get("next") or url_for("index")
+                    return redirect(next_url)
+            else:
+                if not password:
+                    error = "Ingresá tu clave."
+                elif vendor.get("pin") != password:
+                    error = "Clave incorrecta."
+                else:
+                    flask_session["vendor_id"] = vendor["id"]
+                    flask_session["chat_vendor_id"] = vendor["id"]
+                    next_url = request.args.get("next") or url_for("index")
+                    return redirect(next_url)
+
+    return render_template("vendor_login.html", vendors=vendors, error=error, first_time=first_time)
+
+
+@app.route("/logout")
+def vendor_logout():
+    flask_session.pop("vendor_id", None)
+    flask_session.pop("chat_vendor_id", None)
+    return redirect(url_for("vendor_login"))
 
 
 # ── Producer login ─────────────────────────────────────────────────────────────
@@ -1223,6 +1306,8 @@ def chat_lanzamiento():
 
 @app.route("/lanzamiento/roleplay")
 def roleplay_lanzamiento():
+    redir = _require_vendor()
+    if redir: return redir
     vendor = _vendor_session()
     if not vendor:
         return redirect(url_for("chat_login"))
@@ -1234,6 +1319,8 @@ def roleplay_lanzamiento():
 
 @app.route("/videollamadas")
 def videollamadas():
+    redir = _require_vendor()
+    if redir: return redir
     vendor = _vendor_session()
     if not vendor:
         return redirect(url_for("chat_login"))
@@ -1242,6 +1329,8 @@ def videollamadas():
 
 @app.route("/llamadas")
 def llamadas():
+    redir = _require_vendor()
+    if redir: return redir
     vendor = _vendor_session()
     if not vendor:
         return redirect(url_for("chat_login"))
@@ -2075,6 +2164,8 @@ def ventas():
 
 @app.route("/lanzamiento/kpi")
 def lanzamiento_kpi():
+    redir = _require_vendor()
+    if redir: return redir
     vendor_id = request.args.get("vendor_id", type=int)
     saved = request.args.get("saved", "")
     vendors_list = database.get_kpi_vendors()
@@ -2326,6 +2417,8 @@ Sé MUY específico. Incluí frases, mensajes y ejemplos reales. No des consejos
 
 @app.route("/lanzamiento/kpi/director")
 def lanzamiento_kpi_director():
+    redir = _require_vendor()
+    if redir: return redir
     from collections import defaultdict
 
     from_date = request.args.get("from_date", "")
@@ -2386,12 +2479,16 @@ def lanzamiento_kpi_director():
 
 @app.route("/lanzamiento/director")
 def lanzamiento_director():
+    redir = _require_vendor()
+    if redir: return redir
     vendor_stats = database.lanzamiento_get_vendor_stats()
     return render_template("lanzamiento_director.html", vendor_stats=vendor_stats)
 
 
 @app.route("/lanzamiento")
 def lanzamiento():
+    redir = _require_vendor()
+    if redir: return redir
     import json as _json
     vendors_list = database.get_vendors()
     submissions = database.lanzamiento_get_recent(limit=200)
