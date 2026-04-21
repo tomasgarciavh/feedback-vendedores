@@ -109,7 +109,7 @@
 
   <!-- Acciones globales -->
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <span style="font-size:13px;color:#888;">{{ vendors|length }} vendedores · Los marcados con ⚠️ tienen email placeholder</span>
+    <span style="font-size:13px;color:#888;">{{ vendors|length }} alumnos · <span style="color:#7c3aed;font-weight:700;">KPI</span> = participa en lanzamiento · ⚠️ = email placeholder</span>
     <form method="POST" style="margin:0;"
           onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores?')">
       <input type="hidden" name="action" value="reset_all">
@@ -124,7 +124,7 @@
     {% for v in vendors %}
     <div class="v-row" id="vc-{{ v.id }}">
       <div class="v-avatar">
-        {% if v.photo_path %}<img src="/vendor-photo/{{ v.photo_path }}">{% else %}{{ v.name[0] }}{% endif %}
+        {% if v.photo_path %}<img src="/uploads/photos/{{ v.photo_path }}">{% else %}{{ v.name[0] }}{% endif %}
       </div>
       <div style="flex:1;min-width:0;">
         <!-- Nombre -->
@@ -153,7 +153,8 @@
       </div>
       <!-- Estado + acciones -->
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        {% if v.pin %}<span class="badge-ok">✅ Clave creada</span>
+        {% if v.kpi_vendor %}<span style="background:#ede9fe;color:#5b21b6;border-radius:5px;font-size:10px;font-weight:800;padding:2px 7px;">KPI</span>{% endif %}
+        {% if v.pin %}<span class="badge-ok">✅ Clave</span>
         {% else %}<span class="badge-warn">❌ Sin clave</span>{% endif %}
         {% if v.pin %}
         <form method="POST" style="margin:0;" onsubmit="return confirm('¿Resetear clave de {{ v.name | e }}?')">

@@ -817,7 +817,7 @@ def admin_vendedores():
                     flash("✅ Contraseña reseteada.", "success")
                 return redirect(url_for("admin_vendedores"))
 
-    vendors = database.get_kpi_vendors_with_pins() if auth else []
+    vendors = database.get_all_vendors_with_pins() if auth else []
     return render_template("admin_vendedores.html", auth=auth, vendors=vendors, login_error=login_error)
 
 
@@ -849,7 +849,7 @@ def admin_vendedores_add():
     email = (data.get("email") or "").strip().lower()
     if not name or not email or "@" not in email:
         return jsonify({"ok": False, "error": "Nombre y email requeridos"}), 400
-    vid = database.add_kpi_vendor(name, email)
+    vid = database.add_vendor(name, email)
     return jsonify({"ok": True, "vendor_id": vid})
 
 
@@ -861,7 +861,7 @@ def admin_vendedores_delete():
     vid = data.get("vendor_id")
     if not vid:
         return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
-    database.delete_kpi_vendor(int(vid))
+    database.delete_vendor(int(vid))
     return jsonify({"ok": True})
 
 

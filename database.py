@@ -235,24 +235,101 @@ def init_db():
                 badges_json TEXT DEFAULT '[]'
             )
         """)
-        # Seed KPI vendors
+        # Seed KPI vendors (real emails where known)
         _KPI_VENDORS = [
             ("Gianina Yelme", "gianina.yelme@vh.com"),
-            ("Nadya Deliberto", "nadya.deliberto@vh.com"),
-            ("Debora Roldan", "debora.roldan@vh.com"),
-            ("Gisse Guille", "gisse.guille@vh.com"),
-            ("Leila Varga", "leila.varga@vh.com"),
+            ("Nadya Deliberto", "nadyam.deliberto@gmail.com"),
+            ("Debora Roldan", "roldan.debb@gmail.com"),
+            ("Gisse Guille", "gpaolag76@gmail.com"),
+            ("Leila Varga", "leeilayazmin@gmail.com"),
             ("Nestor Cardozo", "nestor.cardozo@vh.com"),
             ("Sofia Moyano", "sofia.moyano@vh.com"),
-            ("Rocio Lopez", "rocio.lopez@vh.com"),
-            ("Daniela Ruiz Diaz", "daniela.ruizdiaz@vh.com"),
-            ("Roxana Molina", "roxana.molina@vh.com"),
+            ("Rocio Lopez", "rolopez.03@gmail.com"),
+            ("Daniela Ruiz Diaz", "dulcerecreodulce@gmail.com"),
+            ("Roxana Molina", "roxi_molina@yahoo.com"),
         ]
         for name, email in _KPI_VENDORS:
             try:
                 conn.execute(
                     "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 1) "
-                    "ON CONFLICT(name) DO UPDATE SET kpi_vendor=1",
+                    "ON CONFLICT(name) DO UPDATE SET kpi_vendor=1, email=CASE WHEN vendors.email LIKE '%@vh.com' THEN excluded.email ELSE vendors.email END",
+                    (name, email)
+                )
+            except Exception:
+                pass
+
+        # Seed all alumnos (non-KPI by default; keeps kpi_vendor if already set)
+        _ALUMNOS = [
+            ("Alexia Guraiib", "alexiaguraiib.nm@gmail.com"),
+            ("Débora Analía Roldán", "roldan.debb@gmail.com"),
+            ("Laura Gabriela Baez", "lalibaez75@gmail.com"),
+            ("Marcela Villanueva", "villamarc@hotmail.com"),
+            ("Agustina Lidia Chazarreta", "agustinachazarreta72@gmail.com"),
+            ("Alejandra Arredondo", "alearredondofrontera@gmail.com"),
+            ("Alejandro De Lellis", "aledl69@gmail.com"),
+            ("Alfredo Daniel Arano", "aarano_99@yahoo.com"),
+            ("Anibal Sebastian Silva Sanchez", "anibal_silva29@hotmail.com"),
+            ("Armando Diego Martin Lopez", "ardimalopez@gmail.com"),
+            ("Axel Kevin Mamani Choque", "axelkevin207@gmail.com"),
+            ("Bruno Nicolas Orcellet", "orcelletb@gmail.com"),
+            ("Cintia Natalia Carrizo", "cintiacarry@gmail.com"),
+            ("Cristian Claudio Accossatto", "caccossatto@gmail.com"),
+            ("Daiana Reinoso Franchino", "rfdaiana@gmail.com"),
+            ("Dalila Lorena Zapata", "dali2025dali@gmail.com"),
+            ("Daniela Beatriz Ruiz Diaz", "dulcerecreodulce@gmail.com"),
+            ("Daniela de los Angeles Salles", "danisalleszu01@gmail.com"),
+            ("Debora Macagno", "cramacagnodebora@gmail.com"),
+            ("Diego Joaquin Omar Moreira Peña", "djoaquinmoreira@gmail.com"),
+            ("Enzo Ariel Castro", "enzoacastro2025@gmail.com"),
+            ("Ernesta Andrea Fabio", "efabio@agro.unc.edu.ar"),
+            ("Gonzalo Pintos", "gonzapintos.cas.12@gmail.com"),
+            ("Griselda Estefania Vilches", "grisluz750@gmail.com"),
+            ("Guillermo Daniel Benitez", "guillermodaniel91@gmail.com"),
+            ("Hernan Cardozo", "cardozomaximiliano@gmail.com"),
+            ("Irene Soledad Fernandez", "fernandez.isoledad@gmail.com"),
+            ("Ivana Carrizo", "ivana.carrizo1482@gmail.com"),
+            ("Ivana Fojo", "fojoivana@gmail.com"),
+            ("Joaquín Duhalde", "joaquinduhalde18@gmail.com"),
+            ("Jorge Alberto Alessio", "alessiojorge@hotmail.com"),
+            ("José Hernán Reynoso Bascary", "hernan_reybas@hotmail.com"),
+            ("Juan Hernández", "landerjuan19@gmail.com"),
+            ("Juan Manuel Alvarez", "alvarezcaggianojuanmanuel@gmail.com"),
+            ("Karina Vanesa Jikirian", "jikijikivane@gmail.com"),
+            ("Laura Adriana Suarez", "laura0103gr@yahoo.com.ar"),
+            ("Laura Gabriela Baudracco", "laubaudracco@gmail.com"),
+            ("Leila Yazmin Vargas", "leeilayazmin@gmail.com"),
+            ("Leonardo Gabriel Rivero", "leonardogrivero209@gmail.com"),
+            ("Lihue Montenegro", "lihuemontenegrolab@gmail.com"),
+            ("Lorena Beatriz Taparello", "lorenataparello@gmail.com"),
+            ("Lucas Andres Nozica", "lucasandresnozica@gmail.com"),
+            ("Lucia Magali Gomez", "luuciamgomez@gmail.com"),
+            ("Macarena Moyano", "maca.-1402@hotmail.com"),
+            ("Manuela Victoria Jaime", "manujaime@hotmail.com"),
+            ("Maria Elisa Rodriguez", "mariae-r@hotmail.com"),
+            ("Maria Ines Formento", "inesformento@gmail.com"),
+            ("Maria Rosa De Benedetto", "marodb4@gmail.com"),
+            ("Maria Vanesa Pelayes", "vanesapelayes1@gmail.com"),
+            ("Mariela Rodriguez", "lic.marielarodriguez91@gmail.com"),
+            ("Melina Cassero", "mely.cassero@gmail.com"),
+            ("Monica Torres Martinez", "estarbienpnl@gmail.com"),
+            ("Nadya Mariel Deliberto", "nadyam.deliberto@gmail.com"),
+            ("Noemi Godoy", "leire-07@hotmail.com"),
+            ("Paola Giselle Guille", "gpaolag76@gmail.com"),
+            ("Pere Maria Eliana", "elianapere17@gmail.com"),
+            ("Rocio Lopez", "rolopez.03@gmail.com"),
+            ("Roxana Andrea Molina", "roxi_molina@yahoo.com"),
+            ("Roxana Lourdes Fares", "roxanafares67@gmail.com"),
+            ("Sandero R Eduardo", "edusnaider7@gmail.com"),
+            ("Santiago Carlos Dominguez", "santzamunda@gmail.com"),
+            ("Sara Virginia Garro", "saragarro72@gmail.com"),
+            ("Silvia Monica Dobosz", "sildobosz@hotmail.com"),
+            ("Veronica Segobia", "qves86@gmail.com"),
+        ]
+        for name, email in _ALUMNOS:
+            try:
+                conn.execute(
+                    "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 0) "
+                    "ON CONFLICT(name) DO UPDATE SET email=excluded.email",
                     (name, email)
                 )
             except Exception:
@@ -839,6 +916,14 @@ def get_kpi_vendors_with_pins() -> list:
     return [dict(row) for row in rows]
 
 
+def get_all_vendors_with_pins() -> list:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, photo_path, pin, kpi_vendor FROM vendors ORDER BY name"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_vendor_by_id(vendor_id: int):
     with get_connection() as conn:
         row = conn.execute(
@@ -1133,6 +1218,28 @@ def delete_kpi_vendor(vendor_id: int):
         conn.execute("DELETE FROM lanzamiento_kpi_entries WHERE vendor_id=?", (vendor_id,))
         conn.execute("DELETE FROM kpi_vendor_goals WHERE vendor_id=?", (vendor_id,))
         conn.execute("DELETE FROM vendors WHERE id=? AND kpi_vendor=1", (vendor_id,))
+        conn.commit()
+    _invalidate("vendors:")
+
+
+def add_vendor(name: str, email: str) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 0) "
+            "ON CONFLICT(name) DO UPDATE SET email=excluded.email RETURNING id",
+            (name.strip(), email.strip().lower())
+        )
+        row = cur.fetchone()
+        conn.commit()
+    _invalidate("vendors:")
+    return row["id"] if row else None
+
+
+def delete_vendor(vendor_id: int):
+    with get_connection() as conn:
+        conn.execute("DELETE FROM lanzamiento_kpi_entries WHERE vendor_id=?", (vendor_id,))
+        conn.execute("DELETE FROM kpi_vendor_goals WHERE vendor_id=?", (vendor_id,))
+        conn.execute("DELETE FROM vendors WHERE id=?", (vendor_id,))
         conn.commit()
     _invalidate("vendors:")
 
