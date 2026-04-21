@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Gestionar Vendedores{% endblock %}
+{% block page_title %}Gestionar Vendedores{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <p style="color:#888;font-size:13px;margin:0;">Actualizá emails y gestioná el acceso de cada vendedor.</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for cat, msg in messages %}
+<div class="alert alert-{{ 'success' if cat == 'success' else 'danger' }} py-2 px-3 mb-3" style="border-radius:10px;font-size:13px;">{{ msg }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="card border-0 shadow-sm" style="border-radius:14px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:14px 20px;display:flex;align-items:center;gap:10px;">
+    <div style="width:32px;height:32px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div>
+    <div>
+      <div style="font-weight:700;color:#fff;font-size:13px;">Vendedores del lanzamiento</div>
+      <div style="font-size:11px;color:#c9a066;">{{ vendors | length }} vendedores registrados</div>
+    </div>
+  </div>
+
+  <div style="padding:0;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f8f8f8;border-bottom:2px solid #e9ecef;">
+          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Vendedor</th>
+          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Email registrado</th>
+          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Contraseña</th>
+          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vendors %}
+        <tr style="border-bottom:1px solid #f0f0f0;" id="row-{{ v.id }}">
+          <td style="padding:12px 16px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              {% if v.photo_path %}
+              <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}"
+                   style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              {% else %}
+              <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;flex-shrink:0;">{{ v.name[0] }}</div>
+              {% endif %}
+              <span style="font-weight:700;color:#1a0810;">{{ v.name }}</span>
+            </div>
+          </td>
+          <td style="padding:12px 16px;">
+            <div id="email-display-{{ v.id }}" style="display:flex;align-items:center;gap:8px;">
+              <span style="color:{% if '@vh.com' in (v.email or '') %}#ef4444{% else %}#333{% endif %};">
+                {{ v.email or '—' }}
+              </span>
+              {% if '@vh.com' in (v.email or '') %}
+              <span style="background:#fee2e2;color:#991b1b;border-radius:5px;font-size:10px;font-weight:700;padding:1px 6px;">⚠️ email falso</span>
+              {% endif %}
+              <button onclick="editEmail({{ v.id }})"
+                      style="background:none;border:1px solid #c9a066;color:#c9a066;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;">
+                Editar
+              </button>
+            </div>
+            <div id="email-edit-{{ v.id }}" style="display:none;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input type="email" id="email-inp-{{ v.id }}" value="{{ v.email or '' }}"
+                     style="border:1.5px solid #c9a066;border-radius:8px;padding:5px 10px;font-size:13px;min-width:220px;"
+                     placeholder="email@real.com"
+                     onkeydown="if(event.key==='Enter')saveEmail({{ v.id }})">
+              <button onclick="saveEmail({{ v.id }})"
+                      style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;">
+                Guardar
+              </button>
+              <button onclick="cancelEmail({{ v.id }})"
+                      style="background:none;border:1px solid #e9ecef;color:#888;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;">
+                Cancelar
+              </button>
+            </div>
+          </td>
+          <td style="padding:12px 16px;">
+            {% if v.pin %}
+            <span style="background:#d1fae5;color:#065f46;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;">
+              ✅ Tiene clave
+            </span>
+            {% else %}
+            <span style="background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;">
+              ❌ Sin clave aún
+            </span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 16px;">
+            {% if v.pin %}
+            <form method="POST" action="{{ url_for('productor_reset_single_pin', vendor_id=v.id) }}" style="margin:0;display:inline;"
+                  onsubmit="return confirm('¿Resetear la contraseña de {{ v.name }}? Deberá crear una nueva al próximo ingreso.')">
+              <button type="submit"
+                      style="background:none;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">
+                <i class="bi bi-key"></i> Resetear clave
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mt-3" style="font-size:11px;color:#aaa;text-align:center;">
+  Los vendedores con <strong style="color:#ef4444;">email falso</strong> (@vh.com) deben identificarse por nombre al primer login — el sistema actualizará su email automáticamente.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editEmail(id) {
+  document.getElementById('email-display-' + id).style.display = 'none';
+  document.getElementById('email-edit-' + id).style.display = 'flex';
+  document.getElementById('email-inp-' + id).focus();
+}
+
+function cancelEmail(id) {
+  document.getElementById('email-edit-' + id).style.display = 'none';
+  document.getElementById('email-display-' + id).style.display = 'flex';
+}
+
+async function saveEmail(id) {
+  const email = document.getElementById('email-inp-' + id).value.trim();
+  if (!email || !email.includes('@')) {
+    alert('Ingresá un email válido.');
+    return;
+  }
+  const resp = await fetch('/productor/update-vendor-email', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ vendor_id: id, email })
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    window.location.reload();
+  } else {
+    alert('Error al guardar: ' + (data.error || 'Intentá de nuevo'));
+  }
+}
+</script>
+{% endblock %}

@@ -696,19 +696,33 @@ def vendor_login():
     error = None
     first_time = False
     prefill_email = ""
+    show_name_selector = False
+    all_vendors = []
 
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         password = (request.form.get("password") or "").strip()
         confirm = (request.form.get("confirm") or "").strip()
+        vendor_id_pick = request.form.get("vendor_id_pick", "").strip()
         prefill_email = email
 
-        vendor = database.get_vendor_by_email(email)
-        if not vendor:
-            vendor = database.get_vendor_by_name(email)
-        if not vendor:
-            error = "Email no encontrado. Revisá que sea el correcto o contactá a tu coach."
+        # If vendor identified themselves via name picker → look up by ID
+        if vendor_id_pick:
+            vendor = database.get_vendor_by_id(int(vendor_id_pick))
+            # Update email in DB so future logins work with their real email
+            if vendor and email and email != (vendor.get("email") or "").lower():
+                database.update_vendor_email(int(vendor_id_pick), email)
+                vendor["email"] = email
         else:
+            vendor = database.get_vendor_by_email(email)
+            if not vendor:
+                vendor = database.get_vendor_by_name(email)
+
+        if not vendor_id_pick and not vendor:
+            # Email not found — show name selector so vendor can identify themselves
+            show_name_selector = True
+            all_vendors = database.get_kpi_vendors()
+        elif vendor:
             has_pin = bool(vendor.get("pin"))
             if not has_pin:
                 if not password:
@@ -736,7 +750,10 @@ def vendor_login():
                     next_url = request.args.get("next") or url_for("index")
                     return redirect(next_url)
 
-    return render_template("vendor_login.html", error=error, first_time=first_time, prefill_email=prefill_email)
+    return render_template("vendor_login.html", error=error, first_time=first_time,
+                           prefill_email=prefill_email,
+                           show_name_selector=show_name_selector,
+                           all_vendors=all_vendors)
 
 
 @app.route("/logout")
@@ -777,6 +794,36 @@ def productor_reset_pins():
     count = database.reset_all_vendor_pins()
     flash(f"✅ Se resetearon las contraseñas de {count} vendedores. Todos deben crear una nueva al próximo ingreso.", "success")
     return redirect(url_for("index"))
+
+
+@app.route("/productor/vendors")
+def productor_vendors():
+    redir = _require_producer()
+    if redir: return redir
+    vendors = database.get_kpi_vendors_with_pins()
+    return render_template("productor_vendors.html", vendors=vendors)
+
+
+@app.route("/productor/update-vendor-email", methods=["POST"])
+def productor_update_vendor_email():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    email = (data.get("email") or "").strip().lower()
+    if not vendor_id or not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+    database.update_vendor_email(int(vendor_id), email)
+    return jsonify({"ok": True})
+
+
+@app.route("/productor/reset-pin/<int:vendor_id>", methods=["POST"])
+def productor_reset_single_pin(vendor_id):
+    redir = _require_producer()
+    if redir: return redir
+    database.update_vendor_pin(vendor_id, None)
+    flash(f"✅ Contraseña reseteada. El vendedor deberá crear una nueva al próximo ingreso.", "success")
+    return redirect(url_for("productor_vendors"))
 
 
 @app.route("/chat")

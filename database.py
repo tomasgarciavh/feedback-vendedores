@@ -831,6 +831,14 @@ def get_kpi_vendors() -> list:
     return _cached("vendors:kpi", 60, _fetch)
 
 
+def get_kpi_vendors_with_pins() -> list:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, photo_path, pin FROM vendors WHERE kpi_vendor=1 ORDER BY name"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_vendor_by_id(vendor_id: int):
     with get_connection() as conn:
         row = conn.execute(
@@ -1091,6 +1099,13 @@ def update_vendor_pin(vendor_id: int, pin: str):
     with get_connection() as conn:
         conn.execute("UPDATE vendors SET pin=? WHERE id=?", (pin, vendor_id))
         conn.commit()
+
+
+def update_vendor_email(vendor_id: int, email: str):
+    with get_connection() as conn:
+        conn.execute("UPDATE vendors SET email=? WHERE id=?", (email.strip().lower(), vendor_id))
+        conn.commit()
+    _invalidate("vendors:")
 
 
 def get_system_leads() -> list:

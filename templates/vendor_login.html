@@ -12,22 +12,23 @@
       background: linear-gradient(135deg, #1a0810 0%, #3d0f1e 60%, #1a0810 100%);
       display: flex; align-items: center; justify-content: center;
       font-family: 'Segoe UI', sans-serif;
+      padding: 16px;
     }
     .login-card {
       background: #fff;
       border-radius: 20px;
-      padding: 40px 36px 36px;
-      width: 100%; max-width: 420px;
+      padding: 36px 32px 32px;
+      width: 100%; max-width: 440px;
       box-shadow: 0 20px 60px rgba(0,0,0,.4);
     }
-    .logo-area { text-align: center; margin-bottom: 28px; }
+    .logo-area { text-align: center; margin-bottom: 24px; }
     .logo-area .logo-icon {
-      width: 64px; height: 64px; border-radius: 16px;
+      width: 60px; height: 60px; border-radius: 16px;
       background: linear-gradient(135deg, #1a0810, #3d0f1e);
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 28px; margin-bottom: 12px;
+      font-size: 26px; margin-bottom: 10px;
     }
-    .logo-area h1 { font-size: 22px; font-weight: 900; color: #1a0810; margin: 0; }
+    .logo-area h1 { font-size: 21px; font-weight: 900; color: #1a0810; margin: 0; }
     .logo-area p  { font-size: 13px; color: #888; margin: 4px 0 0; }
     .form-label   { font-size: 12px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .5px; }
     .form-select, .form-control {
@@ -51,8 +52,30 @@
       border-radius: 8px; padding: 10px 14px;
       font-size: 12px; color: #92400e; margin-bottom: 16px;
     }
+    .not-found-badge {
+      background: #eff6ff; border: 1px solid #93c5fd;
+      border-radius: 8px; padding: 10px 14px;
+      font-size: 12px; color: #1e40af; margin-bottom: 16px;
+    }
     .toggle-pw { cursor: pointer; color: #aaa; }
     .toggle-pw:hover { color: #555; }
+    .name-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;
+    }
+    .name-btn {
+      border: 2px solid #e9ecef; border-radius: 10px; padding: 10px 12px;
+      background: #fafafa; cursor: pointer; text-align: left; transition: all .12s;
+      font-size: 13px; font-weight: 600; color: #1a0810;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .name-btn:hover { border-color: #c9a066; background: #fdf8f3; }
+    .name-btn.selected { border-color: #c9a066; background: #fdf0dc; font-weight: 800; }
+    .name-btn .avatar-sm {
+      width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, #c9a066, #8b5a2b);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 900; color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -76,7 +99,37 @@
   </div>
   {% endif %}
 
-  <form method="POST">
+  <form method="POST" id="loginForm">
+    <input type="hidden" name="vendor_id_pick" id="vendorIdPick" value="">
+
+    {% if show_name_selector %}
+    <!-- ── Paso 2: email no encontrado, elegir nombre ── -->
+    <div class="not-found-badge">
+      <i class="bi bi-info-circle me-1"></i>
+      <strong>No encontramos ese email.</strong><br>
+      Seleccioná tu nombre abajo y registramos tu email automáticamente.
+    </div>
+
+    <div class="mb-1" style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+      ¿Cuál es tu nombre?
+    </div>
+    <div class="name-grid">
+      {% for v in all_vendors %}
+      <button type="button" class="name-btn" onclick="selectVendor({{ v.id }}, '{{ v.name | e }}', this)">
+        <div class="avatar-sm">{{ v.name[0] }}</div>
+        <span>{{ v.name }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    <div id="nameError" style="display:none;color:#ef4444;font-size:11px;margin-bottom:10px;">
+      ⚠️ Seleccioná tu nombre antes de continuar.
+    </div>
+
+    <!-- Email oculto para mantener el valor -->
+    <input type="hidden" name="email" value="{{ prefill_email }}">
+
+    {% else %}
+    <!-- ── Paso 1: ingresar email ── -->
     <div class="mb-3">
       <label class="form-label">Tu email</label>
       <input type="text" name="email" class="form-control" required
@@ -84,12 +137,13 @@
              placeholder="tucorreo@email.com" autocomplete="email"
              style="text-transform:lowercase;">
     </div>
+    {% endif %}
 
+    {% if not show_name_selector %}
     <div class="mb-3">
       <label class="form-label" id="pw-label">
         {% if first_time %}Crear contraseña{% else %}Contraseña{% endif %}
       </label>
-
       <div class="input-group">
         <input type="password" name="password" id="pw-input" class="form-control"
                placeholder="{% if first_time %}Mínimo 4 caracteres{% else %}Tu contraseña{% endif %}"
@@ -113,10 +167,13 @@
     {% else %}
     <div class="mb-4"></div>
     {% endif %}
+    {% endif %}
 
-    <button type="submit" class="btn-login">
-      <i class="bi bi-box-arrow-in-right me-2"></i>
-      {% if first_time %}Crear contraseña e ingresar{% else %}Ingresar{% endif %}
+    <button type="{% if show_name_selector %}button{% else %}submit{% endif %}"
+            class="btn-login"
+            {% if show_name_selector %}onclick="submitWithName()"{% endif %}>
+      <i class="bi bi-{% if show_name_selector %}check2-circle{% elif first_time %}star-fill{% else %}box-arrow-in-right{% endif %} me-2"></i>
+      {% if show_name_selector %}Confirmar y crear contraseña{% elif first_time %}Crear contraseña e ingresar{% else %}Ingresar{% endif %}
     </button>
   </form>
 
@@ -131,6 +188,22 @@ function togglePw(id, icon) {
   const isText = input.type === 'text';
   input.type = isText ? 'password' : 'text';
   icon.querySelector('i').className = isText ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+function selectVendor(id, name, btn) {
+  document.querySelectorAll('.name-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('vendorIdPick').value = id;
+  document.getElementById('nameError').style.display = 'none';
+}
+
+function submitWithName() {
+  const picked = document.getElementById('vendorIdPick').value;
+  if (!picked) {
+    document.getElementById('nameError').style.display = 'block';
+    return;
+  }
+  document.getElementById('loginForm').submit();
 }
 </script>
 </body>
