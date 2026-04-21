@@ -2,10 +2,36 @@
 {% block title %}Gestionar Vendedores{% endblock %}
 {% block page_title %}Gestionar Vendedores{% endblock %}
 
+{% block extra_head %}
+<style>
+.vendor-card {
+  background:#fff; border:1px solid #e9ecef; border-radius:14px;
+  padding:16px 18px; margin-bottom:10px; transition:box-shadow .12s;
+}
+.vendor-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
+.v-avatar {
+  width:42px; height:42px; border-radius:10px; flex-shrink:0;
+  background:linear-gradient(135deg,#c9a066,#8b5a2b);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:900; color:#fff; overflow:hidden;
+}
+.v-avatar img { width:100%; height:100%; object-fit:cover; }
+.badge-ok   { background:#d1fae5; color:#065f46; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; white-space:nowrap; }
+.badge-warn { background:#fee2e2; color:#991b1b; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; white-space:nowrap; }
+.badge-fake { background:#fef3c7; color:#92400e; border-radius:6px; font-size:10px; font-weight:700; padding:2px 6px; white-space:nowrap; }
+.edit-inp   { border:1.5px solid #c9a066; border-radius:8px; padding:6px 10px; font-size:13px; }
+.edit-inp:focus { outline:none; box-shadow:0 0 0 3px rgba(201,160,102,.15); }
+.btn-save   { background:linear-gradient(135deg,#1a0810,#3d0f1e); color:#c9a066; border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+.btn-save:hover { opacity:.88; }
+.btn-cancel { background:none; border:1px solid #e9ecef; color:#888; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+.btn-edit   { background:none; border:1px solid #c9a066; color:#c9a066; border-radius:6px; padding:2px 8px; font-size:11px; font-weight:700; cursor:pointer; }
+.btn-reset  { background:none; border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:700; cursor:pointer; }
+.btn-del    { background:none; border:1px solid #ef4444; color:#ef4444; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:700; cursor:pointer; }
+.add-card { background:#faf8f5; border:2px dashed #e9ecef; border-radius:14px; padding:20px; margin-bottom:24px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="mb-4">
-  <p style="color:#888;font-size:13px;margin:0;">Actualizá emails y gestioná el acceso de cada vendedor.</p>
-</div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
 {% for cat, msg in messages %}
@@ -13,131 +39,170 @@
 {% endfor %}
 {% endwith %}
 
-<div class="card border-0 shadow-sm" style="border-radius:14px;overflow:hidden;">
-  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:14px 20px;display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div>
-    <div>
-      <div style="font-weight:700;color:#fff;font-size:13px;">Vendedores del lanzamiento</div>
-      <div style="font-size:11px;color:#c9a066;">{{ vendors | length }} vendedores registrados</div>
+<!-- ── Agregar vendedor ── -->
+<div class="add-card">
+  <div style="font-weight:800;font-size:14px;color:#1a0810;margin-bottom:12px;">
+    <i class="bi bi-person-plus-fill me-2" style="color:#c9a066;"></i>Agregar vendedor
+  </div>
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-sm-5">
+      <label style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Nombre completo</label>
+      <input type="text" id="newName" class="form-control" placeholder="Nombre Apellido" style="border-radius:8px;border:1.5px solid #e9ecef;font-size:13px;">
+    </div>
+    <div class="col-12 col-sm-5">
+      <label style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Email</label>
+      <input type="email" id="newEmail" class="form-control" placeholder="email@gmail.com" style="border-radius:8px;border:1.5px solid #e9ecef;font-size:13px;"
+             onkeydown="if(event.key==='Enter')addVendor()">
+    </div>
+    <div class="col-12 col-sm-2">
+      <button onclick="addVendor()" class="btn-save w-100" style="padding:9px 14px;font-size:13px;">
+        <i class="bi bi-plus-lg me-1"></i>Agregar
+      </button>
     </div>
   </div>
+  <div id="addError" style="display:none;color:#ef4444;font-size:12px;margin-top:6px;"></div>
+</div>
 
-  <div style="padding:0;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="background:#f8f8f8;border-bottom:2px solid #e9ecef;">
-          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Vendedor</th>
-          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Email registrado</th>
-          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Contraseña</th>
-          <th style="padding:10px 16px;font-weight:700;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for v in vendors %}
-        <tr style="border-bottom:1px solid #f0f0f0;" id="row-{{ v.id }}">
-          <td style="padding:12px 16px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              {% if v.photo_path %}
-              <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}"
-                   style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;">
-              {% else %}
-              <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;flex-shrink:0;">{{ v.name[0] }}</div>
-              {% endif %}
-              <span style="font-weight:700;color:#1a0810;">{{ v.name }}</span>
-            </div>
-          </td>
-          <td style="padding:12px 16px;">
-            <div id="email-display-{{ v.id }}" style="display:flex;align-items:center;gap:8px;">
-              <span style="color:{% if '@vh.com' in (v.email or '') %}#ef4444{% else %}#333{% endif %};">
-                {{ v.email or '—' }}
-              </span>
-              {% if '@vh.com' in (v.email or '') %}
-              <span style="background:#fee2e2;color:#991b1b;border-radius:5px;font-size:10px;font-weight:700;padding:1px 6px;">⚠️ email falso</span>
-              {% endif %}
-              <button onclick="editEmail({{ v.id }})"
-                      style="background:none;border:1px solid #c9a066;color:#c9a066;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;">
-                Editar
-              </button>
-            </div>
-            <div id="email-edit-{{ v.id }}" style="display:none;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              <input type="email" id="email-inp-{{ v.id }}" value="{{ v.email or '' }}"
-                     style="border:1.5px solid #c9a066;border-radius:8px;padding:5px 10px;font-size:13px;min-width:220px;"
-                     placeholder="email@real.com"
-                     onkeydown="if(event.key==='Enter')saveEmail({{ v.id }})">
-              <button onclick="saveEmail({{ v.id }})"
-                      style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;">
-                Guardar
-              </button>
-              <button onclick="cancelEmail({{ v.id }})"
-                      style="background:none;border:1px solid #e9ecef;color:#888;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;">
-                Cancelar
-              </button>
-            </div>
-          </td>
-          <td style="padding:12px 16px;">
-            {% if v.pin %}
-            <span style="background:#d1fae5;color:#065f46;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;">
-              ✅ Tiene clave
-            </span>
-            {% else %}
-            <span style="background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;">
-              ❌ Sin clave aún
-            </span>
-            {% endif %}
-          </td>
-          <td style="padding:12px 16px;">
-            {% if v.pin %}
-            <form method="POST" action="{{ url_for('productor_reset_single_pin', vendor_id=v.id) }}" style="margin:0;display:inline;"
-                  onsubmit="return confirm('¿Resetear la contraseña de {{ v.name }}? Deberá crear una nueva al próximo ingreso.')">
-              <button type="submit"
-                      style="background:none;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">
-                <i class="bi bi-key"></i> Resetear clave
-              </button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<!-- ── Acciones globales ── -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <span style="font-weight:800;font-size:15px;color:#1a0810;">Vendedores</span>
+    <span style="font-size:12px;color:#888;margin-left:8px;">{{ vendors|length }} registrados</span>
+  </div>
+  <form method="POST" action="{{ url_for('productor_reset_pins') }}" style="margin:0;"
+        onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores? Deberán crear una nueva al próximo ingreso.')">
+    <button type="submit" style="background:none;border:1.5px solid #f59e0b;color:#f59e0b;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+      <i class="bi bi-key-fill me-1"></i>Resetear todas las claves
+    </button>
+  </form>
+</div>
+
+<!-- ── Lista de vendedores ── -->
+{% for v in vendors %}
+<div class="vendor-card" id="vc-{{ v.id }}">
+  <div class="d-flex align-items-start gap-3">
+
+    <!-- Avatar -->
+    <div class="v-avatar">
+      {% if v.photo_path %}<img src="{{ url_for('vendor_photo', filename=v.photo_path) }}">
+      {% else %}{{ v.name[0] }}{% endif %}
+    </div>
+
+    <!-- Info -->
+    <div style="flex:1;min-width:0;">
+
+      <!-- Nombre -->
+      <div id="name-display-{{ v.id }}" class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+        <span style="font-weight:800;font-size:14px;color:#1a0810;">{{ v.name }}</span>
+        <button class="btn-edit" onclick="editField({{ v.id }}, 'name')">Editar nombre</button>
+      </div>
+      <div id="name-edit-{{ v.id }}" style="display:none;" class="d-flex gap-2 align-items-center mb-1 flex-wrap">
+        <input type="text" id="name-inp-{{ v.id }}" value="{{ v.name }}" class="edit-inp"
+               style="min-width:200px;" onkeydown="if(event.key==='Enter')saveField({{ v.id }},'name')">
+        <button class="btn-save" onclick="saveField({{ v.id }}, 'name')">Guardar</button>
+        <button class="btn-cancel" onclick="cancelField({{ v.id }}, 'name')">Cancelar</button>
+      </div>
+
+      <!-- Email -->
+      <div id="email-display-{{ v.id }}" class="d-flex align-items-center gap-2 flex-wrap">
+        <span style="font-size:13px;color:{% if '@vh.com' in (v.email or '') %}#ef4444{% else %}#555{% endif %};">
+          {{ v.email or '—' }}
+        </span>
+        {% if '@vh.com' in (v.email or '') %}
+        <span class="badge-fake">⚠️ email placeholder</span>
+        {% endif %}
+        <button class="btn-edit" onclick="editField({{ v.id }}, 'email')">Editar email</button>
+      </div>
+      <div id="email-edit-{{ v.id }}" style="display:none;" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="email" id="email-inp-{{ v.id }}" value="{{ v.email or '' }}" class="edit-inp"
+               style="min-width:240px;" placeholder="email@gmail.com"
+               onkeydown="if(event.key==='Enter')saveField({{ v.id }},'email')">
+        <button class="btn-save" onclick="saveField({{ v.id }}, 'email')">Guardar</button>
+        <button class="btn-cancel" onclick="cancelField({{ v.id }}, 'email')">Cancelar</button>
+      </div>
+
+    </div>
+
+    <!-- Estado clave + acciones -->
+    <div class="d-flex flex-column align-items-end gap-2" style="flex-shrink:0;">
+      {% if v.pin %}
+      <span class="badge-ok">✅ Tiene clave</span>
+      <form method="POST" action="{{ url_for('productor_reset_single_pin', vendor_id=v.id) }}" style="margin:0;"
+            onsubmit="return confirm('¿Resetear la clave de {{ v.name | e }}?')">
+        <button type="submit" class="btn-reset"><i class="bi bi-key me-1"></i>Resetear clave</button>
+      </form>
+      {% else %}
+      <span class="badge-warn">❌ Sin clave aún</span>
+      {% endif %}
+      <button class="btn-del" onclick="deleteVendor({{ v.id }}, '{{ v.name | e }}')">
+        <i class="bi bi-trash3 me-1"></i>Eliminar
+      </button>
+    </div>
+
   </div>
 </div>
-
-<div class="mt-3" style="font-size:11px;color:#aaa;text-align:center;">
-  Los vendedores con <strong style="color:#ef4444;">email falso</strong> (@vh.com) deben identificarse por nombre al primer login — el sistema actualizará su email automáticamente.
+{% else %}
+<div style="text-align:center;color:#bbb;padding:40px;font-size:13px;">
+  No hay vendedores registrados. Agregá el primero arriba.
 </div>
+{% endfor %}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-function editEmail(id) {
-  document.getElementById('email-display-' + id).style.display = 'none';
-  document.getElementById('email-edit-' + id).style.display = 'flex';
-  document.getElementById('email-inp-' + id).focus();
+// ── Add vendor ────────────────────────────────────────────────────────────────
+async function addVendor() {
+  const name  = document.getElementById('newName').value.trim();
+  const email = document.getElementById('newEmail').value.trim().toLowerCase();
+  const errEl = document.getElementById('addError');
+  if (!name)  { errEl.textContent = 'El nombre es obligatorio.'; errEl.style.display='block'; return; }
+  if (!email || !email.includes('@')) { errEl.textContent = 'Ingresá un email válido.'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  const resp = await fetch('/productor/add-vendor', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, email })
+  });
+  const data = await resp.json();
+  if (data.ok) { window.location.reload(); }
+  else { errEl.textContent = data.error || 'Error al agregar.'; errEl.style.display='block'; }
 }
 
-function cancelEmail(id) {
-  document.getElementById('email-edit-' + id).style.display = 'none';
-  document.getElementById('email-display-' + id).style.display = 'flex';
+// ── Edit fields inline ────────────────────────────────────────────────────────
+function editField(id, field) {
+  document.getElementById(field+'-display-'+id).style.display = 'none';
+  document.getElementById(field+'-edit-'+id).style.display = 'flex';
+  document.getElementById(field+'-inp-'+id).focus();
+}
+function cancelField(id, field) {
+  document.getElementById(field+'-edit-'+id).style.display = 'none';
+  document.getElementById(field+'-display-'+id).style.display = 'flex';
+}
+async function saveField(id, field) {
+  const val = document.getElementById(field+'-inp-'+id).value.trim();
+  if (!val) { alert('El campo no puede estar vacío.'); return; }
+  if (field === 'email' && !val.includes('@')) { alert('Ingresá un email válido.'); return; }
+  const resp = await fetch('/productor/update-vendor-field', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ vendor_id: id, field, value: val })
+  });
+  const data = await resp.json();
+  if (data.ok) { window.location.reload(); }
+  else { alert('Error: ' + (data.error || 'Intentá de nuevo')); }
 }
 
-async function saveEmail(id) {
-  const email = document.getElementById('email-inp-' + id).value.trim();
-  if (!email || !email.includes('@')) {
-    alert('Ingresá un email válido.');
-    return;
-  }
-  const resp = await fetch('/productor/update-vendor-email', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ vendor_id: id, email })
+// ── Delete vendor ─────────────────────────────────────────────────────────────
+async function deleteVendor(id, name) {
+  if (!confirm(`¿Eliminar a ${name} del lanzamiento? Se borran también sus KPIs.\nEsta acción no se puede deshacer.`)) return;
+  const resp = await fetch('/productor/delete-vendor', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ vendor_id: id })
   });
   const data = await resp.json();
   if (data.ok) {
-    window.location.reload();
-  } else {
-    alert('Error al guardar: ' + (data.error || 'Intentá de nuevo'));
-  }
+    const card = document.getElementById('vc-' + id);
+    if (card) { card.style.opacity='0'; card.style.transition='opacity .25s'; setTimeout(()=>card.remove(), 250); }
+  } else { alert('Error: ' + (data.error || 'Intentá de nuevo')); }
 }
 </script>
 {% endblock %}

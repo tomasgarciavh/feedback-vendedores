@@ -1108,6 +1108,35 @@ def update_vendor_email(vendor_id: int, email: str):
     _invalidate("vendors:")
 
 
+def update_vendor_name(vendor_id: int, name: str):
+    with get_connection() as conn:
+        conn.execute("UPDATE vendors SET name=? WHERE id=?", (name.strip(), vendor_id))
+        conn.commit()
+    _invalidate("vendors:")
+
+
+def add_kpi_vendor(name: str, email: str) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 1) "
+            "ON CONFLICT(name) DO UPDATE SET email=excluded.email, kpi_vendor=1 RETURNING id",
+            (name.strip(), email.strip().lower())
+        )
+        row = cur.fetchone()
+        conn.commit()
+    _invalidate("vendors:")
+    return row["id"] if row else None
+
+
+def delete_kpi_vendor(vendor_id: int):
+    with get_connection() as conn:
+        conn.execute("DELETE FROM lanzamiento_kpi_entries WHERE vendor_id=?", (vendor_id,))
+        conn.execute("DELETE FROM kpi_vendor_goals WHERE vendor_id=?", (vendor_id,))
+        conn.execute("DELETE FROM vendors WHERE id=? AND kpi_vendor=1", (vendor_id,))
+        conn.commit()
+    _invalidate("vendors:")
+
+
 def get_system_leads() -> list:
     with get_connection() as conn:
         rows = conn.execute(

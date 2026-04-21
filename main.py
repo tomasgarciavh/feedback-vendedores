@@ -817,12 +817,56 @@ def productor_update_vendor_email():
     return jsonify({"ok": True})
 
 
+@app.route("/productor/update-vendor-field", methods=["POST"])
+def productor_update_vendor_field():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    field = data.get("field")
+    value = (data.get("value") or "").strip()
+    if not vendor_id or field not in ("name", "email") or not value:
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+    if field == "email":
+        if "@" not in value:
+            return jsonify({"ok": False, "error": "Email inválido"}), 400
+        database.update_vendor_email(int(vendor_id), value)
+    else:
+        database.update_vendor_name(int(vendor_id), value)
+    return jsonify({"ok": True})
+
+
+@app.route("/productor/add-vendor", methods=["POST"])
+def productor_add_vendor():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    if not name or not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Nombre y email son obligatorios"}), 400
+    vid = database.add_kpi_vendor(name, email)
+    return jsonify({"ok": True, "vendor_id": vid})
+
+
+@app.route("/productor/delete-vendor", methods=["POST"])
+def productor_delete_vendor():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    if not vendor_id:
+        return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
+    database.delete_kpi_vendor(int(vendor_id))
+    return jsonify({"ok": True})
+
+
 @app.route("/productor/reset-pin/<int:vendor_id>", methods=["POST"])
 def productor_reset_single_pin(vendor_id):
     redir = _require_producer()
     if redir: return redir
     database.update_vendor_pin(vendor_id, None)
-    flash(f"✅ Contraseña reseteada. El vendedor deberá crear una nueva al próximo ingreso.", "success")
+    flash("✅ Contraseña reseteada. El vendedor deberá crear una nueva al próximo ingreso.", "success")
     return redirect(url_for("productor_vendors"))
 
 
