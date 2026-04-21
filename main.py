@@ -129,6 +129,14 @@ app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024
 app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # solo 1 MB en RAM, el resto va a disco
 
 
+@app.template_filter("fromjson")
+def _fromjson(s):
+    try:
+        return json.loads(s or "{}")
+    except Exception:
+        return {}
+
+
 @app.context_processor
 def inject_current_vendor():
     vid = flask_session.get("vendor_id")
@@ -2219,13 +2227,18 @@ def lanzamiento_kpi():
     entries = database.kpi_get_vendor_entries(vendor_id, days=90)
     totals = database.kpi_aggregate_entries(entries)
     goals = database.kpi_get_vendor_goals(vendor_id)
+    custom_labels = database.kpi_get_active_labels()
+    all_labels = database.kpi_get_all_labels()
     entry_date_param = request.args.get("entry_date", today)
     saved_today = bool(saved) and entry_date_param == today
+    is_producer = bool(flask_session.get("producer_auth"))
     return render_template("lanzamiento_kpi.html",
                            vendors_list=vendors_list, vendor=vendor,
                            today=today, today_entry=today_entry,
                            entries=entries, totals=totals, saved=saved,
-                           saved_today=saved_today, goals=goals)
+                           saved_today=saved_today, goals=goals,
+                           custom_labels=custom_labels, all_labels=all_labels,
+                           is_producer=is_producer)
 
 
 @app.route("/lanzamiento/kpi/save", methods=["POST"])
@@ -2275,6 +2288,36 @@ def lanzamiento_kpi_goals():
         int(data.get("goal_potencial", 0) or 0),
         int(data.get("goal_conv_fluida", 0) or 0),
     )
+    return jsonify({"ok": True})
+
+
+@app.route("/lanzamiento/kpi/labels/add", methods=["POST"])
+def lanzamiento_kpi_labels_add():
+    redir = _require_producer()
+    if redir: return redir
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Nombre requerido"}), 400
+    label_id = database.kpi_add_label(name)
+    return jsonify({"ok": True, "id": label_id})
+
+
+@app.route("/lanzamiento/kpi/labels/toggle", methods=["POST"])
+def lanzamiento_kpi_labels_toggle():
+    redir = _require_producer()
+    if redir: return redir
+    data = request.get_json()
+    database.kpi_toggle_label(int(data["id"]), int(data["active"]))
+    return jsonify({"ok": True})
+
+
+@app.route("/lanzamiento/kpi/labels/delete", methods=["POST"])
+def lanzamiento_kpi_labels_delete():
+    redir = _require_producer()
+    if redir: return redir
+    data = request.get_json()
+    database.kpi_delete_label(int(data["id"]))
     return jsonify({"ok": True})
 
 
@@ -2516,6 +2559,7 @@ def lanzamiento_kpi_director():
         for e in today_entries
     ], key=lambda x: x["totals"].get("venta_realizada", 0), reverse=True)
 
+    custom_labels = database.kpi_get_active_labels()
     return render_template("lanzamiento_kpi_director.html",
                            entries=entries,
                            vendor_summaries=vendor_summaries,
@@ -2527,7 +2571,8 @@ def lanzamiento_kpi_director():
                            today=today,
                            from_date=from_date, to_date=to_date,
                            vendor_filter=vendor_filter,
-                           stage_filter=stage_filter)
+                           stage_filter=stage_filter,
+                           custom_labels=custom_labels)
 
 
 @app.route("/lanzamiento/director")

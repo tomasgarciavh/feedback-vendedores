@@ -289,6 +289,20 @@ def init_db():
                 updated_at TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS kpi_custom_labels (
+                id SERIAL PRIMARY KEY,
+                label_name TEXT NOT NULL,
+                active INTEGER DEFAULT 1,
+                display_order INTEGER DEFAULT 0,
+                created_at TEXT
+            )
+        """)
+        # Add custom_values column to existing entries table (safe if already exists)
+        conn.execute("""
+            ALTER TABLE lanzamiento_kpi_entries
+            ADD COLUMN IF NOT EXISTS custom_values TEXT DEFAULT '{}'
+        """)
         conn.commit()
     logger.info("Database initialized.")
 
@@ -302,23 +316,35 @@ KPI_NUMERIC_FIELDS = [
     "potencial_compra_frio", "potencial_compra_tibio", "potencial_compra_caliente",
     "venta_realizada",
 ]
+# Fields entered as daily increments (sum across days)
+KPI_DAILY_FIELDS = {"venta_realizada"}
+# All other fields are cumulative (vendor enters running total; show latest entry)
 
 
 def kpi_upsert_entry(vendor_id: int, entry_date: str, data: dict) -> None:
+    import json as _json
     fields = {k: int(data.get(k, 0) or 0) for k in KPI_NUMERIC_FIELDS}
     notes = (data.get("notes") or "").strip()
+    # Custom label values: dict of {label_id: value}
+    raw_custom = data.get("custom_values", {})
+    if isinstance(raw_custom, str):
+        try:
+            raw_custom = _json.loads(raw_custom)
+        except Exception:
+            raw_custom = {}
+    custom_json = _json.dumps({str(k): int(v or 0) for k, v in raw_custom.items()})
     now = _now()
     with get_connection() as conn:
         conn.execute(
             f"""
             INSERT INTO lanzamiento_kpi_entries
-                (vendor_id, entry_date, {', '.join(KPI_NUMERIC_FIELDS)}, notes, created_at, updated_at)
-            VALUES (?, ?, {', '.join(['?']*len(KPI_NUMERIC_FIELDS))}, ?, ?, ?)
+                (vendor_id, entry_date, {', '.join(KPI_NUMERIC_FIELDS)}, notes, custom_values, created_at, updated_at)
+            VALUES (?, ?, {', '.join(['?']*len(KPI_NUMERIC_FIELDS))}, ?, ?, ?, ?)
             ON CONFLICT(vendor_id, entry_date) DO UPDATE SET
                 {', '.join(f'{k}=excluded.{k}' for k in KPI_NUMERIC_FIELDS)},
-                notes=excluded.notes, updated_at=excluded.updated_at
+                notes=excluded.notes, custom_values=excluded.custom_values, updated_at=excluded.updated_at
             """,
-            [vendor_id, entry_date] + [fields[k] for k in KPI_NUMERIC_FIELDS] + [notes, now, now]
+            [vendor_id, entry_date] + [fields[k] for k in KPI_NUMERIC_FIELDS] + [notes, custom_json, now, now]
         )
         conn.commit()
 
@@ -382,16 +408,51 @@ def kpi_get_all_entries(from_date: str = None, to_date: str = None, vendor_id: i
 
 
 def kpi_aggregate_entries(entries: list[dict]) -> dict:
-    """Sum all numeric KPI fields across a list of entries."""
-    totals = {k: 0 for k in KPI_NUMERIC_FIELDS}
+    """Aggregate KPI entries respecting cumulative vs daily semantics.
+
+    Cumulative fields (all except venta_realizada): vendor enters running total,
+    so we take each vendor's LATEST entry. For daily fields (venta_realizada)
+    we sum all daily increments.
+    """
+    import json as _json
+    if not entries:
+        totals = {k: 0 for k in KPI_NUMERIC_FIELDS}
+        totals.update({"interaccion_leve":0,"conversacion_fluida":0,"potencial_compra":0,"total_leads":0})
+        return totals
+
+    # Group by vendor
+    by_vendor: dict = {}
     for e in entries:
+        vid = e.get("vendor_id", 0)
+        by_vendor.setdefault(vid, []).append(e)
+
+    totals = {k: 0 for k in KPI_NUMERIC_FIELDS}
+    custom_totals: dict = {}
+
+    for vid, ves in by_vendor.items():
+        # Sort descending by date — latest first
+        sorted_ves = sorted(ves, key=lambda x: x.get("entry_date", ""), reverse=True)
+        latest = sorted_ves[0]
         for k in KPI_NUMERIC_FIELDS:
-            totals[k] += int(e.get(k, 0) or 0)
+            if k in KPI_DAILY_FIELDS:
+                totals[k] += sum(int(e.get(k, 0) or 0) for e in ves)
+            else:
+                totals[k] += int(latest.get(k, 0) or 0)
+        # Custom labels: cumulative — use latest entry
+        raw = latest.get("custom_values") or "{}"
+        try:
+            cv = _json.loads(raw)
+        except Exception:
+            cv = {}
+        for lid, val in cv.items():
+            custom_totals[lid] = custom_totals.get(lid, 0) + int(val or 0)
+
     # Derived totals
     totals["interaccion_leve"] = sum(totals[k] for k in ["interaccion_leve_frio","interaccion_leve_tibio","interaccion_leve_caliente"])
     totals["conversacion_fluida"] = sum(totals[k] for k in ["conversacion_fluida_frio","conversacion_fluida_tibio","conversacion_fluida_caliente"])
     totals["potencial_compra"] = sum(totals[k] for k in ["potencial_compra_frio","potencial_compra_tibio","potencial_compra_caliente"])
     totals["total_leads"] = sum(totals[k] for k in ["no_respondido","interaccion_leve","conversacion_fluida","potencial_compra","venta_realizada"])
+    totals["custom"] = custom_totals
     return totals
 
 
@@ -424,6 +485,45 @@ def kpi_get_vendor_goals(vendor_id: int) -> dict:
     if not row:
         return {"goal_ventas": 0, "goal_potencial": 0, "goal_conv_fluida": 0}
     return dict(row)
+
+
+def kpi_get_active_labels() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM kpi_custom_labels WHERE active=1 ORDER BY display_order, id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def kpi_get_all_labels() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM kpi_custom_labels ORDER BY display_order, id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def kpi_add_label(label_name: str) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO kpi_custom_labels (label_name, active, display_order, created_at) VALUES (?,1,0,?) RETURNING id",
+            (label_name.strip(), _now())
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row["id"] if row else None
+
+
+def kpi_toggle_label(label_id: int, active: int) -> None:
+    with get_connection() as conn:
+        conn.execute("UPDATE kpi_custom_labels SET active=? WHERE id=?", (active, label_id))
+        conn.commit()
+
+
+def kpi_delete_label(label_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM kpi_custom_labels WHERE id=?", (label_id,))
+        conn.commit()
 
 
 def kpi_save_vendor_goals(vendor_id: int, goal_ventas: int, goal_potencial: int, goal_conv_fluida: int) -> None:

@@ -291,6 +291,26 @@
       </div>
     </div>
 
+    <!-- ── ETIQUETAS PERSONALIZADAS ── -->
+    {% if custom_labels %}
+    {% for label in custom_labels %}
+    {% set cv = (today_entry.get('custom_values') or '{}') | tojson %}
+    <div class="funnel-stage" style="border-color:#e0d0f0;">
+      <div class="stage-header" style="background:#6d4c9e;">
+        <span style="font-size:16px;">🏷️</span> {{ label.label_name }}
+        <span style="margin-left:auto;font-size:11px;font-weight:400;opacity:.8;">Acumulado total del lanzamiento</span>
+      </div>
+      <div class="stage-body">
+        <div style="max-width:160px;">
+          <div class="sub-label">Total acumulado <span style="color:#ef4444;">*</span></div>
+          <input type="number" class="kpi-input" id="f_custom_{{ label.id }}" min="0"
+                 placeholder="0" value="">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
     <!-- Notes -->
     <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
       <div class="card-body p-3">
@@ -534,11 +554,15 @@
           <th style="color:var(--cf);">CF ❄️</th><th style="color:var(--cf);">CF 🌡️</th><th style="color:var(--cf);">CF 🔥</th>
           <th style="color:var(--pc);">PC ❄️</th><th style="color:var(--pc);">PC 🌡️</th><th style="color:var(--pc);">PC 🔥</th>
           <th style="color:var(--vr);">VR</th>
+          {% for label in custom_labels %}
+          <th style="color:#6d4c9e;">{{ label.label_name[:8] }}{% if label.label_name|length > 8 %}…{% endif %}</th>
+          {% endfor %}
           <th></th>
         </tr>
       </thead>
       <tbody id="hist-tbody">
         {% for e in entries %}
+        {% set ecv = e.get('custom_values', '{}') %}
         <tr id="row-{{ e.entry_date }}">
           <td><input type="checkbox" class="row-chk" value="{{ e.entry_date }}" onchange="updateSelCount()" style="cursor:pointer;accent-color:#c9a066;"></td>
           <td style="font-weight:700;color:#1a0810;white-space:nowrap;">{{ e.entry_date }}</td>
@@ -553,6 +577,9 @@
           <td>{{ e.potencial_compra_tibio or 0 }}</td>
           <td>{{ e.potencial_compra_caliente or 0 }}</td>
           <td style="font-weight:800;color:var(--vr);">{{ e.venta_realizada or 0 }}</td>
+          {% for label in custom_labels %}
+          <td>{{ (ecv | fromjson).get(label.id | string, 0) }}</td>
+          {% endfor %}
           <td style="white-space:nowrap;">
             <button class="edit-btn" onclick="editEntry('{{ e.entry_date }}')">Editar</button>
             <button onclick="deleteSingle('{{ e.entry_date }}')"
@@ -568,6 +595,56 @@
 </div>
 {% endif %}
 
+<!-- ══ ADMIN: GESTIÓN DE ETIQUETAS (solo productor) ══ -->
+{% if is_producer %}
+<div class="card border-0 shadow-sm mt-4" style="border-radius:14px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:14px 20px;display:flex;align-items:center;gap:10px;">
+    <div style="width:32px;height:32px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">🏷️</div>
+    <div style="flex:1;">
+      <div style="font-weight:700;color:#fff;font-size:13px;">Gestión de etiquetas personalizadas</div>
+      <div style="font-size:11px;color:#c9a066;">Solo visible para el productor</div>
+    </div>
+  </div>
+  <div style="padding:16px;background:#faf8f5;">
+    <!-- Add label form -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input type="text" id="newLabelName" placeholder="Nombre de la nueva etiqueta (ej: Actividad 1, Envié podcast...)"
+             style="flex:1;border:1.5px solid #e9ecef;border-radius:8px;padding:8px 12px;font-size:13px;"
+             onkeydown="if(event.key==='Enter')addLabel()">
+      <button onclick="addLabel()" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;">
+        + Agregar
+      </button>
+    </div>
+    <!-- Labels list -->
+    <div id="labelsList">
+      {% for label in all_labels %}
+      <div class="d-flex align-items-center gap-2 mb-2" id="label-row-{{ label.id }}" style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:8px 12px;">
+        <span style="font-size:14px;">🏷️</span>
+        <span style="flex:1;font-size:13px;font-weight:{% if label.active %}700{% else %}400{% endif %};color:{% if label.active %}#1a0810{% else %}#aaa{% endif %};">
+          {{ label.label_name }}
+        </span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;background:{% if label.active %}#d1fae5{% else %}#f3f4f6{% endif %};color:{% if label.active %}#065f46{% else %}#9ca3af{% endif %};">
+          {% if label.active %}ACTIVA{% else %}INACTIVA{% endif %}
+        </span>
+        <button onclick="toggleLabel({{ label.id }}, {{ 0 if label.active else 1 }})"
+                style="background:none;border:1px solid {% if label.active %}#f59e0b{% else %}#22c55e{% endif %};color:{% if label.active %}#f59e0b{% else %}#22c55e{% endif %};border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;">
+          {% if label.active %}Desactivar{% else %}Activar{% endif %}
+        </button>
+        <button onclick="deleteLabel({{ label.id }}, '{{ label.label_name }}')"
+                style="background:none;border:1px solid #ef4444;color:#ef4444;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;cursor:pointer;">
+          ✕
+        </button>
+      </div>
+      {% else %}
+      <div style="text-align:center;color:#bbb;padding:16px;font-size:13px;" id="noLabelsMsg">
+        Todavía no hay etiquetas. Agregá la primera arriba.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endif %}{# end vendor #}
 
 {% endblock %}
@@ -576,6 +653,19 @@
 {% if vendor %}
 <script>
 const VENDOR_ID = {{ vendor.id }};
+const CUSTOM_LABELS = {{ custom_labels | tojson }};
+const TODAY_CUSTOM = {{ (today_entry.get('custom_values','{}')) | tojson }};
+
+// Pre-fill custom label inputs from today's entry
+(function() {
+  let cv = {};
+  try { cv = JSON.parse(TODAY_CUSTOM); } catch(e) {}
+  CUSTOM_LABELS.forEach(lbl => {
+    const el = document.getElementById('f_custom_' + lbl.id);
+    if (el) el.value = cv[String(lbl.id)] !== undefined ? cv[String(lbl.id)] : '';
+  });
+})();
+
 const serverTotals = {
   no_respondido: {{ totals.get('no_respondido',0) }},
   interaccion_leve: {{ totals.get('interaccion_leve',0) }},
@@ -736,6 +826,13 @@ function setFormValues(e) {
   document.getElementById('f_pc_caliente').value   = e.potencial_compra_caliente !== undefined ? e.potencial_compra_caliente : '';
   document.getElementById('f_venta').value         = e.venta_realizada !== undefined ? e.venta_realizada : '';
   document.getElementById('f_notes').value         = e.notes || '';
+  // Custom labels
+  let cv = {};
+  try { cv = JSON.parse(e.custom_values || '{}'); } catch(x) {}
+  CUSTOM_LABELS.forEach(lbl => {
+    const el = document.getElementById('f_custom_' + lbl.id);
+    if (el) el.value = cv[String(lbl.id)] !== undefined ? cv[String(lbl.id)] : '';
+  });
 }
 
 function editEntry(date) {
@@ -791,6 +888,9 @@ async function saveEntry() {
     potencial_compra_caliente: document.getElementById('f_pc_caliente').value,
     venta_realizada: document.getElementById('f_venta').value,
     notes: document.getElementById('f_notes').value,
+    custom_values: Object.fromEntries(
+      CUSTOM_LABELS.map(lbl => [lbl.id, parseInt(document.getElementById('f_custom_' + lbl.id)?.value || '0') || 0])
+    ),
   };
 
   try {
@@ -884,6 +984,39 @@ async function deleteSelected() {
 async function deleteSingle(date) {
   if (!confirm(`¿Eliminar el registro del ${date}?`)) return;
   await _doDelete([date]);
+}
+
+// ── Admin: label management ───────────────────────────────────────────────────
+async function addLabel() {
+  const inp = document.getElementById('newLabelName');
+  const name = (inp.value || '').trim();
+  if (!name) return;
+  const resp = await fetch('/lanzamiento/kpi/labels/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})
+  });
+  const data = await resp.json();
+  if (data.ok) { window.location.reload(); }
+  else { alert('Error: ' + (data.error || 'Intentá de nuevo')); }
+}
+
+async function toggleLabel(id, active) {
+  const resp = await fetch('/lanzamiento/kpi/labels/toggle', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id, active})
+  });
+  const data = await resp.json();
+  if (data.ok) { window.location.reload(); }
+}
+
+async function deleteLabel(id, name) {
+  if (!confirm(`¿Eliminar la etiqueta "${name}"? Los datos guardados no se borran.`)) return;
+  const resp = await fetch('/lanzamiento/kpi/labels/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id})
+  });
+  const data = await resp.json();
+  if (data.ok) { window.location.reload(); }
 }
 
 async function _doDelete(dates) {
