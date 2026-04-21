@@ -27,7 +27,7 @@ UPLOAD_FOLDER = os.path.join(_BASE_DIR, "uploads")
 PHOTO_FOLDER = os.path.join(_BASE_DIR, "uploads", "photos")
 ROLEPLAYS_FOLDER = os.path.join(_BASE_DIR, "uploads", "roleplays")
 TESTIMONIALS_FOLDER = os.path.join(_BASE_DIR, "uploads", "testimonials")
-ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv", "3gp"}
+ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv", "3gp", "ts", "mts", "m2ts", "ogv", "f4v", "divx", "mpg", "mpeg", "mp2", "mpe", "mpv", "m2v"}
 ALLOWED_PHOTO_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 
 os.makedirs(ROLEPLAYS_FOLDER, exist_ok=True)
@@ -265,6 +265,14 @@ def upload_drive():
     import gdown
     vendor_name = (request.form.get("vendor_name") or "").strip()
     drive_url = (request.form.get("drive_url") or "").strip()
+
+    # If no vendor selected but user is logged in, use their own name
+    if not vendor_name:
+        vid = flask_session.get("vendor_id")
+        if vid:
+            v = database.get_vendor_by_id(vid)
+            if v:
+                vendor_name = v["name"]
 
     if not vendor_name:
         return jsonify({"ok": False, "error": "Seleccioná un vendedor."}), 400
@@ -677,29 +685,31 @@ def _require_producer():
 def vendor_login():
     if flask_session.get("vendor_id"):
         return redirect(url_for("index"))
-    vendors = database.get_vendors()
     error = None
     first_time = False
+    prefill_email = ""
 
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
         password = (request.form.get("password") or "").strip()
         confirm = (request.form.get("confirm") or "").strip()
+        prefill_email = email
 
-        vendor = database.get_vendor_by_name(name)
+        vendor = database.get_vendor_by_email(email)
         if not vendor:
-            error = "Nombre no encontrado. Revisá que esté escrito igual que en la lista."
+            vendor = database.get_vendor_by_name(email)
+        if not vendor:
+            error = "Email no encontrado. Revisá que sea el correcto o contactá a tu coach."
         else:
             has_pin = bool(vendor.get("pin"))
             if not has_pin:
-                # Primera vez — crear clave
                 if not password:
                     first_time = True
                 elif len(password) < 4:
-                    error = "La clave debe tener al menos 4 caracteres."
+                    error = "La contraseña debe tener al menos 4 caracteres."
                     first_time = True
                 elif password != confirm:
-                    error = "Las claves no coinciden."
+                    error = "Las contraseñas no coinciden."
                     first_time = True
                 else:
                     database.update_vendor_pin(vendor["id"], password)
@@ -709,16 +719,16 @@ def vendor_login():
                     return redirect(next_url)
             else:
                 if not password:
-                    error = "Ingresá tu clave."
+                    error = "Ingresá tu contraseña."
                 elif vendor.get("pin") != password:
-                    error = "Clave incorrecta."
+                    error = "Contraseña incorrecta."
                 else:
                     flask_session["vendor_id"] = vendor["id"]
                     flask_session["chat_vendor_id"] = vendor["id"]
                     next_url = request.args.get("next") or url_for("index")
                     return redirect(next_url)
 
-    return render_template("vendor_login.html", vendors=vendors, error=error, first_time=first_time)
+    return render_template("vendor_login.html", error=error, first_time=first_time, prefill_email=prefill_email)
 
 
 @app.route("/logout")
@@ -751,11 +761,21 @@ def productor_logout():
     return redirect(url_for("index"))
 
 
+@app.route("/productor/reset-pins", methods=["POST"])
+def productor_reset_pins():
+    redir = _require_producer()
+    if redir:
+        return redir
+    count = database.reset_all_vendor_pins()
+    flash(f"✅ Se resetearon las contraseñas de {count} vendedores. Todos deben crear una nueva al próximo ingreso.", "success")
+    return redirect(url_for("index"))
+
+
 @app.route("/chat")
 def chat():
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     system_leads = database.get_system_leads()
     my_leads = database.get_vendor_leads(vendor["id"])
     sessions = database.get_vendor_sessions(vendor["id"])
@@ -797,7 +817,7 @@ def chat_login():
 @app.route("/chat/logout")
 def chat_logout():
     flask_session.pop("chat_vendor_id", None)
-    return redirect(url_for("chat_login"))
+    return redirect(url_for("vendor_login", next=request.path))
 
 
 @app.route("/chat/leads", methods=["POST"])
@@ -1048,10 +1068,17 @@ mentalidad: [0-10]
         if m:
             section_scores[k] = float(m.group(1))
 
-    database.close_session(session_id, feedback_text, score, _json.dumps(section_scores))
+    try:
+        database.close_session(session_id, feedback_text, score, _json.dumps(section_scores))
+    except Exception as e:
+        logger.error("close_session error: %s", e)
+        return jsonify({"ok": False, "error": f"Error al guardar sesión: {e}"}), 500
 
-    # Award XP and badges
-    gamification = database.award_xp_and_badges(vendor["id"], score, sess["lead_id"])
+    try:
+        gamification = database.award_xp_and_badges(vendor["id"], score, sess["lead_id"])
+    except Exception as e:
+        logger.error("award_xp_and_badges error: %s", e)
+        gamification = None
 
     return jsonify({"ok": True, "feedback": feedback_text, "score": score,
                     "section_scores": section_scores, "gamification": gamification})
@@ -1061,7 +1088,7 @@ mentalidad: [0-10]
 def chat_view_session(session_id: int):
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     sess = database.get_session(session_id)
     if not sess or sess["vendor_id"] != vendor["id"]:
         flash("Sesión no encontrada.", "danger")
@@ -1297,7 +1324,7 @@ LANZAMIENTO_PRESET_LEADS = {
 def chat_lanzamiento():
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     sessions = database.lanzamiento_coach_get_vendor_sessions(vendor["id"])
     return render_template("chat_lanzamiento.html", vendor=vendor,
                            sessions=sessions, phases=LANZAMIENTO_PHASES,
@@ -1310,7 +1337,7 @@ def roleplay_lanzamiento():
     if redir: return redir
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     sessions = database.lanzamiento_coach_get_vendor_sessions(vendor["id"])
     return render_template("roleplay_lanzamiento.html", vendor=vendor,
                            sessions=sessions, phases=LANZAMIENTO_PHASES,
@@ -1323,7 +1350,7 @@ def videollamadas():
     if redir: return redir
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     return render_template("videollamadas.html", vendor=vendor)
 
 
@@ -1333,7 +1360,7 @@ def llamadas():
     if redir: return redir
     vendor = _vendor_session()
     if not vendor:
-        return redirect(url_for("chat_login"))
+        return redirect(url_for("vendor_login", next=request.path))
     return render_template("llamadas.html", vendor=vendor)
 
 
@@ -1748,10 +1775,17 @@ desapego: [0-10]
                 score = float(sm.group(1))
             except Exception:
                 pass
-        database.lanzamiento_coach_close(session_id, feedback_text, score)
+        try:
+            database.lanzamiento_coach_close(session_id, feedback_text, score)
+        except Exception as e:
+            logger.error("lanzamiento_coach_close error: %s", e)
+            return jsonify({"ok": False, "error": f"Error al guardar sesión: {e}"}), 500
         return jsonify({"ok": True, "feedback": feedback_text, "score": score})
     else:
-        database.lanzamiento_coach_close(session_id)
+        try:
+            database.lanzamiento_coach_close(session_id)
+        except Exception as e:
+            logger.error("lanzamiento_coach_close error: %s", e)
         return jsonify({"ok": True, "feedback": "", "score": None})
 
 
@@ -2184,10 +2218,14 @@ def lanzamiento_kpi():
     today_entry = database.kpi_get_entry(vendor_id, today) or {}
     entries = database.kpi_get_vendor_entries(vendor_id, days=90)
     totals = database.kpi_aggregate_entries(entries)
+    goals = database.kpi_get_vendor_goals(vendor_id)
+    entry_date_param = request.args.get("entry_date", today)
+    saved_today = bool(saved) and entry_date_param == today
     return render_template("lanzamiento_kpi.html",
                            vendors_list=vendors_list, vendor=vendor,
                            today=today, today_entry=today_entry,
-                           entries=entries, totals=totals, saved=saved)
+                           entries=entries, totals=totals, saved=saved,
+                           saved_today=saved_today, goals=goals)
 
 
 @app.route("/lanzamiento/kpi/save", methods=["POST"])
@@ -2223,6 +2261,21 @@ def lanzamiento_kpi_delete():
         return jsonify({"ok": False, "error": "Faltan datos"}), 400
     deleted = database.kpi_delete_entries(vendor_id, entry_dates)
     return jsonify({"ok": True, "deleted": deleted})
+
+
+@app.route("/lanzamiento/kpi/goals", methods=["POST"])
+def lanzamiento_kpi_goals():
+    data = request.get_json()
+    vendor_id = data.get("vendor_id")
+    if not vendor_id:
+        return jsonify({"ok": False, "error": "Falta el vendedor"}), 400
+    database.kpi_save_vendor_goals(
+        int(vendor_id),
+        int(data.get("goal_ventas", 0) or 0),
+        int(data.get("goal_potencial", 0) or 0),
+        int(data.get("goal_conv_fluida", 0) or 0),
+    )
+    return jsonify({"ok": True})
 
 
 @app.route("/lanzamiento/kpi/strategy", methods=["POST"])

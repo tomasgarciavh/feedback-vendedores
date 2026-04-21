@@ -60,7 +60,7 @@
   <div class="logo-area">
     <div class="logo-icon">🏆</div>
     <h1>Plataforma VH</h1>
-    <p>Ingresá con tu nombre y contraseña</p>
+    <p>Ingresá con tu email para acceder</p>
   </div>
 
   {% if error %}
@@ -78,19 +78,18 @@
 
   <form method="POST">
     <div class="mb-3">
-      <label class="form-label">Tu nombre</label>
-      <select name="name" class="form-select" required onchange="checkFirstTime(this)">
-        <option value="">— Seleccioná tu nombre —</option>
-        {% for v in vendors %}
-        <option value="{{ v.name }}">{{ v.name }}</option>
-        {% endfor %}
-      </select>
+      <label class="form-label">Tu email</label>
+      <input type="text" name="email" class="form-control" required
+             value="{{ prefill_email or '' }}"
+             placeholder="tucorreo@email.com" autocomplete="email"
+             style="text-transform:lowercase;">
     </div>
 
     <div class="mb-3">
       <label class="form-label" id="pw-label">
         {% if first_time %}Crear contraseña{% else %}Contraseña{% endif %}
       </label>
+
       <div class="input-group">
         <input type="password" name="password" id="pw-input" class="form-control"
                placeholder="{% if first_time %}Mínimo 4 caracteres{% else %}Tu contraseña{% endif %}"

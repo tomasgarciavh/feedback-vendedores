@@ -280,6 +280,15 @@ def init_db():
                 UNIQUE(vendor_id, entry_date)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS kpi_vendor_goals (
+                vendor_id INTEGER PRIMARY KEY,
+                goal_ventas INTEGER DEFAULT 0,
+                goal_potencial INTEGER DEFAULT 0,
+                goal_conv_fluida INTEGER DEFAULT 0,
+                updated_at TEXT
+            )
+        """)
         conn.commit()
     logger.info("Database initialized.")
 
@@ -405,6 +414,31 @@ def kpi_get_all_vendors_summary(from_date: str = None, to_date: str = None) -> l
         result.append(agg)
     result.sort(key=lambda x: x.get("venta_realizada", 0), reverse=True)
     return result
+
+
+def kpi_get_vendor_goals(vendor_id: int) -> dict:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM kpi_vendor_goals WHERE vendor_id=?", (vendor_id,)
+        ).fetchone()
+    if not row:
+        return {"goal_ventas": 0, "goal_potencial": 0, "goal_conv_fluida": 0}
+    return dict(row)
+
+
+def kpi_save_vendor_goals(vendor_id: int, goal_ventas: int, goal_potencial: int, goal_conv_fluida: int) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO kpi_vendor_goals (vendor_id, goal_ventas, goal_potencial, goal_conv_fluida, updated_at)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT (vendor_id) DO UPDATE SET
+                 goal_ventas=excluded.goal_ventas,
+                 goal_potencial=excluded.goal_potencial,
+                 goal_conv_fluida=excluded.goal_conv_fluida,
+                 updated_at=excluded.updated_at""",
+            (vendor_id, goal_ventas, goal_potencial, goal_conv_fluida, _now())
+        )
+        conn.commit()
 
 
 # ── Lanzamiento submissions ─────────────────────────────────────────────────
@@ -904,13 +938,41 @@ def count_pending() -> int:
 # ── Roleplay ──────────────────────────────────────────────────────────────────
 
 def get_vendor_by_name(name: str):
-    """Auth for vendor chat login — name only, no PIN required."""
     with get_connection() as conn:
-        rows = conn.execute("SELECT id, name, pin, photo_path FROM vendors").fetchall()
+        rows = conn.execute("SELECT id, name, email, pin, photo_path FROM vendors").fetchall()
     for row in rows:
         if row["name"].strip().lower() == name.strip().lower():
             return dict(row)
     return None
+
+
+def get_vendor_by_email(email: str):
+    email = email.strip().lower()
+    with get_connection() as conn:
+        rows = conn.execute("SELECT id, name, email, pin, photo_path FROM vendors").fetchall()
+    for row in rows:
+        if (row["email"] or "").strip().lower() == email:
+            return dict(row)
+    return None
+
+
+def get_vendor_by_name(name: str):
+    """Lookup vendor by display name (case-insensitive). Fallback for users without email."""
+    name_lower = name.strip().lower()
+    with get_connection() as conn:
+        rows = conn.execute("SELECT id, name, email, pin, photo_path FROM vendors").fetchall()
+    for row in rows:
+        if row["name"].strip().lower() == name_lower:
+            return dict(row)
+    return None
+
+
+def reset_all_vendor_pins() -> int:
+    """Clears all vendor PINs so every vendor must re-create their password. Returns count."""
+    with get_connection() as conn:
+        result = conn.execute("UPDATE vendors SET pin = NULL WHERE pin IS NOT NULL")
+        conn.commit()
+        return result.rowcount
 
 
 def get_vendor_by_name_and_pin(name: str, pin: str):

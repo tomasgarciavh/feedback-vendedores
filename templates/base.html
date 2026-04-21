@@ -300,6 +300,12 @@
   <a href="{{ url_for('analisis_chats') }}" class="nav-link {% if request.endpoint == 'analisis_chats' %}active{% endif %}">
     <i class="bi bi-people-fill"></i> Análisis de Compradores
   </a>
+  <form method="POST" action="{{ url_for('productor_reset_pins') }}" style="margin:0;"
+        onsubmit="return confirm('¿Resetear contraseñas de todos los vendedores? Deberán crear una nueva al próximo ingreso.')">
+    <button type="submit" class="nav-link w-100 text-start" style="background:none;border:none;color:rgba(255,180,50,.7);font-size:12px;cursor:pointer;">
+      <i class="bi bi-key-fill"></i> Resetear contraseñas
+    </button>
+  </form>
   <a href="{{ url_for('productor_logout') }}" class="nav-link" style="color:rgba(168,178,216,0.5);font-size:12px;">
     <i class="bi bi-box-arrow-right"></i> Salir de Productor
   </a>

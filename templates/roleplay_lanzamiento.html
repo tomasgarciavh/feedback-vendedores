@@ -111,9 +111,14 @@
       <small class="text-muted">Roleplay — Lanzamiento 21 días</small>
     </div>
   </div>
-  <a href="{{ url_for('chat_logout') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
-    <i class="bi bi-box-arrow-right me-1"></i>Salir
-  </a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('lanzamiento') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
+      <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+    <a href="{{ url_for('vendor_logout') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:12px;">
+      <i class="bi bi-box-arrow-right me-1"></i>Salir
+    </a>
+  </div>
 </div>
 
 <!-- Setup -->
