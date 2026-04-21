@@ -306,7 +306,7 @@ def _seed_vendors():
                 conn.execute(
                     "INSERT INTO vendors (name, email, kpi_vendor) VALUES (?, ?, 1) "
                     "ON CONFLICT(name) DO UPDATE SET kpi_vendor=1, "
-                    "email=CASE WHEN vendors.email LIKE '%@vh.com' THEN excluded.email ELSE vendors.email END",
+                    "email=CASE WHEN vendors.email LIKE '%%@vh.com' THEN excluded.email ELSE vendors.email END",
                     (name, email)
                 )
                 conn.commit()
