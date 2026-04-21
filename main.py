@@ -786,6 +786,85 @@ def productor_logout():
     return redirect(url_for("index"))
 
 
+@app.route("/admin/vendedores", methods=["GET", "POST"])
+def admin_vendedores():
+    """Standalone vendor management page with its own login — no nav required."""
+    SESSION_KEY = "admin_vendedores_auth"
+    auth = flask_session.get(SESSION_KEY) or flask_session.get("producer_auth")
+    login_error = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "login":
+            pwd = (request.form.get("password") or "").strip()
+            if pwd == config.PRODUCER_PASSWORD:
+                flask_session[SESSION_KEY] = True
+                auth = True
+            else:
+                login_error = "Contraseña incorrecta."
+        elif action == "logout":
+            flask_session.pop(SESSION_KEY, None)
+            return redirect(url_for("admin_vendedores"))
+        elif auth:
+            if action == "reset_all":
+                count = database.reset_all_vendor_pins()
+                flash(f"✅ Se resetearon las contraseñas de {count} vendedores.", "success")
+                return redirect(url_for("admin_vendedores"))
+            elif action == "reset_pin":
+                vid = request.form.get("vendor_id", type=int)
+                if vid:
+                    database.update_vendor_pin(vid, None)
+                    flash("✅ Contraseña reseteada.", "success")
+                return redirect(url_for("admin_vendedores"))
+
+    vendors = database.get_kpi_vendors_with_pins() if auth else []
+    return render_template("admin_vendedores.html", auth=auth, vendors=vendors, login_error=login_error)
+
+
+@app.route("/admin/vendedores/update-field", methods=["POST"])
+def admin_vendedores_update_field():
+    if not (flask_session.get("admin_vendedores_auth") or flask_session.get("producer_auth")):
+        return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    vid = data.get("vendor_id")
+    field = data.get("field")
+    value = (data.get("value") or "").strip()
+    if not vid or field not in ("name", "email") or not value:
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+    if field == "email":
+        if "@" not in value:
+            return jsonify({"ok": False, "error": "Email inválido"}), 400
+        database.update_vendor_email(int(vid), value)
+    else:
+        database.update_vendor_name(int(vid), value)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/vendedores/add", methods=["POST"])
+def admin_vendedores_add():
+    if not (flask_session.get("admin_vendedores_auth") or flask_session.get("producer_auth")):
+        return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    if not name or not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Nombre y email requeridos"}), 400
+    vid = database.add_kpi_vendor(name, email)
+    return jsonify({"ok": True, "vendor_id": vid})
+
+
+@app.route("/admin/vendedores/delete", methods=["POST"])
+def admin_vendedores_delete():
+    if not (flask_session.get("admin_vendedores_auth") or flask_session.get("producer_auth")):
+        return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json()
+    vid = data.get("vendor_id")
+    if not vid:
+        return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
+    database.delete_kpi_vendor(int(vid))
+    return jsonify({"ok": True})
+
+
 @app.route("/productor/reset-pins", methods=["POST"])
 def productor_reset_pins():
     redir = _require_producer()

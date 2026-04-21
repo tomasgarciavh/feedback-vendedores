@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Vendedores — VH</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background:#f4f5f7; font-family:'Segoe UI',sans-serif; padding:24px 16px; }
+    .page-header {
+      background:linear-gradient(135deg,#1a0810,#3d0f1e); border-radius:16px;
+      padding:20px 24px; margin-bottom:24px; display:flex; align-items:center; gap:14px;
+    }
+    .page-header h1 { font-size:18px; font-weight:900; color:#c9a066; margin:0; }
+    .page-header p  { font-size:12px; color:rgba(255,255,255,.6); margin:2px 0 0; }
+    .card { background:#fff; border-radius:14px; border:1px solid #e9ecef; overflow:hidden; }
+    .v-row { padding:14px 18px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .v-row:last-child { border-bottom:none; }
+    .v-avatar { width:40px; height:40px; border-radius:9px; flex-shrink:0; background:linear-gradient(135deg,#c9a066,#8b5a2b); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; color:#fff; overflow:hidden; }
+    .v-avatar img { width:100%; height:100%; object-fit:cover; }
+    .badge-ok   { background:#d1fae5; color:#065f46; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; white-space:nowrap; }
+    .badge-warn { background:#fee2e2; color:#991b1b; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; white-space:nowrap; }
+    .badge-fake { background:#fef3c7; color:#92400e; border-radius:5px; font-size:10px; font-weight:700; padding:2px 6px; }
+    .edit-inp { border:1.5px solid #c9a066; border-radius:8px; padding:6px 10px; font-size:13px; }
+    .edit-inp:focus { outline:none; box-shadow:0 0 0 3px rgba(201,160,102,.15); }
+    .btn-save   { background:linear-gradient(135deg,#1a0810,#3d0f1e); color:#c9a066; border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:800; cursor:pointer; }
+    .btn-cancel { background:none; border:1px solid #e9ecef; color:#888; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+    .btn-edit   { background:none; border:1px solid #c9a066; color:#c9a066; border-radius:6px; padding:2px 8px; font-size:11px; font-weight:700; cursor:pointer; }
+    .btn-reset  { background:none; border:1px solid #f59e0b; color:#f59e0b; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:700; cursor:pointer; }
+    .btn-del    { background:none; border:1px solid #ef4444; color:#ef4444; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:700; cursor:pointer; }
+
+    /* Login form */
+    .login-wrap { max-width:380px; margin:80px auto; background:#fff; border-radius:20px; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,.12); }
+  </style>
+</head>
+<body>
+
+{% if not auth %}
+<!-- ══════════════ LOGIN ══════════════ -->
+<div class="login-wrap">
+  <div style="text-align:center;margin-bottom:24px;">
+    <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#1a0810,#3d0f1e);display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:10px;">🔐</div>
+    <div style="font-size:20px;font-weight:900;color:#1a0810;">Admin Vendedores</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;">Ingresá con tu clave de productor</div>
+  </div>
+  {% if login_error %}
+  <div class="alert alert-danger py-2 px-3 mb-3" style="border-radius:8px;font-size:13px;">{{ login_error }}</div>
+  {% endif %}
+  <form method="POST">
+    <input type="hidden" name="action" value="login">
+    <div class="mb-3">
+      <label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Contraseña de productor</label>
+      <input type="password" name="password" class="form-control" autofocus placeholder="••••••••"
+             style="border:2px solid #e9ecef;border-radius:10px;padding:10px 14px;font-size:14px;">
+    </div>
+    <button type="submit" style="width:100%;padding:12px;background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;">
+      Ingresar
+    </button>
+  </form>
+</div>
+
+{% else %}
+<!-- ══════════════ PANEL ══════════════ -->
+<div style="max-width:860px;margin:0 auto;">
+
+  <div class="page-header">
+    <div style="width:44px;height:44px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">👥</div>
+    <div style="flex:1;">
+      <h1>Gestión de Vendedores</h1>
+      <p>Agregá, editá emails y nombres, reseteá contraseñas</p>
+    </div>
+    <form method="POST" style="margin:0;">
+      <input type="hidden" name="action" value="logout">
+      <button type="submit" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;">
+        <i class="bi bi-box-arrow-right me-1"></i>Salir
+      </button>
+    </form>
+  </div>
+
+  <!-- Alertas -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' }} py-2 px-3 mb-3" style="border-radius:10px;font-size:13px;">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <!-- Agregar vendedor -->
+  <div style="background:#fff;border:2px dashed #e9ecef;border-radius:14px;padding:18px 20px;margin-bottom:20px;">
+    <div style="font-weight:800;font-size:13px;color:#1a0810;margin-bottom:12px;"><i class="bi bi-person-plus-fill me-2" style="color:#c9a066;"></i>Agregar vendedor</div>
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-sm-4">
+        <label style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px;">Nombre completo</label>
+        <input type="text" id="newName" class="form-control" placeholder="Nombre Apellido" style="border-radius:8px;font-size:13px;">
+      </div>
+      <div class="col-12 col-sm-5">
+        <label style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px;">Email</label>
+        <input type="email" id="newEmail" class="form-control" placeholder="email@gmail.com" style="border-radius:8px;font-size:13px;"
+               onkeydown="if(event.key==='Enter')addVendor()">
+      </div>
+      <div class="col-12 col-sm-3">
+        <button onclick="addVendor()" class="btn-save w-100" style="padding:9px;font-size:13px;">
+          <i class="bi bi-plus-lg me-1"></i>Agregar
+        </button>
+      </div>
+    </div>
+    <div id="addError" style="display:none;color:#ef4444;font-size:12px;margin-top:6px;"></div>
+  </div>
+
+  <!-- Acciones globales -->
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <span style="font-size:13px;color:#888;">{{ vendors|length }} vendedores · Los marcados con ⚠️ tienen email placeholder</span>
+    <form method="POST" style="margin:0;"
+          onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores?')">
+      <input type="hidden" name="action" value="reset_all">
+      <button type="submit" style="background:none;border:1.5px solid #f59e0b;color:#f59e0b;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+        <i class="bi bi-key-fill me-1"></i>Resetear TODAS las claves
+      </button>
+    </form>
+  </div>
+
+  <!-- Lista -->
+  <div class="card">
+    {% for v in vendors %}
+    <div class="v-row" id="vc-{{ v.id }}">
+      <div class="v-avatar">
+        {% if v.photo_path %}<img src="/vendor-photo/{{ v.photo_path }}">{% else %}{{ v.name[0] }}{% endif %}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <!-- Nombre -->
+        <div id="name-display-{{ v.id }}" class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+          <span style="font-weight:800;font-size:14px;color:#1a0810;">{{ v.name }}</span>
+          <button class="btn-edit" onclick="editField({{ v.id }},'name')">Editar nombre</button>
+        </div>
+        <div id="name-edit-{{ v.id }}" style="display:none;" class="d-flex gap-2 align-items-center mb-1 flex-wrap">
+          <input type="text" id="name-inp-{{ v.id }}" value="{{ v.name }}" class="edit-inp" style="min-width:180px;"
+                 onkeydown="if(event.key==='Enter')saveField({{ v.id }},'name')">
+          <button class="btn-save" onclick="saveField({{ v.id }},'name')">Guardar</button>
+          <button class="btn-cancel" onclick="cancelField({{ v.id }},'name')">Cancelar</button>
+        </div>
+        <!-- Email -->
+        <div id="email-display-{{ v.id }}" class="d-flex align-items-center gap-2 flex-wrap">
+          <span style="font-size:12px;color:{% if '@vh.com' in (v.email or '') %}#ef4444{% else %}#555{% endif %};">{{ v.email or '—' }}</span>
+          {% if '@vh.com' in (v.email or '') %}<span class="badge-fake">⚠️ placeholder</span>{% endif %}
+          <button class="btn-edit" onclick="editField({{ v.id }},'email')">Editar email</button>
+        </div>
+        <div id="email-edit-{{ v.id }}" style="display:none;" class="d-flex gap-2 align-items-center flex-wrap">
+          <input type="email" id="email-inp-{{ v.id }}" value="{{ v.email or '' }}" class="edit-inp" style="min-width:220px;"
+                 onkeydown="if(event.key==='Enter')saveField({{ v.id }},'email')">
+          <button class="btn-save" onclick="saveField({{ v.id }},'email')">Guardar</button>
+          <button class="btn-cancel" onclick="cancelField({{ v.id }},'email')">Cancelar</button>
+        </div>
+      </div>
+      <!-- Estado + acciones -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if v.pin %}<span class="badge-ok">✅ Clave creada</span>
+        {% else %}<span class="badge-warn">❌ Sin clave</span>{% endif %}
+        {% if v.pin %}
+        <form method="POST" style="margin:0;" onsubmit="return confirm('¿Resetear clave de {{ v.name | e }}?')">
+          <input type="hidden" name="action" value="reset_pin">
+          <input type="hidden" name="vendor_id" value="{{ v.id }}">
+          <button type="submit" class="btn-reset"><i class="bi bi-key me-1"></i>Resetear</button>
+        </form>
+        {% endif %}
+        <button class="btn-del" onclick="deleteVendor({{ v.id }},'{{ v.name | e }}')">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;color:#bbb;padding:40px;font-size:13px;">No hay vendedores. Agregá el primero arriba.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+function editField(id, field) {
+  document.getElementById(field+'-display-'+id).style.display = 'none';
+  document.getElementById(field+'-edit-'+id).style.display = 'flex';
+  document.getElementById(field+'-inp-'+id).focus();
+}
+function cancelField(id, field) {
+  document.getElementById(field+'-edit-'+id).style.display = 'none';
+  document.getElementById(field+'-display-'+id).style.display = 'flex';
+}
+async function saveField(id, field) {
+  const val = document.getElementById(field+'-inp-'+id).value.trim();
+  if (!val) { alert('El campo no puede estar vacío.'); return; }
+  const resp = await fetch('/admin/vendedores/update-field', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ vendor_id:id, field, value:val })
+  });
+  const data = await resp.json();
+  if (data.ok) window.location.reload();
+  else alert('Error: ' + (data.error || 'Intentá de nuevo'));
+}
+async function addVendor() {
+  const name  = document.getElementById('newName').value.trim();
+  const email = document.getElementById('newEmail').value.trim();
+  const errEl = document.getElementById('addError');
+  if (!name)  { errEl.textContent='Nombre obligatorio.'; errEl.style.display='block'; return; }
+  if (!email || !email.includes('@')) { errEl.textContent='Email inválido.'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  const resp = await fetch('/admin/vendedores/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, email})
+  });
+  const data = await resp.json();
+  if (data.ok) window.location.reload();
+  else { errEl.textContent = data.error||'Error.'; errEl.style.display='block'; }
+}
+async function deleteVendor(id, name) {
+  if (!confirm(`¿Eliminar a ${name}? Se borran también sus KPIs.`)) return;
+  const resp = await fetch('/admin/vendedores/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor_id:id})
+  });
+  const data = await resp.json();
+  if (data.ok) { const c=document.getElementById('vc-'+id); if(c){c.style.opacity='0';c.style.transition='opacity .2s';setTimeout(()=>c.remove(),200);} }
+  else alert('Error: '+(data.error||'Intentá de nuevo'));
+}
+</script>
+</body>
+</html>
