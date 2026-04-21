@@ -380,6 +380,7 @@ def _seed_vendors():
         ("Veronica Segobia", "qves86@gmail.com"),
     ]
     inserted = 0
+    errors = []
     for name, email in _ALUMNOS:
         try:
             with get_connection() as conn:
@@ -391,8 +392,26 @@ def _seed_vendors():
                 conn.commit()
                 inserted += 1
         except Exception as e:
-            logger.warning("Alumno seed error (%s): %s", name, e)
-    logger.info("Alumnos seed: %d/%d processed.", inserted, len(_ALUMNOS))
+            msg = f"{name}: {e}"
+            errors.append(msg)
+            logger.warning("Alumno seed error — %s", msg)
+    logger.info("Alumnos seed: %d/%d processed. Errors: %d", inserted, len(_ALUMNOS), len(errors))
+    return {"inserted": inserted, "total": len(_ALUMNOS), "errors": errors}
+
+
+def run_seed_report() -> dict:
+    """Force-runs the vendor seed and returns a detailed report."""
+    try:
+        with get_connection() as conn:
+            before = conn.execute("SELECT COUNT(*) as c FROM vendors").fetchone()["c"]
+        result = _seed_vendors()
+        with get_connection() as conn:
+            after = conn.execute("SELECT COUNT(*) as c FROM vendors").fetchone()["c"]
+        result["vendors_before"] = before
+        result["vendors_after"] = after
+        return result
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ── KPI Lanzamiento ─────────────────────────────────────────────────────────

@@ -109,15 +109,21 @@
 
   <!-- Acciones globales -->
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <span style="font-size:13px;color:#888;">{{ vendors|length }} alumnos · <span style="color:#7c3aed;font-weight:700;">KPI</span> = participa en lanzamiento · ⚠️ = email placeholder</span>
-    <form method="POST" style="margin:0;"
-          onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores?')">
-      <input type="hidden" name="action" value="reset_all">
-      <button type="submit" style="background:none;border:1.5px solid #f59e0b;color:#f59e0b;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">
-        <i class="bi bi-key-fill me-1"></i>Resetear TODAS las claves
+    <span style="font-size:13px;color:#888;">{{ vendors|length }} alumnos · <span style="color:#7c3aed;font-weight:700;">KPI</span> = lanzamiento · ⚠️ = email placeholder</span>
+    <div class="d-flex gap-2 flex-wrap">
+      <button onclick="runSeed()" style="background:none;border:1.5px solid #7c3aed;color:#7c3aed;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+        <i class="bi bi-arrow-repeat me-1"></i>Recargar lista alumnos
       </button>
-    </form>
+      <form method="POST" style="margin:0;"
+            onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores?')">
+        <input type="hidden" name="action" value="reset_all">
+        <button type="submit" style="background:none;border:1.5px solid #f59e0b;color:#f59e0b;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+          <i class="bi bi-key-fill me-1"></i>Resetear TODAS las claves
+        </button>
+      </form>
+    </div>
   </div>
+  <div id="seedResult" style="display:none;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
 
   <!-- Lista -->
   <div class="card">
@@ -211,6 +217,21 @@ async function addVendor() {
   const data = await resp.json();
   if (data.ok) window.location.reload();
   else { errEl.textContent = data.error||'Error.'; errEl.style.display='block'; }
+}
+async function runSeed() {
+  const el = document.getElementById('seedResult');
+  el.style.display='block'; el.style.background='#f0f4ff'; el.style.color='#333';
+  el.textContent = 'Ejecutando seed...';
+  const resp = await fetch('/admin/vendedores/run-seed', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+  const data = await resp.json();
+  if (data.ok) {
+    const r = data.result;
+    if (r.error) { el.style.background='#fee2e2'; el.style.color='#991b1b'; el.textContent='Error: '+r.error; return; }
+    el.style.background='#d1fae5'; el.style.color='#065f46';
+    el.textContent = `✅ Seed OK — ${r.inserted}/${r.total} alumnos procesados. Vendors antes: ${r.vendors_before} → ahora: ${r.vendors_after}. Errores: ${r.errors.length}`;
+    if (r.errors.length) { el.style.background='#fef3c7'; el.style.color='#92400e'; el.textContent += ' — ' + r.errors.slice(0,3).join(' | '); }
+    setTimeout(()=>window.location.reload(), 1500);
+  } else { el.style.background='#fee2e2'; el.style.color='#991b1b'; el.textContent='Error: '+(data.error||'?'); }
 }
 async function deleteVendor(id, name) {
   if (!confirm(`¿Eliminar a ${name}? Se borran también sus KPIs.`)) return;

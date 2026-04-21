@@ -853,6 +853,14 @@ def admin_vendedores_add():
     return jsonify({"ok": True, "vendor_id": vid})
 
 
+@app.route("/admin/vendedores/run-seed", methods=["POST"])
+def admin_run_seed():
+    if not (flask_session.get("admin_vendedores_auth") or flask_session.get("producer_auth")):
+        return jsonify({"ok": False, "error": "No autorizado"}), 403
+    result = database.run_seed_report()
+    return jsonify({"ok": True, "result": result})
+
+
 @app.route("/admin/vendedores/delete", methods=["POST"])
 def admin_vendedores_delete():
     if not (flask_session.get("admin_vendedores_auth") or flask_session.get("producer_auth")):
