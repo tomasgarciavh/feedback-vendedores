@@ -325,6 +325,44 @@
    VISTA GLOBAL (sin filtro de etapa)
    ════════════════════════════════════════════════════════ #}
 
+<!-- ── OBJETIVO DEL DIRECTOR ── -->
+{% set vr_total = global_totals.get('venta_realizada', 0) %}
+{% set goal_pct = ((vr_total / director_goal * 100) | round(1)) if director_goal > 0 else 0 %}
+{% set goal_remaining = [director_goal - vr_total, 0] | max %}
+<div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);border-radius:16px;padding:20px 24px;margin-bottom:24px;">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div style="flex:1;min-width:220px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(201,160,102,.7);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">🎯 Objetivo del Lanzamiento</div>
+      <div class="d-flex align-items-baseline gap-3 flex-wrap">
+        <span style="font-size:36px;font-weight:900;color:#c9a066;line-height:1;">{{ vr_total }}</span>
+        <span style="font-size:16px;color:rgba(255,255,255,.5);">/ <span id="goalDisplay">{{ director_goal if director_goal > 0 else '—' }}</span> ventas</span>
+        {% if director_goal > 0 %}
+        <span style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:800;color:#c9a066;">{{ goal_pct }}%</span>
+        {% endif %}
+      </div>
+      {% if director_goal > 0 %}
+      <div style="margin-top:10px;">
+        <div style="height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:{{ [goal_pct, 100]|min }}%;background:linear-gradient(90deg,#c9a066,#f0c87a);border-radius:4px;transition:width .5s;"></div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:5px;">
+          {% if goal_remaining > 0 %}Faltan {{ goal_remaining }} ventas para el objetivo{% else %}✅ Objetivo alcanzado{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div id="goalEditArea" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <input type="number" id="goalInput" min="0" value="{{ director_goal }}" placeholder="Objetivo ventas"
+             style="border:1.5px solid rgba(201,160,102,.5);background:rgba(255,255,255,.08);color:#fff;border-radius:8px;padding:7px 12px;font-size:13px;width:130px;outline:none;"
+             onkeydown="if(event.key==='Enter')saveDirectorGoal()">
+      <button onclick="saveDirectorGoal()"
+              style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);color:#c9a066;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+        <i class="bi bi-check-lg me-1"></i>Guardar objetivo
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── HOY ── -->
 <div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado hoy — {{ today }}</div>
 
@@ -579,6 +617,56 @@
 </div>
 {% endfor %}
 
+<!-- ── DIAGNÓSTICO COMERCIAL ── -->
+<div class="section-title"><i class="bi bi-stethoscope" style="color:#c9a066;"></i> Diagnóstico Comercial del Lanzamiento</div>
+
+{% set vr_d = global_totals.get('venta_realizada', 0) %}
+{% set pc_d = global_totals.get('potencial_compra', 0) %}
+{% set cf_d = global_totals.get('conversacion_fluida', 0) %}
+{% set il_d = global_totals.get('interaccion_leve', 0) %}
+{% set nr_d = global_totals.get('no_respondido', 0) %}
+{% set total_d = nr_d + il_d + cf_d + pc_d + vr_d %}
+{% set responded_d = il_d + cf_d + pc_d + vr_d %}
+{% set cf_plus_d = cf_d + pc_d + vr_d %}
+{% set pc_plus_d = pc_d + vr_d %}
+
+{% macro conv_badge(rate, label) %}
+{% set color = '#22c55e' if rate >= 60 else ('#f59e0b' if rate >= 30 else '#ef4444') %}
+{% set icon = '✅' if rate >= 60 else ('⚠️' if rate >= 30 else '🔴') %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:12px 14px;text-align:center;">
+  <div style="font-size:20px;font-weight:900;color:{{ color }};">{{ rate }}%</div>
+  <div style="font-size:10px;color:#888;margin-top:2px;">{{ icon }} {{ label }}</div>
+</div>
+{% endmacro %}
+
+{% set r1 = ((responded_d / total_d * 100) | round(1)) if total_d > 0 else 0 %}
+{% set r2 = ((cf_plus_d / responded_d * 100) | round(1)) if responded_d > 0 else 0 %}
+{% set r3 = ((pc_plus_d / cf_plus_d * 100) | round(1)) if cf_plus_d > 0 else 0 %}
+{% set r4 = ((vr_d / pc_plus_d * 100) | round(1)) if pc_plus_d > 0 else 0 %}
+
+<div class="row g-2 mb-3">
+  <div class="col-6 col-sm-3">{{ conv_badge(r1, 'Respuesta NR→IL') }}</div>
+  <div class="col-6 col-sm-3">{{ conv_badge(r2, 'Escalada IL→CF') }}</div>
+  <div class="col-6 col-sm-3">{{ conv_badge(r3, 'Interés CF→PC') }}</div>
+  <div class="col-6 col-sm-3">{{ conv_badge(r4, 'Cierre PC→Venta') }}</div>
+</div>
+
+<div style="text-align:center;margin-bottom:16px;">
+  <button onclick="runDiagnostico()" id="diagBtn"
+          style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:12px;padding:12px 28px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(26,8,16,.25);">
+    <i class="bi bi-stethoscope me-2"></i>Analizar Diagnóstico con IA
+  </button>
+  <div style="font-size:11px;color:#aaa;margin-top:6px;">Estrategias basadas en Maxwell · Carnegie · Greene</div>
+</div>
+
+<div id="diagPanel" style="display:none;">
+  <div id="diagLoader" class="text-center py-4">
+    <div class="spinner-border" style="color:#c9a066;"></div>
+    <div style="font-size:12px;color:#888;margin-top:8px;">Analizando el lanzamiento...</div>
+  </div>
+  <div id="diagContent" class="strategy-block" style="display:none;"></div>
+</div>
+
 {% else %}
 <div class="text-center py-5" style="color:#bbb;">
   <i class="bi bi-bar-chart" style="font-size:40px;display:block;margin-bottom:12px;opacity:.3;"></i>
@@ -824,6 +912,64 @@ async function analyzeStageGlobal() {
     loader.style.display = 'none';
     content.style.display = 'block';
     content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error de conexión.</div>';
+  }
+}
+
+// ── Director goal ────────────────────────────────────────────────────────────
+async function saveDirectorGoal() {
+  const val = parseInt(document.getElementById('goalInput').value) || 0;
+  const resp = await fetch('/lanzamiento/kpi/director/save-goal', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ goal: val })
+  });
+  const data = await resp.json();
+  if (data.ok) window.location.reload();
+}
+
+// ── Diagnóstico Comercial ─────────────────────────────────────────────────────
+let diagOpen = false;
+async function runDiagnostico() {
+  if (diagOpen) {
+    document.getElementById('diagPanel').style.display = 'none';
+    diagOpen = false;
+    return;
+  }
+  diagOpen = true;
+  const panel   = document.getElementById('diagPanel');
+  const loader  = document.getElementById('diagLoader');
+  const content = document.getElementById('diagContent');
+  panel.style.display  = 'block';
+  loader.style.display = 'block';
+  content.style.display = 'none';
+  document.getElementById('diagBtn').disabled = true;
+
+  const goalVal = parseInt(document.getElementById('goalInput')?.value) || {{ director_goal }};
+  try {
+    const resp = await fetch('/lanzamiento/kpi/director/diagnostico', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ totals: gt, vendor_summaries: vendorSummaries, goal: goalVal })
+    });
+    const data = await resp.json();
+    loader.style.display  = 'none';
+    content.style.display = 'block';
+    document.getElementById('diagBtn').disabled = false;
+    if (data.ok) {
+      let html = '';
+      if (data.bottleneck) {
+        html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;">
+          ⚠️ <strong>Cuello de botella principal:</strong> ${data.bottleneck} (${data.bottleneck_rate}%)
+        </div>`;
+      }
+      html += renderStrategy(data.analysis, null, null);
+      content.innerHTML = html;
+    } else {
+      content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error al generar diagnóstico.</div>';
+    }
+  } catch(e) {
+    loader.style.display  = 'none';
+    content.style.display = 'block';
+    content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error de conexión.</div>';
+    document.getElementById('diagBtn').disabled = false;
   }
 }
 

@@ -280,6 +280,13 @@ def init_db():
             ALTER TABLE lanzamiento_kpi_entries
             ADD COLUMN IF NOT EXISTS custom_values TEXT DEFAULT '{}'
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS lanzamiento_director_config (
+                config_key TEXT PRIMARY KEY,
+                config_value TEXT NOT NULL DEFAULT '0',
+                updated_at TEXT
+            )
+        """)
         conn.commit()
     logger.info("Database schema ready.")
     _seed_vendors()
@@ -1272,6 +1279,25 @@ def delete_vendor(vendor_id: int):
         conn.execute("DELETE FROM vendors WHERE id=?", (vendor_id,))
         conn.commit()
     _invalidate("vendors:")
+
+
+def get_director_goal() -> int:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT config_value FROM lanzamiento_director_config WHERE config_key='goal_ventas'"
+        ).fetchone()
+    return int(row["config_value"]) if row else 0
+
+
+def save_director_goal(goal: int) -> None:
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO lanzamiento_director_config (config_key, config_value, updated_at) VALUES ('goal_ventas', ?, ?) "
+            "ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value, updated_at=excluded.updated_at",
+            (str(goal), now)
+        )
+        conn.commit()
 
 
 def get_system_leads() -> list:

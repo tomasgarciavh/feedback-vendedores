@@ -2738,6 +2738,7 @@ def lanzamiento_kpi_director():
     ], key=lambda x: x["totals"].get("venta_realizada", 0), reverse=True)
 
     custom_labels = database.kpi_get_active_labels()
+    director_goal = database.get_director_goal()
     return render_template("lanzamiento_kpi_director.html",
                            entries=entries,
                            vendor_summaries=vendor_summaries,
@@ -2750,7 +2751,123 @@ def lanzamiento_kpi_director():
                            from_date=from_date, to_date=to_date,
                            vendor_filter=vendor_filter,
                            stage_filter=stage_filter,
-                           custom_labels=custom_labels)
+                           custom_labels=custom_labels,
+                           director_goal=director_goal)
+
+
+@app.route("/lanzamiento/kpi/director/save-goal", methods=["POST"])
+def lanzamiento_kpi_director_save_goal():
+    redir = _require_vendor()
+    if redir: return jsonify({"ok": False}), 403
+    data = request.get_json()
+    goal = int(data.get("goal", 0) or 0)
+    database.save_director_goal(goal)
+    return jsonify({"ok": True, "goal": goal})
+
+
+@app.route("/lanzamiento/kpi/director/diagnostico", methods=["POST"])
+def lanzamiento_kpi_director_diagnostico():
+    import google.generativeai as genai
+    data = request.get_json()
+    totals = data.get("totals", {})
+    vendor_summaries = data.get("vendor_summaries", [])
+    goal = int(data.get("goal", 0) or 0)
+
+    def pct(a, b): return round(a / b * 100, 1) if b > 0 else 0
+
+    nr  = int(totals.get("no_respondido", 0))
+    il  = int(totals.get("interaccion_leve", 0))
+    cf  = int(totals.get("conversacion_fluida", 0))
+    pc  = int(totals.get("potencial_compra", 0))
+    vr  = int(totals.get("venta_realizada", 0))
+    total = nr + il + cf + pc + vr
+    responded = il + cf + pc + vr
+    cf_plus = cf + pc + vr
+    pc_plus = pc + vr
+
+    conv_resp = pct(responded, total)
+    conv_esc  = pct(cf_plus, responded)
+    conv_pc   = pct(pc_plus, cf_plus)
+    conv_vr   = pct(vr, pc_plus)
+
+    bottleneck_map = [
+        ("Tasa de Respuesta (NR→IL)", conv_resp),
+        ("Escalada a Conversación (IL→CF)", conv_esc),
+        ("Generación de Interés (CF→PC)", conv_pc),
+        ("Cierre (PC→Venta)", conv_vr),
+    ]
+    bottleneck = min(bottleneck_map, key=lambda x: x[1])
+
+    vendor_lines = "\n".join(
+        f"  • {vs.get('vendor_name','?')}: {vs.get('venta_realizada',0)} ventas / "
+        f"{vs.get('potencial_compra',0)} PC / {vs.get('conversacion_fluida',0)} CF / "
+        f"{vs.get('interaccion_leve',0)} IL / {vs.get('no_respondido',0)} NR"
+        for vs in vendor_summaries
+    )
+    goal_line = f"\nOBJETIVO DEL DIRECTOR: {goal} ventas. Progreso actual: {vr}/{goal} ({pct(vr,goal)}%)" if goal > 0 else ""
+
+    prompt = f"""Sos un consultor experto en dirección comercial y psicología de equipos de ventas.
+Tu rol es diagnosticar el estado de un lanzamiento de programa de formación en ventas,
+detectar los cuellos de botella reales y proponer estrategias de liderazgo accionables.
+
+Aplicás los principios de:
+- John Maxwell (El líder de 360°, Las 21 leyes irrefutables del liderazgo): liderazgo situacional, desarrollo de personas, visión compartida
+- Dale Carnegie (Cómo ganar amigos e influir sobre las personas): motivación intrínseca, reconocimiento, comunicación efectiva
+- Robert Greene (Las 48 leyes del poder, La ley 50): maestría táctica, lectura del entorno, adaptación estratégica
+
+DATOS DEL LANZAMIENTO (acumulado):
+- Total leads trabajados: {total}
+- No respondidos: {nr} ({pct(nr,total)}%)
+- Interacción Leve: {il}
+- Conversación Fluida: {cf}
+- Potencial Compra: {pc}
+- Ventas concretadas: {vr}
+{goal_line}
+
+TASAS DE CONVERSIÓN DEL FUNNEL:
+- Respuesta: {conv_resp}%  (NR → IL)
+- Escalada: {conv_esc}%    (IL → CF)
+- Interés: {conv_pc}%      (CF → PC)
+- Cierre: {conv_vr}%       (PC → Venta)
+
+CUELLO DE BOTELLA DETECTADO: {bottleneck[0]} ({bottleneck[1]}%)
+
+BREAKDOWN POR VENDEDOR:
+{vendor_lines}
+
+---
+Generá un diagnóstico comercial completo con este formato exacto:
+
+## 🔍 Diagnóstico General
+(2-3 líneas evaluando el estado real del lanzamiento y la salud del funnel)
+
+## ⚠️ Cuello de Botella Principal
+(Explicá por qué {bottleneck[0]} es el mayor freno y qué lo causa en equipos de venta de programas digitales)
+
+## 🎯 Estrategias de Dirección (Maxwell)
+(2-3 acciones de liderazgo situacional para que el director desbloquee el equipo)
+
+## 💬 Cultura de Equipo (Carnegie)
+(2 acciones concretas para motivar, reconocer y alinear al equipo emocionalmente)
+
+## ♟️ Movimientos Tácticos (Greene)
+(2 movimientos estratégicos de corto plazo para reactivar el lanzamiento)
+
+## 📈 Plan de Acción Inmediato
+(3 acciones específicas a ejecutar en las próximas 48-72 hs para mejorar los números)
+
+Sé directo, concreto y sin relleno. Cada punto debe ser accionable."""
+
+    try:
+        genai.configure(api_key=config.GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        return jsonify({"ok": True, "analysis": text,
+                        "bottleneck": bottleneck[0], "bottleneck_rate": bottleneck[1]})
+    except Exception as e:
+        logger.error("Director diagnostico error: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/lanzamiento/director")
