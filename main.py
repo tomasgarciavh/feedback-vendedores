@@ -879,7 +879,7 @@ def productor_reset_pins():
 def productor_vendors():
     redir = _require_producer()
     if redir: return redir
-    vendors = database.get_kpi_vendors_with_pins()
+    vendors = database.get_all_vendors_with_pins()
     return render_template("productor_vendors.html", vendors=vendors)
 
 
@@ -924,7 +924,7 @@ def productor_add_vendor():
     email = (data.get("email") or "").strip().lower()
     if not name or not email or "@" not in email:
         return jsonify({"ok": False, "error": "Nombre y email son obligatorios"}), 400
-    vid = database.add_kpi_vendor(name, email)
+    vid = database.add_vendor(name, email)
     return jsonify({"ok": True, "vendor_id": vid})
 
 
@@ -936,7 +936,7 @@ def productor_delete_vendor():
     vendor_id = data.get("vendor_id")
     if not vendor_id:
         return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
-    database.delete_kpi_vendor(int(vendor_id))
+    database.delete_vendor(int(vendor_id))
     return jsonify({"ok": True})
 
 

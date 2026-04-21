@@ -67,7 +67,7 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
   <div>
     <span style="font-weight:800;font-size:15px;color:#1a0810;">Vendedores</span>
-    <span style="font-size:12px;color:#888;margin-left:8px;">{{ vendors|length }} registrados</span>
+    <span style="font-size:12px;color:#888;margin-left:8px;">{{ vendors|length }} registrados · <span style="color:#5b21b6;font-weight:700;">KPI</span> = lanzamiento</span>
   </div>
   <form method="POST" action="{{ url_for('productor_reset_pins') }}" style="margin:0;"
         onsubmit="return confirm('¿Resetear contraseñas de TODOS los vendedores? Deberán crear una nueva al próximo ingreso.')">
@@ -125,6 +125,7 @@
 
     <!-- Estado clave + acciones -->
     <div class="d-flex flex-column align-items-end gap-2" style="flex-shrink:0;">
+      {% if v.kpi_vendor %}<span style="background:#ede9fe;color:#5b21b6;border-radius:5px;font-size:10px;font-weight:800;padding:2px 7px;">KPI</span>{% endif %}
       {% if v.pin %}
       <span class="badge-ok">✅ Tiene clave</span>
       <form method="POST" action="{{ url_for('productor_reset_single_pin', vendor_id=v.id) }}" style="margin:0;"
