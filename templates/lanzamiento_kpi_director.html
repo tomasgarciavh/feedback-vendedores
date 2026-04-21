@@ -358,6 +358,16 @@
             <span style="font-size:9px;font-weight:700;opacity:.7;">{{ emoji }}</span> {{ tv.totals.get(sk, 0) }}
           </span>
           {% endfor %}
+          {% if custom_labels %}
+          {% set tv_custom = tv.totals.get('custom', {}) %}
+          {% for lbl in custom_labels %}
+          {% if tv_custom.get(lbl.id|string, 0) > 0 %}
+          <span class="stage-chip" style="background:#f3e8ff;color:#6d4c9e;border:1px solid #e0d0f0;">
+            <span style="font-size:9px;font-weight:700;opacity:.7;">🏷️</span> {{ tv_custom.get(lbl.id|string, 0) }}
+          </span>
+          {% endif %}
+          {% endfor %}
+          {% endif %}
         </div>
       </div>
     </div>
@@ -394,6 +404,17 @@
     </div>
   </div>
   {% endfor %}
+  {% if custom_labels %}
+  {% set custom_totals = global_totals.get('custom', {}) %}
+  {% for label in custom_labels %}
+  <div class="col-6 col-lg-2">
+    <div class="kpi-card" style="border-color:#e0d0f0;">
+      <div class="kpi-val" style="color:#6d4c9e;">{{ custom_totals.get(label.id|string, 0) }}</div>
+      <div class="kpi-lbl">🏷️ {{ label.label_name }}</div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
 </div>
 
 <!-- Funnel + temperature -->
@@ -522,6 +543,15 @@
           <div style="font-size:9px;color:#aaa;font-weight:700;">{{ emoji }}</div>
         </div>
         {% endfor %}
+        {% if custom_labels %}
+        {% set vs_custom = vs.get('custom', {}) %}
+        {% for lbl in custom_labels %}
+        <div style="background:#f3e8ff;border:1px solid #e0d0f0;border-radius:9px;padding:5px 11px;text-align:center;min-width:42px;">
+          <div style="font-size:15px;font-weight:900;color:#6d4c9e;">{{ vs_custom.get(lbl.id|string, 0) }}</div>
+          <div style="font-size:9px;color:#9d74c5;font-weight:700;">🏷️ {{ lbl.label_name[:6] }}{% if lbl.label_name|length > 6 %}…{% endif %}</div>
+        </div>
+        {% endfor %}
+        {% endif %}
       </div>
       <!-- Conversion rates -->
       <div class="row g-2">
