@@ -116,15 +116,18 @@ def get_connection():
     global _pool
     pool = _get_pool()
     raw = pool.getconn()
-    # Validate connection — Railway closes idle connections; detect stale ones and reconnect
+    # Validate connection — Railway closes idle connections; detect stale ones and reconnect.
+    # Use autocommit=True for the health check so SELECT 1 doesn't open a transaction,
+    # then restore autocommit=False for normal use.
     try:
+        raw.autocommit = True
         raw.cursor().execute("SELECT 1")
+        raw.autocommit = False
     except Exception:
         try:
             pool.putconn(raw, close=True)
         except Exception:
             pass
-        # Force full pool reset and get a fresh connection
         try:
             pool.closeall()
         except Exception:
@@ -132,7 +135,7 @@ def get_connection():
         _pool = None
         pool = _get_pool()
         raw = pool.getconn()
-    raw.autocommit = False
+        raw.autocommit = False
     conn = _Conn(raw)
     conn._pool_ref = pool
     return conn
