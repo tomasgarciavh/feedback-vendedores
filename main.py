@@ -1292,6 +1292,33 @@ def chat_view_session(session_id: int):
                            lead=lead, messages=messages, section_scores=section_scores)
 
 
+@app.route("/chat/session/<int:session_id>/delete", methods=["POST"])
+def chat_delete_session(session_id: int):
+    vendor = _vendor_session()
+    if not vendor:
+        return jsonify({"ok": False}), 401
+    ok = database.delete_roleplay_session(session_id, vendor["id"])
+    return jsonify({"ok": ok})
+
+
+@app.route("/productor/papelera")
+def productor_papelera():
+    redir = _require_producer()
+    if redir:
+        return redir
+    sessions = database.get_papelera_sessions()
+    return render_template("papelera.html", sessions=sessions)
+
+
+@app.route("/productor/papelera/restore/<int:session_id>", methods=["POST"])
+def productor_papelera_restore(session_id: int):
+    redir = _require_producer()
+    if redir:
+        return jsonify({"ok": False}), 403
+    ok = database.restore_roleplay_session(session_id)
+    return jsonify({"ok": ok})
+
+
 # ── Roleplay Lanzamiento (Coach) ───────────────────────────────────────────────
 
 LANZAMIENTO_PHASES = {

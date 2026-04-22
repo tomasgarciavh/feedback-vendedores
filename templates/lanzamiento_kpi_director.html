@@ -540,6 +540,7 @@
 {% set _base_g = vendor_summaries | selectattr('vendor_id','equalto', vendor_filter|int) | list if vendor_filter else vendor_summaries %}
 {% for vs in _base_g %}
 {% set vs_total = vs.get('total_leads', 0) %}
+{% set vs_nr = vs.get('no_respondido', 0) %}
 {% set vs_responded = vs.get('interaccion_leve',0)+vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
 {% set vs_cf_plus = vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
 {% set vs_pc_plus = vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
@@ -552,6 +553,13 @@
 {% set conv_names= ['Respuesta','Escalada IL→CF','Interés CF→PC','Cierre PC→Venta'] %}
 {% set bottleneck= namespace(val=0,rate=100.0) %}
 {% for i in range(4) %}{% if convs[i]<bottleneck.rate %}{% set bottleneck.rate=convs[i] %}{% set bottleneck.val=i %}{% endif %}{% endfor %}
+{# 550-base rates #}
+{% set B550 = 550 %}
+{% set t550_resp   = ((vs_responded / B550) * 100)|round(1) %}
+{% set t550_nr     = ((vs_nr        / B550) * 100)|round(1) %}
+{% set t550_cf     = ((vs_cf_plus   / B550) * 100)|round(1) %}
+{% set t550_pc     = ((vs_pc_plus   / B550) * 100)|round(1) %}
+{% set t550_cierre = ((vs_vr        / B550) * 100)|round(1) %}
 
 <div class="vendor-row">
   <div class="d-flex align-items-start gap-3">
@@ -591,11 +599,32 @@
         {% endfor %}
         {% endif %}
       </div>
-      <!-- Conversion rates -->
+      <!-- Tasas sobre 550 leads base -->
+      <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#93c5fd;margin-bottom:8px;">📊 Tasas sobre 550 leads</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+          {% for emoji, label, rate, color in [
+            ('📩','Respuesta',t550_resp,'#3b82f6'),
+            ('🚫','No resp.',t550_nr,'#6b7280'),
+            ('🤝','Conv. fl.',t550_cf,'#22c55e'),
+            ('⭐','Potencial',t550_pc,'#f59e0b'),
+            ('🏆','Cierre',t550_cierre,'#8b5cf6')
+          ] %}
+          <div style="text-align:center;">
+            <div style="font-size:9px;color:#94a3b8;margin-bottom:2px;">{{ emoji }} {{ label }}</div>
+            <div style="font-size:13px;font-weight:900;color:{{ color }};">{{ rate }}%</div>
+            <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:3px;">
+              <div style="height:100%;width:{{ [rate|float,100]|min }}%;background:{{ color }};border-radius:2px;"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <!-- Funnel rates (step-by-step) -->
       <div class="row g-2">
         {% for label, rate, color in [('Respuesta',conv_resp,'#3b82f6'),('Escalada',conv_esc,'#22c55e'),('Interés',conv_pc,'#f59e0b'),('Cierre',conv_vr,'#8b5cf6')] %}
         <div class="col-6 col-md-3">
-          <div style="font-size:10px;color:#888;margin-bottom:2px;">{{ label }}</div>
+          <div style="font-size:10px;color:#888;margin-bottom:2px;">{{ label }} (emb.)</div>
           <div style="font-size:13px;font-weight:800;color:{{ color }};">{{ rate }}%</div>
           <div class="conv-mini"><div class="conv-mini-fill" style="width:{{ [rate,100]|min }}%;background:{{ color }};"></div></div>
         </div>

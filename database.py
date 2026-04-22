@@ -208,7 +208,9 @@ def init_db():
                 feedback_text TEXT,
                 score DOUBLE PRECISION,
                 section_scores TEXT,
-                status TEXT DEFAULT 'active'
+                status TEXT DEFAULT 'active',
+                deleted_by_vendor BOOLEAN DEFAULT FALSE,
+                deleted_at TEXT
             )
         """)
         conn.execute("""
@@ -297,6 +299,9 @@ def init_db():
             ALTER TABLE lanzamiento_kpi_entries
             ADD COLUMN IF NOT EXISTS custom_values TEXT DEFAULT '{}'
         """)
+        # Soft-delete columns for roleplay sessions papelera
+        conn.execute("ALTER TABLE roleplay_sessions ADD COLUMN IF NOT EXISTS deleted_by_vendor BOOLEAN DEFAULT FALSE")
+        conn.execute("ALTER TABLE roleplay_sessions ADD COLUMN IF NOT EXISTS deleted_at TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_director_config (
                 config_key TEXT PRIMARY KEY,
@@ -1405,6 +1410,44 @@ def close_session(session_id: int, feedback_text: str, score: float, section_sco
         conn.commit()
 
 
+def delete_roleplay_session(session_id: int, vendor_id: int) -> bool:
+    """Soft-delete a session (vendor can only delete their own)."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE roleplay_sessions SET deleted_by_vendor=TRUE, deleted_at=? "
+            "WHERE id=? AND vendor_id=?",
+            (_now(), session_id, vendor_id)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def get_papelera_sessions() -> list:
+    """Return all sessions deleted by vendors, for the productor papelera view."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT s.*, l.name as lead_name, l.avatar as lead_avatar, l.difficulty,
+                      v.name as vendor_name
+               FROM roleplay_sessions s
+               JOIN roleplay_leads l ON l.id = s.lead_id
+               JOIN vendors v ON v.id = s.vendor_id
+               WHERE s.deleted_by_vendor = TRUE
+               ORDER BY s.deleted_at DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def restore_roleplay_session(session_id: int) -> bool:
+    """Un-delete a session from the papelera."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE roleplay_sessions SET deleted_by_vendor=FALSE, deleted_at=NULL WHERE id=?",
+            (session_id,)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
 # ── Lanzamiento Coach Sessions ──────────────────────────────────────────────
 
 def lanzamiento_coach_create(vendor_id: int, mode: str, phase: str,
@@ -1466,7 +1509,7 @@ def get_vendor_sessions(vendor_id: int) -> list:
             """SELECT s.*, l.name as lead_name, l.avatar as lead_avatar, l.difficulty
                FROM roleplay_sessions s
                JOIN roleplay_leads l ON l.id = s.lead_id
-               WHERE s.vendor_id=?
+               WHERE s.vendor_id=? AND (s.deleted_by_vendor IS NULL OR s.deleted_by_vendor = FALSE)
                ORDER BY s.started_at DESC""",
             (vendor_id,)
         ).fetchall()

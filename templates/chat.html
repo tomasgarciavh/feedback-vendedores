@@ -1,7 +1,94 @@
 {% extends "base.html" %}
-{% block title %}Roleplay — {{ vendor.name }}{% endblock %}
+{% block title %}Roleplay VH — {{ vendor.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --rp-dark: #1a0810;
+    --rp-mid:  #3d0f1e;
+    --rp-gold: #c9a066;
+  }
+
+  /* Lead selector grid */
+  .lead-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+  @media(min-width:576px) { .lead-grid { grid-template-columns:repeat(3,1fr); } }
+  @media(min-width:768px) { .lead-grid { grid-template-columns:repeat(4,1fr); } }
+
+  .lead-tile {
+    padding:12px 10px 10px; border-radius:12px; border:2px solid #e9ecef;
+    background:#fff; cursor:pointer; transition:all .15s; position:relative;
+    text-align:center;
+  }
+  .lead-tile:hover { border-color:var(--rp-gold); background:#faf8f5; }
+  .lead-tile.selected { border-color:var(--rp-mid); background:linear-gradient(135deg,rgba(61,15,30,.06),rgba(201,160,102,.1)); }
+  .lead-tile-emoji { font-size:26px; line-height:1; margin-bottom:6px; }
+  .lead-tile-name { font-size:11px; font-weight:800; color:var(--rp-mid); line-height:1.3; }
+  .lead-tile-short { font-size:9px; color:#888; margin-top:3px; line-height:1.3; }
+
+  /* Context ficha */
+  .ficha-card { border-radius:14px; overflow:hidden; border:2px solid var(--rp-gold); box-shadow:0 4px 20px rgba(201,160,102,.12); margin-bottom:20px; }
+  .ficha-head { background:linear-gradient(135deg,var(--rp-dark),var(--rp-mid)); padding:16px 20px; display:flex; align-items:center; gap:14px; }
+  .ficha-body { background:#fff; padding:16px 20px; }
+  .ficha-section { margin-bottom:14px; }
+  .ficha-section:last-child { margin-bottom:0; }
+  .ficha-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.7px; margin-bottom:6px; }
+  .ficha-text { font-size:13px; color:#333; line-height:1.65; border-radius:8px; padding:10px 12px; border-left:3px solid; }
+
+  /* Inline chat area */
+  .chat-area {
+    display:flex; flex-direction:column; height:440px;
+    border:1px solid #e9ecef; border-radius:14px; overflow:hidden; background:#fafafa;
+  }
+  .chat-messages {
+    flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;
+  }
+  .chat-input-row {
+    display:flex; gap:8px; padding:12px; background:#fff; border-top:1px solid #f0e0e0;
+  }
+  .chat-input-row textarea {
+    flex:1; border:1px solid #e9ecef; border-radius:10px; padding:10px 12px;
+    font-size:13px; resize:none; height:44px; min-height:44px; max-height:120px;
+    overflow:hidden; font-family:inherit;
+  }
+  .chat-input-row textarea:focus { outline:none; border-color:var(--rp-gold); }
+  .chat-input-row button {
+    background:var(--rp-mid); color:#fff; border:none; border-radius:10px;
+    padding:0 18px; font-weight:700; font-size:13px; cursor:pointer; flex-shrink:0;
+  }
+  .chat-input-row button:disabled { opacity:.5; cursor:not-allowed; }
+
+  .bubble { max-width:80%; padding:10px 14px; border-radius:14px; font-size:13px; line-height:1.6; word-break:break-word; }
+  .bubble.vendor { background:var(--rp-mid); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
+  .bubble.lead   { background:#fff; border:1px solid #e9ecef; color:#222; align-self:flex-start; border-bottom-left-radius:4px; }
+  .bubble.system { background:#f0f4ff; border:1px solid #c7d2fe; color:#374151; align-self:center; font-size:12px; max-width:90%; border-radius:10px; text-align:center; }
+
+  .loading-dots { display:inline-flex; gap:4px; align-items:center; }
+  .loading-dots span { width:6px; height:6px; border-radius:50%; background:var(--rp-gold); animation:ld .8s infinite ease-in-out; }
+  .loading-dots span:nth-child(2) { animation-delay:.15s; }
+  .loading-dots span:nth-child(3) { animation-delay:.3s; }
+  @keyframes ld { 0%,80%,100%{transform:scale(.4)}40%{transform:scale(1)} }
+
+  /* Feedback */
+  .feedback-panel { background:#faf8f5; border-radius:14px; padding:20px; border:1px solid #e9e0d0; margin-top:14px; }
+  .feedback-panel h2 { font-size:13px; font-weight:800; color:var(--rp-mid); margin:16px 0 6px; border-bottom:1.5px solid #e9e0d0; padding-bottom:4px; }
+  .feedback-panel h2:first-child { margin-top:0; }
+  .feedback-panel ul { padding-left:18px; margin:0 0 8px; }
+  .feedback-panel li { margin-bottom:4px; font-size:13px; }
+  .feedback-panel p  { font-size:13px; margin:0 0 8px; }
+
+  /* History */
+  .hist-card { border:1px solid #e9ecef; border-radius:10px; padding:11px 14px; margin-bottom:8px; background:#fff; font-size:12px; display:flex; align-items:center; gap:10px; }
+  .hist-card:hover { border-color:#c9a066; }
+
+  /* Gamification */
+  .setup-card { background:#fff; border:1px solid #e9ecef; border-radius:14px; overflow:hidden; margin-bottom:16px; }
+  .setup-card-head { background:linear-gradient(135deg,var(--rp-dark),var(--rp-mid)); padding:14px 20px; color:#fff; }
+  .setup-card-body { padding:18px 20px; }
+</style>
+{% endblock %}
 
 {% block content %}
+
 <!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div class="d-flex align-items-center gap-3">
@@ -22,13 +109,10 @@
   </a>
 </div>
 
-<!-- Stats row -->
+<!-- Gamification panel -->
 {% set done_sessions = sessions | selectattr('status','equalto','done') | list %}
-
-<!-- ── GAMIFICATION PANEL ── -->
 <div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);overflow:hidden;">
   <div class="card-body p-4">
-    <!-- Level + XP bar -->
     <div class="d-flex align-items-center gap-3 mb-3">
       <div style="font-size:36px;line-height:1;">{{ gamif.level.emoji }}</div>
       <div style="flex:1;">
@@ -39,12 +123,12 @@
         {% if gamif.level.next_xp %}
         {% set pct = ((gamif.xp / gamif.level.next_xp) * 100)|int %}
         <div style="background:rgba(255,255,255,.15);border-radius:99px;height:8px;">
-          <div style="background:linear-gradient(90deg,#c9a066,#f0c070);height:8px;border-radius:99px;width:{{ [pct,100]|min }}%;transition:width .6s ease;"></div>
+          <div style="background:linear-gradient(90deg,#c9a066,#f0c070);height:8px;border-radius:99px;width:{{ [pct,100]|min }}%;transition:width .6s;"></div>
         </div>
         <div style="font-size:10px;color:#aaa;margin-top:3px;">{{ gamif.xp }} / {{ gamif.level.next_xp }} XP para el siguiente nivel</div>
         {% else %}
         <div style="background:linear-gradient(90deg,#c9a066,#f0c070);height:8px;border-radius:99px;"></div>
-        <div style="font-size:10px;color:#c9a066;margin-top:3px;font-weight:600;">Nivel máximo desbloqueado 👑</div>
+        <div style="font-size:10px;color:#c9a066;margin-top:3px;font-weight:600;">Nivel máximo 👑</div>
         {% endif %}
       </div>
       {% if gamif.streak and gamif.streak > 0 %}
@@ -55,8 +139,6 @@
       </div>
       {% endif %}
     </div>
-
-    <!-- Stats -->
     <div class="row g-2 mb-3">
       <div class="col-4">
         <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px;text-align:center;">
@@ -80,288 +162,217 @@
         </div>
       </div>
     </div>
-
-    <!-- Badges earned -->
     {% if gamif.badges %}
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:6px;">Insignias desbloqueadas</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:6px;">Insignias</div>
     <div class="d-flex flex-wrap gap-2">
-      {% for key in gamif.badges %}
-      {% if key in gamif.all_badges %}
-      {% set b = gamif.all_badges[key] %}
-      <div class="badge-chip" title="{{ b.desc }}"
-           style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:5px;cursor:default;">
-        <span style="font-size:14px;">{{ b.emoji }}</span>
-        <span style="font-size:11px;color:#c9a066;font-weight:600;">{{ b.nombre }}</span>
+      {% for key in gamif.badges %}{% if key in gamif.all_badges %}{% set b = gamif.all_badges[key] %}
+      <div title="{{ b.desc }}" style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:5px;">
+        <span style="font-size:14px;">{{ b.emoji }}</span><span style="font-size:11px;color:#c9a066;font-weight:600;">{{ b.nombre }}</span>
       </div>
-      {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Locked badges (next to unlock) -->
-    {% set locked = [] %}
-    {% for key, b in gamif.all_badges.items() %}
-      {% if key not in gamif.badges %}{% set _ = locked.append((key, b)) %}{% endif %}
-    {% endfor %}
-    {% if locked %}
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#555;margin-bottom:6px;margin-top:10px;">Por desbloquear</div>
-    <div class="d-flex flex-wrap gap-2">
-      {% for key, b in locked[:5] %}
-      <div title="{{ b.desc }}"
-           style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:5px;cursor:default;filter:grayscale(1);opacity:.5;">
-        <span style="font-size:14px;">{{ b.emoji }}</span>
-        <span style="font-size:11px;color:#888;">{{ b.nombre }}</span>
-      </div>
-      {% endfor %}
+      {% endif %}{% endfor %}
     </div>
     {% endif %}
   </div>
 </div>
 
-<div class="row g-4">
-  <!-- LEFT: Lead selection -->
-  <div class="col-12 col-lg-7">
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-body p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="mb-0 fw-bold">Elegí un lead para practicar</h6>
-          <button class="btn btn-sm" style="background:#f0e8dc;color:#6b3a1e;border:none;border-radius:8px;font-size:12px;"
-                  data-bs-toggle="collapse" data-bs-target="#createLeadForm">
-            <i class="bi bi-plus-lg me-1"></i> Crear lead
-          </button>
-        </div>
+<!-- ══ SETUP — lead selector ══ -->
+<div id="rpSetup">
+  <div class="setup-card">
+    <div class="setup-card-head">
+      <div style="font-size:14px;font-weight:800;">🎭 Elegí un lead para practicar</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">Hacé click en un lead para ver su ficha completa antes de empezar</div>
+    </div>
+    <div class="setup-card-body">
 
-        <!-- System leads -->
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:8px;">Leads predeterminados</div>
-        <div class="row g-2 mb-3">
-          {% for lead in system_leads %}
-          <div class="col-12 col-sm-6">
-            <div class="lead-card p-3 rounded-3 d-flex align-items-start gap-2"
-                 data-lead-id="{{ lead.id }}"
-                 data-lead-name="{{ lead.name }}"
-                 data-lead-avatar="{{ lead.avatar }}"
-                 data-lead-description="{{ lead.description | replace('"', '&quot;') }}"
-                 data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
-                 data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
-                 data-lead-difficulty="{{ lead.difficulty }}"
-                 style="background:#f8f2eb;cursor:pointer;border:2px solid transparent;transition:all .15s;">
-              <span style="font-size:24px;line-height:1.2;">{{ lead.avatar }}</span>
-              <div style="flex:1;min-width:0;">
-                <div class="fw-semibold" style="font-size:13px;color:#1a0810;">{{ lead.name }}</div>
-                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ lead.description[:65] }}…</div>
-                <span class="badge mt-1" style="font-size:10px;
-                  {% if lead.difficulty == 'fácil' %}background:#d4edda;color:#155724;
-                  {% elif lead.difficulty == 'difícil' %}background:#f8d7da;color:#721c24;
-                  {% else %}background:#fff3cd;color:#856404;{% endif %}">
-                  {{ lead.difficulty }}
-                </span>
-              </div>
-            </div>
+      <!-- System leads -->
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#aaa;margin-bottom:10px;">Leads predeterminados</div>
+      <div class="lead-grid">
+        {% for lead in system_leads %}
+        <div class="lead-tile"
+             data-lead-id="{{ lead.id }}"
+             data-lead-name="{{ lead.name }}"
+             data-lead-avatar="{{ lead.avatar }}"
+             data-lead-description="{{ lead.description | replace('"', '&quot;') }}"
+             data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
+             data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
+             data-lead-difficulty="{{ lead.difficulty }}"
+             onclick="selectLead(this)">
+          <div class="lead-tile-emoji">{{ lead.avatar }}</div>
+          <div class="lead-tile-name">{{ lead.name }}</div>
+          <div class="lead-tile-short">{{ lead.description[:50] }}…</div>
+          <div style="margin-top:5px;">
+            <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;
+              {% if lead.difficulty == 'fácil' %}background:#d1fae5;color:#065f46;
+              {% elif lead.difficulty == 'difícil' %}background:#fee2e2;color:#7f1d1d;
+              {% else %}background:#fef9c3;color:#713f12;{% endif %}">{{ lead.difficulty }}</span>
           </div>
-          {% endfor %}
         </div>
+        {% endfor %}
+      </div>
 
-        <!-- My leads -->
-        {% if my_leads %}
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:8px;">Mis leads personalizados</div>
-        <div class="row g-2 mb-3">
-          {% for lead in my_leads %}
-          <div class="col-12 col-sm-6">
-            <div class="lead-card p-3 rounded-3 d-flex align-items-start gap-2 position-relative"
-                 data-lead-id="{{ lead.id }}"
-                 data-lead-name="{{ lead.name }}"
-                 data-lead-avatar="{{ lead.avatar or '👤' }}"
-                 data-lead-description="{{ (lead.description or '') | replace('"', '&quot;') }}"
-                 data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
-                 data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
-                 data-lead-difficulty="{{ lead.difficulty }}"
-                 style="background:#f0f4fb;cursor:pointer;border:2px solid transparent;transition:all .15s;">
-              <span style="font-size:24px;line-height:1.2;">{{ lead.avatar or '👤' }}</span>
-              <div style="flex:1;min-width:0;">
-                <div class="fw-semibold" style="font-size:13px;color:#1a0810;">{{ lead.name }}</div>
-                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ (lead.description or '')[:65] }}{% if lead.description and lead.description|length > 65 %}…{% endif %}</div>
-                <span class="badge mt-1" style="font-size:10px;background:#e2e3e5;color:#383d41;">{{ lead.difficulty }}</span>
-              </div>
-              <button class="btn btn-sm position-absolute top-0 end-0 m-1 delete-lead-btn"
-                      data-lead-id="{{ lead.id }}"
-                      style="width:20px;height:20px;padding:0;font-size:10px;background:none;border:none;color:#ccc;"
-                      title="Eliminar">✕</button>
-            </div>
+      <!-- My leads -->
+      {% if my_leads %}
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#aaa;margin-bottom:10px;margin-top:18px;">Mis leads personalizados</div>
+      <div class="lead-grid">
+        {% for lead in my_leads %}
+        <div class="lead-tile"
+             data-lead-id="{{ lead.id }}"
+             data-lead-name="{{ lead.name }}"
+             data-lead-avatar="{{ lead.avatar or '👤' }}"
+             data-lead-description="{{ (lead.description or '') | replace('"', '&quot;') }}"
+             data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
+             data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
+             data-lead-difficulty="{{ lead.difficulty }}"
+             onclick="selectLead(this)">
+          <div class="lead-tile-emoji">{{ lead.avatar or '👤' }}</div>
+          <div class="lead-tile-name">{{ lead.name }}</div>
+          <div class="lead-tile-short">{{ (lead.description or '')[:50] }}{% if lead.description and lead.description|length > 50 %}…{% endif %}</div>
+          <div style="margin-top:5px;">
+            <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;background:#e2e3e5;color:#383d41;">{{ lead.difficulty }}</span>
           </div>
-          {% endfor %}
+          <button onclick="deleteLead(event, {{ lead.id }})"
+                  style="position:absolute;top:4px;right:4px;width:18px;height:18px;background:none;border:none;color:#ccc;font-size:11px;cursor:pointer;padding:0;line-height:1;">✕</button>
         </div>
-        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
 
-        <!-- Create lead form -->
-        <div class="collapse" id="createLeadForm">
-          <div style="background:#f8f2eb;border-radius:12px;padding:16px;margin-top:8px;">
-            <h6 class="fw-bold mb-3" style="font-size:13px;">Crear lead personalizado</h6>
+      <!-- Create lead -->
+      <div style="margin-top:18px;">
+        <button class="btn btn-sm" style="background:#f0e8dc;color:#6b3a1e;border:none;border-radius:8px;font-size:12px;"
+                data-bs-toggle="collapse" data-bs-target="#createLeadForm">
+          <i class="bi bi-plus-lg me-1"></i>Crear lead personalizado
+        </button>
+        <div class="collapse mt-3" id="createLeadForm">
+          <div style="background:#f8f2eb;border-radius:12px;padding:16px;">
             <div class="row g-2">
-              <div class="col-8">
-                <input type="text" id="newLeadName" class="form-control form-control-sm" placeholder="Nombre del lead" style="border-radius:8px;">
-              </div>
-              <div class="col-4">
-                <input type="text" id="newLeadAvatar" class="form-control form-control-sm" placeholder="Emoji 👤" style="border-radius:8px;" maxlength="4">
-              </div>
-              <div class="col-12">
-                <textarea id="newLeadDescription" class="form-control form-control-sm" rows="2" placeholder="Descripción breve (quién es, qué vende, situación)" style="border-radius:8px;"></textarea>
-              </div>
-              <div class="col-12">
-                <textarea id="newLeadPersonality" class="form-control form-control-sm" rows="3" placeholder="Personalidad y comportamiento (cómo habla, cómo reacciona, frases típicas...)" style="border-radius:8px;"></textarea>
-              </div>
-              <div class="col-12">
-                <input type="text" id="newLeadObjections" class="form-control form-control-sm" placeholder="Objeciones típicas (separadas por coma)" style="border-radius:8px;">
-              </div>
+              <div class="col-8"><input type="text" id="newLeadName" class="form-control form-control-sm" placeholder="Nombre" style="border-radius:8px;"></div>
+              <div class="col-4"><input type="text" id="newLeadAvatar" class="form-control form-control-sm" placeholder="Emoji 👤" style="border-radius:8px;" maxlength="4"></div>
+              <div class="col-12"><textarea id="newLeadDescription" class="form-control form-control-sm" rows="2" placeholder="Descripción breve" style="border-radius:8px;"></textarea></div>
+              <div class="col-12"><textarea id="newLeadPersonality" class="form-control form-control-sm" rows="3" placeholder="Personalidad y comportamiento (cómo habla, cómo reacciona...)" style="border-radius:8px;"></textarea></div>
+              <div class="col-12"><input type="text" id="newLeadObjections" class="form-control form-control-sm" placeholder="Objeciones típicas (separadas por coma)" style="border-radius:8px;"></div>
               <div class="col-6">
                 <select id="newLeadDifficulty" class="form-select form-select-sm" style="border-radius:8px;">
-                  <option value="fácil">Fácil</option>
-                  <option value="medio" selected>Medio</option>
-                  <option value="difícil">Difícil</option>
+                  <option value="fácil">Fácil</option><option value="medio" selected>Medio</option><option value="difícil">Difícil</option>
                 </select>
               </div>
               <div class="col-6">
                 <button class="btn btn-sm w-100 fw-semibold" id="saveLeadBtn"
                         style="background:linear-gradient(135deg,#c9a066,#8b5a2b);color:#fff;border:none;border-radius:8px;">
-                  Guardar lead
+                  Guardar
                 </button>
               </div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
-
-    <!-- Lead context panel — shown when a lead is selected -->
-    <div id="leadContextPanel" style="display:none;">
-      <div style="border-radius:14px;overflow:hidden;border:2px solid #c9a066;box-shadow:0 4px 20px rgba(201,160,102,.15);">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:16px 20px;display:flex;align-items:center;gap:14px;">
-          <div id="ctxAvatar" style="font-size:38px;line-height:1;flex-shrink:0;"></div>
-          <div style="flex:1;">
-            <div id="ctxName" style="font-size:16px;font-weight:800;color:#fff;"></div>
-            <div id="ctxDiffBadge" style="margin-top:4px;"></div>
-          </div>
-          <button onclick="clearLeadSelection()" style="background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Cambiar</button>
-        </div>
-
-        <!-- Body -->
-        <div style="background:#fff;padding:16px 20px;">
-
-          <!-- Descripción -->
-          <div style="margin-bottom:14px;">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#c9a066;margin-bottom:6px;">📋 Quién es</div>
-            <div id="ctxDesc" style="font-size:13px;color:#333;line-height:1.6;background:#faf8f5;border-radius:8px;padding:10px 12px;border-left:3px solid #c9a066;"></div>
-          </div>
-
-          <!-- Personalidad -->
-          <div id="ctxPersonalityBlock" style="margin-bottom:14px;">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#3b82f6;margin-bottom:6px;">🧠 Cómo se comporta</div>
-            <div id="ctxPersonality" style="font-size:13px;color:#333;line-height:1.6;background:#f0f7ff;border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6;"></div>
-          </div>
-
-          <!-- Objeciones -->
-          <div id="ctxObjectionsBlock" style="margin-bottom:18px;">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#ef4444;margin-bottom:6px;">⚠️ Objeciones típicas</div>
-            <div id="ctxObjections" style="font-size:13px;color:#333;line-height:1.6;background:#fff5f5;border-radius:8px;padding:10px 12px;border-left:3px solid #ef4444;"></div>
-          </div>
-
-          <!-- Start button -->
-          <button id="startBtn" class="btn w-100 fw-bold"
-                  style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:10px;padding:13px;font-size:14px;letter-spacing:.3px;">
-            <i class="bi bi-play-fill me-2"></i>Ya leí el perfil — Iniciar Roleplay
-          </button>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- RIGHT: History -->
-  <div class="col-12 col-lg-5">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h6 class="fw-bold mb-3">Historial de práctica</h6>
-        {% if sessions %}
-          {% for s in sessions[:10] %}
-          <a href="{{ url_for('chat_view_session', session_id=s.id) }}" class="text-decoration-none">
-            <div class="d-flex align-items-center gap-3 p-2 rounded-3 mb-2"
-                 style="background:#f8f8f8;transition:background .12s;" onmouseover="this.style.background='#f0e8dc'" onmouseout="this.style.background='#f8f8f8'">
-              <div style="font-size:24px;">{{ s.lead_avatar or '👤' }}</div>
-              <div style="flex:1;min-width:0;">
-                <div class="fw-semibold" style="font-size:13px;color:#1a0810;">{{ s.lead_name }}</div>
-                <div style="font-size:11px;color:#888;">{{ (s.started_at or '')[:10] }}</div>
-              </div>
-              <div class="text-end">
-                {% if s.score %}
-                <div style="font-size:18px;font-weight:800;color:{{ '#1a7a4a' if s.score >= 7 else ('#c9a066' if s.score >= 5 else '#c0392b') }};">
-                  {{ s.score }}</div>
-                <div style="font-size:10px;color:#aaa;">/10</div>
-                {% elif s.status == 'active' %}
-                <span class="badge" style="background:#fff3cd;color:#856404;font-size:10px;">en curso</span>
-                {% else %}
-                <span class="badge bg-secondary" style="font-size:10px;">sin eval.</span>
-                {% endif %}
-              </div>
-            </div>
-          </a>
-          {% endfor %}
-        {% else %}
-          <div class="text-center py-4" style="color:#bbb;">
-            <i class="bi bi-chat-square-dots" style="font-size:32px;display:block;margin-bottom:8px;"></i>
-            Todavía no hiciste ningún roleplay.<br>
-            <small>¡Elegí un lead y empezá a practicar!</small>
-          </div>
-        {% endif %}
+  <!-- Ficha del lead (aparece cuando se selecciona uno) -->
+  <div id="fichaPanel" style="display:none;" class="ficha-card">
+    <div class="ficha-head">
+      <div id="fichaAvatar" style="font-size:40px;line-height:1;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div id="fichaName" style="font-size:17px;font-weight:800;color:#fff;"></div>
+        <div id="fichaDiff" style="margin-top:4px;"></div>
       </div>
+      <button onclick="clearSelection()"
+              style="background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;flex-shrink:0;">
+        ✕ Cambiar lead
+      </button>
+    </div>
+    <div class="ficha-body">
+      <div class="ficha-section">
+        <div class="ficha-label" style="color:#c9a066;">📋 Quién es</div>
+        <div id="fichaDesc" class="ficha-text" style="background:#faf8f5;border-color:#c9a066;"></div>
+      </div>
+      <div id="fichaPersonalityBlock" class="ficha-section">
+        <div class="ficha-label" style="color:#3b82f6;">🧠 Cómo se comporta</div>
+        <div id="fichaPersonality" class="ficha-text" style="background:#f0f7ff;border-color:#3b82f6;"></div>
+      </div>
+      <div id="fichaObjectionsBlock" class="ficha-section" style="margin-bottom:18px;">
+        <div class="ficha-label" style="color:#ef4444;">⚠️ Objeciones típicas</div>
+        <div id="fichaObjections" class="ficha-text" style="background:#fff5f5;border-color:#ef4444;"></div>
+      </div>
+      <button id="startBtn" onclick="startRoleplay()"
+              class="btn w-100 fw-bold"
+              style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:10px;padding:13px;font-size:14px;">
+        <i class="bi bi-play-fill me-2"></i>Ya leí el perfil — Iniciar Roleplay
+      </button>
     </div>
   </div>
 </div>
 
-<!-- CHAT MODAL -->
-<div class="modal fade" id="chatModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:540px;">
-    <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
-      <!-- Modal header: lead info -->
-      <div id="chatHeader" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:16px 20px;display:flex;align-items:center;gap:12px;">
-        <button id="closeChatBtn" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;font-size:12px;padding:6px 10px;flex-shrink:0;" title="Volver">
-          <i class="bi bi-arrow-left"></i>
-        </button>
-        <div id="chatLeadAvatar" style="font-size:32px;"></div>
-        <div style="flex:1;">
-          <div id="chatLeadName" style="font-weight:700;color:#fff;font-size:15px;"></div>
-          <div id="chatLeadDesc" style="font-size:11px;color:#c9a066;"></div>
-        </div>
-        <button id="endChatBtn" class="btn btn-sm" style="background:#c9a066;color:#1a0810;border:none;border-radius:8px;font-size:12px;font-weight:700;">
-          Finalizar y obtener feedback
-        </button>
-      </div>
-      <!-- Chat messages -->
-      <div id="chatMessages" style="height:380px;overflow-y:auto;padding:16px;background:#f0f0f0;display:flex;flex-direction:column;gap:8px;">
-        <div class="text-center" style="font-size:12px;color:#aaa;margin:8px 0;">
-          El roleplay comenzó. Enviá el primer mensaje como si fuera WhatsApp. 💬
-        </div>
-      </div>
-      <!-- Typing indicator -->
-      <div id="typingIndicator" style="display:none;padding:8px 16px;background:#f0f0f0;">
-        <div style="display:inline-flex;align-items:center;gap:6px;background:#fff;padding:8px 12px;border-radius:18px;">
-          <span style="font-size:11px;color:#888;">escribiendo</span>
-          <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
-        </div>
-      </div>
-      <!-- Input -->
-      <div style="padding:12px 16px;background:#fff;border-top:1px solid #eee;display:flex;gap:8px;">
-        <input type="text" id="chatInput" class="form-control"
-               placeholder="Escribí tu mensaje..." style="border-radius:20px;border:1px solid #ddd;font-size:14px;">
-        <button id="sendBtn" class="btn" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#fff;border:none;border-radius:50%;width:42px;height:42px;padding:0;flex-shrink:0;">
-          <i class="bi bi-send-fill" style="font-size:14px;"></i>
-        </button>
-      </div>
+<!-- ══ CHAT AREA (inline, aparece al iniciar) ══ -->
+<div id="rpChat" style="display:none;">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <span id="chatTitle" class="fw-bold" style="font-size:14px;color:var(--rp-mid);"></span>
+      <span id="chatSub" style="font-size:11px;color:#888;margin-left:8px;"></span>
+    </div>
+    <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;font-size:12px;" onclick="endRoleplay()">
+      <i class="bi bi-stop-circle me-1"></i>Finalizar y ver feedback
+    </button>
+  </div>
+  <div class="chat-area">
+    <div class="chat-messages" id="rpMessages"></div>
+    <div class="chat-input-row">
+      <textarea id="rpInput" placeholder="Escribí tu mensaje como si fuera WhatsApp..." onkeydown="rpKeydown(event)" oninput="autoResize(this)"></textarea>
+      <button id="rpSendBtn" onclick="sendMsg()"><i class="bi bi-send-fill"></i></button>
+    </div>
+  </div>
+  <!-- Feedback section (aparece abajo al finalizar) -->
+  <div id="rpFeedback" style="display:none;">
+    <div class="d-flex align-items-center gap-2 mt-4 mb-2">
+      <span style="font-size:16px;">📋</span>
+      <span class="fw-bold" style="color:var(--rp-mid);">Feedback de tu práctica</span>
+    </div>
+    <div class="feedback-panel" id="rpFeedbackContent"></div>
+    <div class="d-flex gap-2 mt-3">
+      <button class="btn btn-sm fw-bold" style="background:var(--rp-mid);color:#fff;border-radius:8px;" onclick="newRoleplay()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Nueva práctica
+      </button>
+      <a id="viewSessionLink" href="#" class="btn btn-sm" style="background:#f0e8dc;color:#6b3a1e;border:none;border-radius:8px;font-size:12px;">
+        <i class="bi bi-eye me-1"></i>Ver conversación completa
+      </a>
     </div>
   </div>
 </div>
 
-<!-- XP CELEBRATION MODAL -->
+<!-- ══ HISTORIAL ══ -->
+{% if sessions %}
+<div class="mt-5">
+  <h6 class="fw-bold mb-3" style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.5px;">Mis prácticas anteriores</h6>
+  {% for s in sessions[:15] %}
+  <div class="hist-card" id="hist-{{ s.id }}">
+    <div style="font-size:22px;flex-shrink:0;">{{ s.lead_avatar or '👤' }}</div>
+    <div style="flex:1;min-width:0;">
+      <a href="{{ url_for('chat_view_session', session_id=s.id) }}" class="fw-semibold text-decoration-none" style="font-size:13px;color:#1a0810;">
+        {{ s.lead_name }}
+      </a>
+      <div style="font-size:11px;color:#aaa;">{{ (s.started_at or '')[:10] }}</div>
+    </div>
+    {% if s.score %}
+    <span style="font-size:16px;font-weight:800;color:{{ '#1a7a4a' if s.score >= 7 else ('#c9a066' if s.score >= 5 else '#c0392b') }};">
+      {{ "%.1f"|format(s.score) }}/10
+    </span>
+    {% elif s.status == 'active' %}
+    <span class="badge" style="background:#fff3cd;color:#856404;font-size:10px;">en curso</span>
+    {% endif %}
+    <button onclick="deleteSession({{ s.id }})"
+            title="Eliminar práctica"
+            style="background:none;border:1px solid #f0f0f0;border-radius:8px;color:#ccc;padding:4px 8px;font-size:12px;cursor:pointer;flex-shrink:0;"
+            onmouseover="this.style.borderColor='#ef4444';this.style.color='#ef4444';"
+            onmouseout="this.style.borderColor='#f0f0f0';this.style.color='#ccc';">
+      🗑
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- XP Celebration modal (Bootstrap, sin cambios) -->
 <div class="modal fade" id="xpModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
     <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#1a0810,#3d0f1e);">
@@ -375,125 +386,69 @@
           <div style="font-size:24px;" id="xpLevelName"></div>
         </div>
         <div id="xpBadges" style="margin-bottom:16px;"></div>
-        <button class="btn fw-bold px-4" style="background:#c9a066;color:#1a0810;border:none;border-radius:10px;"
-                data-bs-dismiss="modal">¡Genial!</button>
+        <button class="btn fw-bold px-4" style="background:#c9a066;color:#1a0810;border:none;border-radius:10px;" data-bs-dismiss="modal">¡Genial!</button>
       </div>
     </div>
   </div>
 </div>
-
-<!-- FEEDBACK MODAL -->
-<div class="modal fade" id="feedbackModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
-    <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
-      <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:18px 22px;display:flex;align-items:center;gap:12px;">
-        <!-- VH Logo -->
-        <div style="width:38px;height:38px;background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.5);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-size:13px;font-weight:900;color:#c9a066;">VH</span>
-        </div>
-        <div>
-          <div style="font-weight:700;color:#fff;font-size:15px;">Feedback de tu roleplay</div>
-          <div style="font-size:11px;color:#c9a066;">Evaluación según metodología Vendedores Humanos</div>
-        </div>
-        <div class="ms-auto d-flex gap-2">
-          <button id="printFeedbackBtn" class="btn btn-sm" style="background:rgba(201,160,102,.2);color:#c9a066;border:1px solid rgba(201,160,102,.4);border-radius:8px;font-size:12px;">
-            <i class="bi bi-printer me-1"></i>Imprimir
-          </button>
-          <button class="btn btn-sm" style="background:#c9a066;color:#1a0810;border:none;border-radius:8px;font-size:12px;font-weight:700;" id="closeFeedbackBtn">
-            Cerrar
-          </button>
-        </div>
-      </div>
-      <div style="max-height:80vh;overflow-y:auto;padding:0;" id="feedbackScrollArea">
-        <div id="feedbackLoader" class="text-center py-5">
-          <div class="spinner-border" style="color:#c9a066;"></div>
-          <div style="margin-top:12px;color:#888;font-size:13px;">Analizando tu roleplay con IA...<br>Esto puede demorar unos segundos.</div>
-        </div>
-        <div id="feedbackContent" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<style>
-.lead-card:hover { border-color:#c9a066!important; background:#fff8f0!important; }
-.lead-card.selected { border-color:#c9a066!important; background:#fff8f0!important; box-shadow:0 0 0 3px rgba(201,160,102,.2); }
-.msg-vendor { align-self:flex-end; background:linear-gradient(135deg,#1a0810,#3d0f1e); color:#fff; border-radius:18px 18px 4px 18px; padding:10px 14px; max-width:78%; font-size:14px; }
-.msg-lead { align-self:flex-start; background:#fff; color:#1a0810; border-radius:18px 18px 18px 4px; padding:10px 14px; max-width:78%; font-size:14px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-.typing-dot { width:6px;height:6px;background:#bbb;border-radius:50%;display:inline-block;animation:blink 1.2s infinite; }
-.typing-dot:nth-child(2){animation-delay:.2s;}.typing-dot:nth-child(3){animation-delay:.4s;}
-@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
-#chatMessages::-webkit-scrollbar{width:4px;}
-#chatMessages::-webkit-scrollbar-track{background:#f0f0f0;}
-#chatMessages::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
-</style>
 
 <script>
 let selectedLeadId = null;
 let currentSessionId = null;
+let rpEnded = false;
 
-// Lead card selection → show full context panel
-function diffStyle(diff) {
-  if (diff === 'fácil') return 'background:#d4edda;color:#155724;';
-  if (diff === 'difícil') return 'background:#f8d7da;color:#721c24;';
-  return 'background:#fff3cd;color:#856404;';
+// ── Lead selection ─────────────────────────────────────────────────────────
+function selectLead(el) {
+  if (el.tagName === 'BUTTON') return;
+  document.querySelectorAll('.lead-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLeadId = parseInt(el.dataset.leadId);
+  const d = el.dataset;
+
+  document.getElementById('fichaAvatar').textContent = d.leadAvatar || '👤';
+  document.getElementById('fichaName').textContent = d.leadName;
+
+  const diffColors = {
+    'fácil':   'background:#d1fae5;color:#065f46;',
+    'difícil': 'background:#fee2e2;color:#7f1d1d;',
+  };
+  const ds = diffColors[d.leadDifficulty] || 'background:#fef9c3;color:#713f12;';
+  document.getElementById('fichaDiff').innerHTML =
+    `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;${ds}">${d.leadDifficulty}</span>`;
+
+  document.getElementById('fichaDesc').textContent = d.leadDescription || '—';
+
+  const pb = document.getElementById('fichaPersonalityBlock');
+  const ob = document.getElementById('fichaObjectionsBlock');
+  if (d.leadPersonality) {
+    document.getElementById('fichaPersonality').textContent = d.leadPersonality;
+    pb.style.display = '';
+  } else { pb.style.display = 'none'; }
+  if (d.leadObjections) {
+    document.getElementById('fichaObjections').textContent = d.leadObjections;
+    ob.style.display = '';
+  } else { ob.style.display = 'none'; }
+
+  const panel = document.getElementById('fichaPanel');
+  panel.style.display = 'block';
+  setTimeout(() => panel.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
 }
 
-function clearLeadSelection() {
-  document.querySelectorAll('.lead-card').forEach(c => c.classList.remove('selected'));
+function clearSelection() {
+  document.querySelectorAll('.lead-tile').forEach(t => t.classList.remove('selected'));
   selectedLeadId = null;
-  document.getElementById('leadContextPanel').style.display = 'none';
-  document.getElementById('leadContextPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('fichaPanel').style.display = 'none';
 }
 
-document.querySelectorAll('.lead-card').forEach(card => {
-  card.addEventListener('click', () => {
-    document.querySelectorAll('.lead-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    selectedLeadId = parseInt(card.dataset.leadId);
+// ── Delete lead (custom) ───────────────────────────────────────────────────
+async function deleteLead(e, leadId) {
+  e.stopPropagation();
+  if (!confirm('¿Eliminar este lead?')) return;
+  const resp = await fetch(`/chat/leads/${leadId}`, { method:'DELETE' });
+  if ((await resp.json()).ok) location.reload();
+}
 
-    const d = card.dataset;
-    document.getElementById('ctxAvatar').textContent = d.leadAvatar || '👤';
-    document.getElementById('ctxName').textContent = d.leadName;
-    document.getElementById('ctxDiffBadge').innerHTML =
-      `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;${diffStyle(d.leadDifficulty)}">${d.leadDifficulty}</span>`;
-    document.getElementById('ctxDesc').textContent = d.leadDescription || '—';
-
-    const personalityBlock = document.getElementById('ctxPersonalityBlock');
-    const objBlock = document.getElementById('ctxObjectionsBlock');
-
-    if (d.leadPersonality) {
-      document.getElementById('ctxPersonality').textContent = d.leadPersonality;
-      personalityBlock.style.display = '';
-    } else {
-      personalityBlock.style.display = 'none';
-    }
-
-    if (d.leadObjections) {
-      document.getElementById('ctxObjections').textContent = d.leadObjections;
-      objBlock.style.display = '';
-    } else {
-      objBlock.style.display = 'none';
-    }
-
-    const panel = document.getElementById('leadContextPanel');
-    panel.style.display = 'block';
-    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-  });
-});
-
-// Delete custom lead
-document.querySelectorAll('.delete-lead-btn').forEach(btn => {
-  btn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (!confirm('¿Eliminar este lead?')) return;
-    const leadId = btn.dataset.leadId;
-    const resp = await fetch(`/chat/leads/${leadId}`, { method:'DELETE' });
-    if ((await resp.json()).ok) location.reload();
-  });
-});
-
-// Save new lead
+// ── Save new lead ──────────────────────────────────────────────────────────
 document.getElementById('saveLeadBtn').addEventListener('click', async () => {
   const name = document.getElementById('newLeadName').value.trim();
   const personality = document.getElementById('newLeadPersonality').value.trim();
@@ -510,8 +465,8 @@ document.getElementById('saveLeadBtn').addEventListener('click', async () => {
   if ((await resp.json()).ok) location.reload();
 });
 
-// Start session
-document.getElementById('startBtn').addEventListener('click', async () => {
+// ── Start roleplay ─────────────────────────────────────────────────────────
+async function startRoleplay() {
   if (!selectedLeadId) return;
   const btn = document.getElementById('startBtn');
   btn.disabled = true;
@@ -526,31 +481,83 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   btn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Ya leí el perfil — Iniciar Roleplay';
   if (!data.ok) { alert(data.error); return; }
   currentSessionId = data.session_id;
+  rpEnded = false;
 
-  // Setup chat modal
-  const card = document.querySelector(`.lead-card[data-lead-id="${selectedLeadId}"]`);
-  document.getElementById('chatLeadAvatar').textContent = card.dataset.leadAvatar || '👤';
-  document.getElementById('chatLeadName').textContent = card.dataset.leadName;
-  document.getElementById('chatLeadDesc').textContent = (card.dataset.leadDescription || '').substring(0, 80);
-  document.getElementById('chatMessages').innerHTML = `
-    <div class="text-center" style="font-size:12px;color:#aaa;margin:8px 0;">
-      El roleplay comenzó. Enviá el primer mensaje como si fuera WhatsApp 💬
-    </div>`;
-  new bootstrap.Modal(document.getElementById('chatModal')).show();
-  document.getElementById('chatInput').focus();
-});
+  const tile = document.querySelector(`.lead-tile[data-lead-id="${selectedLeadId}"]`);
+  document.getElementById('chatTitle').textContent = `🎭 Practicando con ${tile.dataset.leadName}`;
+  document.getElementById('chatSub').textContent = tile.dataset.leadDifficulty;
+  document.getElementById('rpMessages').innerHTML =
+    `<div class="bubble system">Roleplay iniciado. Enviá el primer mensaje como si fuera WhatsApp 💬</div>`;
+  document.getElementById('rpFeedback').style.display = 'none';
 
-// Send message
-async function sendMessage() {
-  const input = document.getElementById('chatInput');
+  document.getElementById('rpSetup').style.display = 'none';
+  document.getElementById('rpChat').style.display = 'block';
+  document.getElementById('rpInput').focus();
+  document.getElementById('rpChat').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── New roleplay ───────────────────────────────────────────────────────────
+function newRoleplay() {
+  currentSessionId = null; rpEnded = false;
+  clearSelection();
+  document.getElementById('rpChat').style.display = 'none';
+  document.getElementById('rpSetup').style.display = 'block';
+  document.getElementById('rpSetup').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── Chat messaging ─────────────────────────────────────────────────────────
+function autoResize(ta) {
+  ta.style.height = '44px';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+}
+
+function rpKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+function appendBubble(role, text) {
+  const el = document.createElement('div');
+  el.className = 'bubble ' + role;
+  el.innerHTML = text.replace(/\n/g, '<br>');
+  document.getElementById('rpMessages').appendChild(el);
+  document.getElementById('rpMessages').scrollTop = 99999;
+}
+
+function appendCoaching(raw) {
+  const container = document.getElementById('rpMessages');
+  const html = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/\n/g,'<br>');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'align-self:stretch;margin:2px 0 8px;';
+  wrap.innerHTML = `
+    <details style="background:#fefce8;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;font-size:12px;line-height:1.6;">
+      <summary style="padding:8px 12px;cursor:pointer;font-weight:700;color:#92400e;list-style:none;display:flex;align-items:center;gap:6px;user-select:none;">
+        <span>🧠</span><span>Coaching — click para ver</span>
+      </summary>
+      <div style="padding:4px 12px 10px;color:#374151;">${html}</div>
+    </details>`;
+  container.appendChild(wrap);
+  container.scrollTop = 99999;
+}
+
+async function sendMsg() {
+  const input = document.getElementById('rpInput');
   const text = input.value.trim();
-  if (!text || !currentSessionId) return;
-  input.value = '';
-  document.getElementById('sendBtn').disabled = true;
+  if (!text || !currentSessionId || rpEnded) return;
+  input.value = ''; autoResize(input);
+  document.getElementById('rpSendBtn').disabled = true;
+  appendBubble('vendor', text);
 
-  appendMessage('vendor', text);
-  document.getElementById('typingIndicator').style.display = 'block';
-  scrollChat();
+  // Loading bubble
+  const loadEl = document.createElement('div');
+  loadEl.className = 'bubble lead';
+  loadEl.id = 'loadBubble';
+  loadEl.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  document.getElementById('rpMessages').appendChild(loadEl);
+  document.getElementById('rpMessages').scrollTop = 99999;
 
   try {
     const resp = await fetch(`/chat/session/${currentSessionId}/message`, {
@@ -558,229 +565,117 @@ async function sendMessage() {
       body: JSON.stringify({ text })
     });
     const data = await resp.json();
-    document.getElementById('typingIndicator').style.display = 'none';
+    document.getElementById('loadBubble')?.remove();
     if (data.ok) {
-      appendMessage('lead', data.reply);
-      if (data.coaching_tip) appendMicroCoaching(data.coaching_tip);
+      appendBubble('lead', data.reply);
+      if (data.coaching_tip) appendCoaching(data.coaching_tip);
     } else {
-      appendMessage('lead', '⚠️ Error al obtener respuesta. Intentá de nuevo.');
+      appendBubble('system', '⚠️ Error: ' + (data.error || 'Intentá de nuevo.'));
     }
   } catch(e) {
-    document.getElementById('typingIndicator').style.display = 'none';
-    appendMessage('lead', '⚠️ Error de conexión.');
+    document.getElementById('loadBubble')?.remove();
+    appendBubble('system', '⚠️ Error de conexión.');
   }
-  document.getElementById('sendBtn').disabled = false;
-  scrollChat();
+  document.getElementById('rpSendBtn').disabled = false;
   input.focus();
 }
 
-function appendMicroCoaching(raw) {
-  const container = document.getElementById('chatMessages');
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'align-self:stretch;margin:4px 0;';
-
-  // Parse lines
-  let lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-  let html = '';
-  for (const line of lines) {
-    if (line.startsWith('✅')) {
-      html += `<div style="padding:5px 0 3px;color:#1a7a4a;font-size:12px;">${mdLine(line)}</div>`;
-    } else if (line.startsWith('⚠️')) {
-      html += `<div style="padding:3px 0;color:#8b6914;font-size:12px;">${mdLine(line)}</div>`;
-    } else if (line.startsWith('💡')) {
-      html += `<div style="padding:3px 0;color:#1a3a6a;font-size:12px;">${mdLine(line)}</div>`;
-    } else if (line.startsWith('🎯')) {
-      html += `<div style="padding:3px 0 5px;color:#6a1a1a;font-size:12px;">${mdLine(line)}</div>`;
-    } else if (line) {
-      html += `<div style="font-size:12px;color:#555;padding:2px 0;">${mdLine(line)}</div>`;
-    }
-  }
-
-  wrap.innerHTML = `
-    <details style="background:rgba(201,160,102,.08);border:1px solid rgba(201,160,102,.3);border-radius:10px;padding:6px 10px;cursor:pointer;">
-      <summary style="font-size:11px;font-weight:700;color:#8b5a2b;list-style:none;display:flex;align-items:center;gap:5px;user-select:none;">
-        <span>🧠</span><span>Coaching — tocá para ver</span>
-      </summary>
-      <div style="padding-top:6px;border-top:1px solid rgba(201,160,102,.2);margin-top:6px;">${html}</div>
-    </details>`;
-  container.appendChild(wrap);
-  scrollChat();
-}
-
-function mdLine(s) {
-  return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-}
-
-document.getElementById('sendBtn').addEventListener('click', sendMessage);
-document.getElementById('chatInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-
-function appendMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = role === 'vendor' ? 'msg-vendor' : 'msg-lead';
-  div.textContent = text;
-  document.getElementById('chatMessages').appendChild(div);
-  scrollChat();
-}
-
-function scrollChat() {
-  const el = document.getElementById('chatMessages');
-  el.scrollTop = el.scrollHeight;
-}
-
-// Close chat modal (back button)
-document.getElementById('closeChatBtn').addEventListener('click', () => {
-  if (currentSessionId) {
-    if (!confirm('¿Salir del roleplay? Tu conversación se guardará como en curso.')) return;
-  }
-  bootstrap.Modal.getInstance(document.getElementById('chatModal')).hide();
-});
-
-// End session → get feedback
-document.getElementById('endChatBtn').addEventListener('click', async () => {
-  if (!currentSessionId) return;
+// ── End roleplay → feedback ────────────────────────────────────────────────
+async function endRoleplay() {
+  if (!currentSessionId || rpEnded) return;
   if (!confirm('¿Finalizar el roleplay y obtener feedback? No podrás seguir enviando mensajes.')) return;
+  rpEnded = true;
+  document.getElementById('rpInput').disabled = true;
+  document.getElementById('rpSendBtn').disabled = true;
 
-  bootstrap.Modal.getInstance(document.getElementById('chatModal')).hide();
-
-  document.getElementById('feedbackLoader').style.display = 'block';
-  document.getElementById('feedbackContent').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('feedbackModal')).show();
+  const feedbackDiv = document.getElementById('rpFeedback');
+  const contentDiv = document.getElementById('rpFeedbackContent');
+  feedbackDiv.style.display = 'block';
+  contentDiv.innerHTML = `
+    <div class="text-center py-4">
+      <div class="spinner-border" style="color:#c9a066;"></div>
+      <div style="margin-top:10px;color:#888;font-size:13px;">Analizando con IA...</div>
+    </div>`;
+  feedbackDiv.scrollIntoView({ behavior:'smooth', block:'start' });
 
   try {
     const resp = await fetch(`/chat/session/${currentSessionId}/end`, {
       method:'POST', headers:{'Content-Type':'application/json'}
     });
     const data = await resp.json();
-    document.getElementById('feedbackLoader').style.display = 'none';
     if (data.ok) {
-      document.getElementById('feedbackContent').innerHTML = renderFeedback(data.feedback, data.score);
-      document.getElementById('feedbackContent').style.display = 'block';
-      // Show XP celebration after a short delay
-      if (data.gamification) {
-        setTimeout(() => showXpModal(data.gamification), 1800);
-      }
+      document.getElementById('viewSessionLink').href = `/chat/session/${currentSessionId}`;
+      contentDiv.innerHTML = renderFeedback(data.feedback, data.score);
+      if (data.gamification) setTimeout(() => showXpModal(data.gamification), 1200);
     } else {
-      document.getElementById('feedbackContent').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-      document.getElementById('feedbackContent').style.display = 'block';
+      contentDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Error al obtener feedback.'}</div>`;
     }
   } catch(e) {
-    document.getElementById('feedbackLoader').style.display = 'none';
-    document.getElementById('feedbackContent').innerHTML = '<div class="alert alert-danger">Error de conexión.</div>';
-    document.getElementById('feedbackContent').style.display = 'block';
+    contentDiv.innerHTML = '<div class="alert alert-danger">Error de conexión.</div>';
   }
-});
+}
 
+// ── Delete session ─────────────────────────────────────────────────────────
+async function deleteSession(id) {
+  if (!confirm('¿Eliminar esta práctica? Podrás verla en la papelera del productor.')) return;
+  const resp = await fetch(`/chat/session/${id}/delete`, { method:'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    const row = document.getElementById(`hist-${id}`);
+    if (row) { row.style.transition='opacity .3s'; row.style.opacity='0'; setTimeout(()=>row.remove(),300); }
+  }
+}
+
+// ── XP Modal ───────────────────────────────────────────────────────────────
 function showXpModal(g) {
-  const score = g.total_xp;
-  const gained = g.xp_gained;
-  const level = g.level;
-  const streak = g.streak;
-  const newBadges = g.new_badges || [];
-  const levelUp = g.level_up;
-
-  // Emoji based on XP gained
   let emoji = '⭐';
-  if (gained >= 90) emoji = '🏆';
-  else if (gained >= 70) emoji = '🌟';
-  else if (gained >= 60) emoji = '🔥';
-
+  if (g.xp_gained >= 90) emoji = '🏆';
+  else if (g.xp_gained >= 70) emoji = '🌟';
+  else if (g.xp_gained >= 60) emoji = '🔥';
   document.getElementById('xpEmoji').textContent = emoji;
-  document.getElementById('xpGained').textContent = `+${gained} XP`;
-  document.getElementById('xpTotal').textContent = `Total: ${score} XP · ${level.emoji} ${level.name}`;
-  document.getElementById('xpStreak').textContent = streak > 1 ? `🔥 ${streak} días seguidos practicando` : '';
-
-  const lvlDiv = document.getElementById('xpLevelUp');
-  if (levelUp && g.new_level) {
-    lvlDiv.style.display = 'block';
+  document.getElementById('xpGained').textContent = `+${g.xp_gained} XP`;
+  document.getElementById('xpTotal').textContent = `Total: ${g.total_xp} XP · ${g.level.emoji} ${g.level.name}`;
+  document.getElementById('xpStreak').textContent = g.streak > 1 ? `🔥 ${g.streak} días seguidos` : '';
+  const lvl = document.getElementById('xpLevelUp');
+  if (g.level_up && g.new_level) {
+    lvl.style.display = 'block';
     document.getElementById('xpLevelName').textContent = `${g.new_level.emoji} ${g.new_level.name}`;
-  } else {
-    lvlDiv.style.display = 'none';
-  }
-
-  const badgesDiv = document.getElementById('xpBadges');
-  if (newBadges.length > 0) {
-    badgesDiv.innerHTML = '<div style="font-size:12px;color:#c9a066;font-weight:700;margin-bottom:8px;">🎖️ ¡INSIGNIA DESBLOQUEADA!</div>' +
-      newBadges.map(b => `<div style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:10px;padding:8px 14px;margin-bottom:6px;">
+  } else lvl.style.display = 'none';
+  const bd = document.getElementById('xpBadges');
+  if ((g.new_badges || []).length > 0) {
+    bd.innerHTML = '<div style="font-size:12px;color:#c9a066;font-weight:700;margin-bottom:8px;">🎖️ ¡INSIGNIA DESBLOQUEADA!</div>' +
+      g.new_badges.map(b => `<div style="background:rgba(201,160,102,.2);border:1px solid rgba(201,160,102,.4);border-radius:10px;padding:8px 14px;margin-bottom:6px;">
         <span style="font-size:20px;">${b.emoji}</span>
         <span style="color:#fff;font-weight:700;font-size:13px;margin-left:6px;">${b.nombre}</span>
         <div style="font-size:11px;color:#aaa;margin-top:2px;">${b.desc}</div>
       </div>`).join('');
-  } else {
-    badgesDiv.innerHTML = '';
-  }
-
+  } else bd.innerHTML = '';
   new bootstrap.Modal(document.getElementById('xpModal')).show();
 }
 
-document.getElementById('closeFeedbackBtn').addEventListener('click', () => {
-  bootstrap.Modal.getInstance(document.getElementById('feedbackModal')).hide();
-  location.reload();
-});
-
+// ── Render feedback text ───────────────────────────────────────────────────
 function renderFeedback(text, score) {
   const color = score >= 7 ? '#1a7a4a' : (score >= 5 ? '#c9a066' : '#c0392b');
   const bgGrad = score >= 7 ? 'linear-gradient(135deg,#1a3a2a,#2d6a4f)' : (score >= 5 ? 'linear-gradient(135deg,#3a2a0a,#8b6914)' : 'linear-gradient(135deg,#3a0a0a,#8b1a2b)');
   const label = score >= 7 ? 'Buen trabajo' : (score >= 5 ? 'Hay margen para mejorar' : 'Necesitás más práctica');
-
-  const scoreHtml = score ? `
-    <div style="background:${bgGrad};padding:24px;text-align:center;">
-      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Puntuación General</div>
-      <div style="font-size:64px;font-weight:900;color:#fff;line-height:1;">${score}</div>
-      <div style="font-size:16px;color:rgba(255,255,255,.5);">/ 10</div>
-      <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,.8);">${label}</div>
-      <a href="/chat/session/${currentSessionId}" class="btn btn-sm mt-3" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;font-size:12px;">
-        <i class="bi bi-eye me-1"></i>Ver conversación completa
-      </a>
-    </div>` : '';
-
-  // Parse markdown into structured HTML
-  const lines = text.split('\n');
-  let bodyHtml = '';
-  for (const line of lines) {
+  let html = score ? `<div style="background:${bgGrad};padding:20px;text-align:center;border-radius:12px;margin-bottom:12px;">
+    <div style="font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Puntuación</div>
+    <div style="font-size:56px;font-weight:900;color:#fff;line-height:1;">${score}</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.5);">/ 10 — ${label}</div>
+  </div>` : '';
+  for (const line of text.split('\n')) {
     const t = line.trim();
-    if (!t) { bodyHtml += '<div style="margin:4px 0;"></div>'; continue; }
-    // Score lines — hide (shown in bars)
-    if (/^\w+:\s*\d+(\.\d+)?\s*$/.test(t)) continue;
-    // Headers
+    if (!t) { html += '<div style="margin:4px 0;"></div>'; continue; }
+    if (/^\w+:\s*\d/.test(t)) continue;
     if (/^#{1,3}\s+/.test(t)) {
-      const content = t.replace(/^#{1,3}\s+/, '');
-      bodyHtml += `<div style="font-weight:700;color:#1a0810;font-size:13px;margin:18px 0 8px;padding:8px 12px;background:linear-gradient(135deg,#f8f2eb,#f0e8d8);border-left:3px solid #c9a066;border-radius:0 8px 8px 0;">${mdInline(content)}</div>`;
-      continue;
+      html += `<div style="font-weight:700;color:#1a0810;font-size:13px;margin:16px 0 6px;padding:7px 12px;background:linear-gradient(135deg,#f8f2eb,#f0e8d8);border-left:3px solid #c9a066;border-radius:0 8px 8px 0;">${t.replace(/^#{1,3}\s+/,'')}</div>`;
+    } else if (/^[-•]\s+/.test(t)) {
+      html += `<div style="padding:3px 0 3px 18px;position:relative;font-size:13px;color:#333;line-height:1.6;"><span style="position:absolute;left:5px;color:#c9a066;">•</span>${t.replace(/^[-•]\s+/,'')}</div>`;
+    } else {
+      html += `<div style="margin:2px 0;font-size:13px;color:#333;line-height:1.65;">${t}</div>`;
     }
-    // Bullets
-    if (/^[-•]\s+/.test(t)) {
-      const content = t.replace(/^[-•]\s+/, '');
-      bodyHtml += `<div style="padding:4px 0 4px 18px;position:relative;line-height:1.6;font-size:13px;color:#333;"><span style="position:absolute;left:5px;color:#c9a066;font-weight:700;">•</span>${mdInline(content)}</div>`;
-      continue;
-    }
-    bodyHtml += `<div style="margin:2px 0;line-height:1.65;font-size:13px;color:#333;">${mdInline(t)}</div>`;
   }
-
-  return scoreHtml + `<div style="padding:20px 24px;">${bodyHtml}</div>`;
+  return html;
 }
-
-document.getElementById('printFeedbackBtn').addEventListener('click', () => {
-  const content = document.getElementById('feedbackContent').innerHTML;
-  const vendor = '{{ vendor.name }}';
-  const date = new Date().toLocaleDateString('es-AR');
-  const w = window.open('', '_blank', 'width=800,height:900');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>Feedback Roleplay VH</title>
-    <style>
-      body{font-family:'Segoe UI',Arial,sans-serif;margin:0;background:#fff;color:#333;}
-      .ph{display:flex;align-items:center;gap:16px;padding:20px 28px;background:linear-gradient(135deg,#1a0810,#3d0f1e);}
-      .ph-logo{width:48px;height:48px;background:rgba(201,160,102,.2);border:1px solid #c9a066;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#c9a066;}
-      .ph-title{font-size:18px;font-weight:700;color:#fff;} .ph-sub{font-size:12px;color:#c9a066;}
-      .body{padding:20px 28px;}
-      @page{margin:1cm;}
-    </style></head><body>
-    <div class="ph"><div class="ph-logo">VH</div><div><div class="ph-title">Vendedores Humanos</div><div class="ph-sub">Feedback de Roleplay · ${vendor} · ${date}</div></div></div>
-    <div class="body">${content}</div>
-    <script>window.onload=()=>{window.print();window.close();}<\/script>
-  </body></html>`);
-  w.document.close();
-});
 </script>
 {% endblock %}

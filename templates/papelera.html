@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Papelera — Roleplay VH{% endblock %}
+{% block page_title %}Papelera{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h5 class="fw-bold mb-0">🗑️ Papelera de Roleplays</h5>
+    <small class="text-muted">Prácticas eliminadas por los vendedores</small>
+  </div>
+  <span class="badge" style="background:#e9ecef;color:#555;font-size:12px;padding:6px 12px;">
+    {{ sessions|length }} sesion{{ 'es' if sessions|length != 1 else '' }}
+  </span>
+</div>
+
+{% if not sessions %}
+<div class="text-center py-5" style="color:#bbb;">
+  <i class="bi bi-trash3" style="font-size:48px;display:block;margin-bottom:12px;opacity:.3;"></i>
+  <div style="font-size:15px;font-weight:600;">La papelera está vacía</div>
+  <small>Cuando los vendedores eliminen prácticas, aparecerán aquí.</small>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm" style="border-radius:14px;overflow:hidden;">
+  <table class="table mb-0" style="font-size:13px;">
+    <thead>
+      <tr style="background:#f8f8f8;border-bottom:2px solid #e9ecef;">
+        <th style="padding:12px 16px;font-weight:700;color:#555;width:44px;"></th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Vendedor</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Lead practicado</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Dificultad</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Puntaje</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Fecha práctica</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;">Eliminado</th>
+        <th style="padding:12px 16px;font-weight:700;color:#555;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr id="row-{{ s.id }}" style="border-bottom:1px solid #f0f0f0;">
+        <td style="padding:12px 16px;text-align:center;font-size:20px;">{{ s.lead_avatar or '👤' }}</td>
+        <td style="padding:12px 16px;font-weight:700;color:#1a0810;">{{ s.vendor_name }}</td>
+        <td style="padding:12px 16px;">{{ s.lead_name }}</td>
+        <td style="padding:12px 16px;">
+          {% if s.difficulty == 'fácil' %}
+            <span class="badge" style="background:#d4edda;color:#155724;">{{ s.difficulty }}</span>
+          {% elif s.difficulty == 'difícil' %}
+            <span class="badge" style="background:#f8d7da;color:#721c24;">{{ s.difficulty }}</span>
+          {% else %}
+            <span class="badge" style="background:#fff3cd;color:#856404;">{{ s.difficulty }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:12px 16px;">
+          {% if s.score %}
+            <span style="font-weight:800;color:{{ '#1a7a4a' if s.score >= 7 else ('#c9a066' if s.score >= 5 else '#c0392b') }};">
+              {{ "%.1f"|format(s.score) }}/10
+            </span>
+          {% else %}
+            <span style="color:#bbb;">—</span>
+          {% endif %}
+        </td>
+        <td style="padding:12px 16px;color:#888;">{{ (s.started_at or '')[:10] }}</td>
+        <td style="padding:12px 16px;color:#888;">{{ (s.deleted_at or '')[:10] }}</td>
+        <td style="padding:12px 16px;">
+          <button onclick="restore({{ s.id }})"
+                  style="background:#f0f7ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;">
+            ↩ Restaurar
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+async function restore(id) {
+  if (!confirm('¿Restaurar esta práctica? Volverá a aparecer en el historial del vendedor.')) return;
+  const resp = await fetch(`/productor/papelera/restore/${id}`, { method: 'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    const row = document.getElementById(`row-${id}`);
+    row.style.transition = 'opacity .3s';
+    row.style.opacity = '0';
+    setTimeout(() => row.remove(), 300);
+  } else {
+    alert('Error al restaurar.');
+  }
+}
+</script>
+{% endblock %}
