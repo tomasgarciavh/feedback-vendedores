@@ -137,12 +137,18 @@
           {% for lead in system_leads %}
           <div class="col-12 col-sm-6">
             <div class="lead-card p-3 rounded-3 d-flex align-items-start gap-2"
-                 data-lead-id="{{ lead.id }}" data-lead-name="{{ lead.name }}"
+                 data-lead-id="{{ lead.id }}"
+                 data-lead-name="{{ lead.name }}"
+                 data-lead-avatar="{{ lead.avatar }}"
+                 data-lead-description="{{ lead.description | replace('"', '&quot;') }}"
+                 data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
+                 data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
+                 data-lead-difficulty="{{ lead.difficulty }}"
                  style="background:#f8f2eb;cursor:pointer;border:2px solid transparent;transition:all .15s;">
               <span style="font-size:24px;line-height:1.2;">{{ lead.avatar }}</span>
               <div style="flex:1;min-width:0;">
                 <div class="fw-semibold" style="font-size:13px;color:#1a0810;">{{ lead.name }}</div>
-                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ lead.description[:70] }}...</div>
+                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ lead.description[:65] }}…</div>
                 <span class="badge mt-1" style="font-size:10px;
                   {% if lead.difficulty == 'fácil' %}background:#d4edda;color:#155724;
                   {% elif lead.difficulty == 'difícil' %}background:#f8d7da;color:#721c24;
@@ -162,12 +168,18 @@
           {% for lead in my_leads %}
           <div class="col-12 col-sm-6">
             <div class="lead-card p-3 rounded-3 d-flex align-items-start gap-2 position-relative"
-                 data-lead-id="{{ lead.id }}" data-lead-name="{{ lead.name }}"
+                 data-lead-id="{{ lead.id }}"
+                 data-lead-name="{{ lead.name }}"
+                 data-lead-avatar="{{ lead.avatar or '👤' }}"
+                 data-lead-description="{{ (lead.description or '') | replace('"', '&quot;') }}"
+                 data-lead-personality="{{ (lead.personality or '') | replace('"', '&quot;') }}"
+                 data-lead-objections="{{ (lead.objections or '') | replace('"', '&quot;') }}"
+                 data-lead-difficulty="{{ lead.difficulty }}"
                  style="background:#f0f4fb;cursor:pointer;border:2px solid transparent;transition:all .15s;">
-              <span style="font-size:24px;line-height:1.2;">{{ lead.avatar }}</span>
+              <span style="font-size:24px;line-height:1.2;">{{ lead.avatar or '👤' }}</span>
               <div style="flex:1;min-width:0;">
                 <div class="fw-semibold" style="font-size:13px;color:#1a0810;">{{ lead.name }}</div>
-                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ lead.description[:70] if lead.description else '' }}</div>
+                <div style="font-size:11px;color:#888;line-height:1.3;margin-top:2px;">{{ (lead.description or '')[:65] }}{% if lead.description and lead.description|length > 65 %}…{% endif %}</div>
                 <span class="badge mt-1" style="font-size:10px;background:#e2e3e5;color:#383d41;">{{ lead.difficulty }}</span>
               </div>
               <button class="btn btn-sm position-absolute top-0 end-0 m-1 delete-lead-btn"
@@ -217,16 +229,52 @@
           </div>
         </div>
 
-        <!-- Start button -->
-        <div id="startArea" class="text-center mt-3" style="display:none!important;">
-          <div id="selectedLeadInfo" class="mb-3 p-3 rounded-3" style="background:#fff;border:2px solid #c9a066;"></div>
-          <button id="startBtn" class="btn fw-bold px-5"
-                  style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#fff;border:none;border-radius:10px;padding:12px 32px;">
-            <i class="bi bi-play-fill me-1"></i> Iniciar Roleplay
+      </div>
+    </div>
+
+    <!-- Lead context panel — shown when a lead is selected -->
+    <div id="leadContextPanel" style="display:none;">
+      <div style="border-radius:14px;overflow:hidden;border:2px solid #c9a066;box-shadow:0 4px 20px rgba(201,160,102,.15);">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:16px 20px;display:flex;align-items:center;gap:14px;">
+          <div id="ctxAvatar" style="font-size:38px;line-height:1;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div id="ctxName" style="font-size:16px;font-weight:800;color:#fff;"></div>
+            <div id="ctxDiffBadge" style="margin-top:4px;"></div>
+          </div>
+          <button onclick="clearLeadSelection()" style="background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Cambiar</button>
+        </div>
+
+        <!-- Body -->
+        <div style="background:#fff;padding:16px 20px;">
+
+          <!-- Descripción -->
+          <div style="margin-bottom:14px;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#c9a066;margin-bottom:6px;">📋 Quién es</div>
+            <div id="ctxDesc" style="font-size:13px;color:#333;line-height:1.6;background:#faf8f5;border-radius:8px;padding:10px 12px;border-left:3px solid #c9a066;"></div>
+          </div>
+
+          <!-- Personalidad -->
+          <div id="ctxPersonalityBlock" style="margin-bottom:14px;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#3b82f6;margin-bottom:6px;">🧠 Cómo se comporta</div>
+            <div id="ctxPersonality" style="font-size:13px;color:#333;line-height:1.6;background:#f0f7ff;border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6;"></div>
+          </div>
+
+          <!-- Objeciones -->
+          <div id="ctxObjectionsBlock" style="margin-bottom:18px;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#ef4444;margin-bottom:6px;">⚠️ Objeciones típicas</div>
+            <div id="ctxObjections" style="font-size:13px;color:#333;line-height:1.6;background:#fff5f5;border-radius:8px;padding:10px 12px;border-left:3px solid #ef4444;"></div>
+          </div>
+
+          <!-- Start button -->
+          <button id="startBtn" class="btn w-100 fw-bold"
+                  style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:10px;padding:13px;font-size:14px;letter-spacing:.3px;">
+            <i class="bi bi-play-fill me-2"></i>Ya leí el perfil — Iniciar Roleplay
           </button>
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- RIGHT: History -->
@@ -384,25 +432,53 @@
 let selectedLeadId = null;
 let currentSessionId = null;
 
-// Lead card selection
+// Lead card selection → show full context panel
+function diffStyle(diff) {
+  if (diff === 'fácil') return 'background:#d4edda;color:#155724;';
+  if (diff === 'difícil') return 'background:#f8d7da;color:#721c24;';
+  return 'background:#fff3cd;color:#856404;';
+}
+
+function clearLeadSelection() {
+  document.querySelectorAll('.lead-card').forEach(c => c.classList.remove('selected'));
+  selectedLeadId = null;
+  document.getElementById('leadContextPanel').style.display = 'none';
+  document.getElementById('leadContextPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 document.querySelectorAll('.lead-card').forEach(card => {
   card.addEventListener('click', () => {
     document.querySelectorAll('.lead-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     selectedLeadId = parseInt(card.dataset.leadId);
-    const name = card.dataset.leadName;
-    const desc = card.querySelector('[style*="font-size:11px"]')?.textContent || '';
-    const avatar = card.querySelector('span')?.textContent || '👤';
-    const diff = card.querySelector('.badge')?.textContent?.trim() || '';
-    document.getElementById('selectedLeadInfo').innerHTML = `
-      <div class="d-flex align-items-center gap-3">
-        <span style="font-size:32px;">${avatar}</span>
-        <div>
-          <div class="fw-bold">${name}</div>
-          <div style="font-size:12px;color:#888;">${desc}</div>
-        </div>
-      </div>`;
-    document.getElementById('startArea').style.display = 'block';
+
+    const d = card.dataset;
+    document.getElementById('ctxAvatar').textContent = d.leadAvatar || '👤';
+    document.getElementById('ctxName').textContent = d.leadName;
+    document.getElementById('ctxDiffBadge').innerHTML =
+      `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;${diffStyle(d.leadDifficulty)}">${d.leadDifficulty}</span>`;
+    document.getElementById('ctxDesc').textContent = d.leadDescription || '—';
+
+    const personalityBlock = document.getElementById('ctxPersonalityBlock');
+    const objBlock = document.getElementById('ctxObjectionsBlock');
+
+    if (d.leadPersonality) {
+      document.getElementById('ctxPersonality').textContent = d.leadPersonality;
+      personalityBlock.style.display = '';
+    } else {
+      personalityBlock.style.display = 'none';
+    }
+
+    if (d.leadObjections) {
+      document.getElementById('ctxObjections').textContent = d.leadObjections;
+      objBlock.style.display = '';
+    } else {
+      objBlock.style.display = 'none';
+    }
+
+    const panel = document.getElementById('leadContextPanel');
+    panel.style.display = 'block';
+    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   });
 });
 
@@ -437,19 +513,25 @@ document.getElementById('saveLeadBtn').addEventListener('click', async () => {
 // Start session
 document.getElementById('startBtn').addEventListener('click', async () => {
   if (!selectedLeadId) return;
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Iniciando...';
+
   const resp = await fetch('/chat/session/start', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ lead_id: selectedLeadId })
   });
   const data = await resp.json();
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Ya leí el perfil — Iniciar Roleplay';
   if (!data.ok) { alert(data.error); return; }
   currentSessionId = data.session_id;
 
   // Setup chat modal
   const card = document.querySelector(`.lead-card[data-lead-id="${selectedLeadId}"]`);
-  document.getElementById('chatLeadAvatar').textContent = card.querySelector('span').textContent;
+  document.getElementById('chatLeadAvatar').textContent = card.dataset.leadAvatar || '👤';
   document.getElementById('chatLeadName').textContent = card.dataset.leadName;
-  document.getElementById('chatLeadDesc').textContent = card.querySelector('[style*="font-size:11px"]')?.textContent?.trim() || '';
+  document.getElementById('chatLeadDesc').textContent = (card.dataset.leadDescription || '').substring(0, 80);
   document.getElementById('chatMessages').innerHTML = `
     <div class="text-center" style="font-size:12px;color:#aaa;margin:8px 0;">
       El roleplay comenzó. Enviá el primer mensaje como si fuera WhatsApp 💬
