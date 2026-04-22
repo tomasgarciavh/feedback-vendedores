@@ -382,6 +382,52 @@
       </div>
     </div>
 
+    <!-- ══ TASAS DE CONVERSIÓN (base 550 leads) ══ -->
+    {% set TOTAL_LEADS = 550 %}
+    {% set t_respuesta   = ((resp / TOTAL_LEADS) * 100)|round(1) %}
+    {% set t_no_resp     = ((nr   / TOTAL_LEADS) * 100)|round(1) %}
+    {% set t_cf_pct      = ((cf_pl / TOTAL_LEADS) * 100)|round(1) %}
+    {% set t_pc_pct      = ((pc_pl / TOTAL_LEADS) * 100)|round(1) %}
+    {% set t_cierre      = ((vr   / TOTAL_LEADS) * 100)|round(1) %}
+    <div style="background:#fff;border:1px solid #e9ecef;border-radius:14px;overflow:hidden;margin-bottom:14px;">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">📊</div>
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:13px;">Tasas sobre tus 550 leads</div>
+          <div style="font-size:11px;color:#93c5fd;">Métricas de conversión del lanzamiento</div>
+        </div>
+      </div>
+      <div style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+
+          {% macro tasa_row(emoji, label, pct, color) %}
+          <div style="border:1px solid #f0f0f0;border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">{{ emoji }} {{ label }}</div>
+            <div style="font-size:22px;font-weight:900;color:{{ color }};line-height:1;">{{ pct }}%</div>
+            <div style="height:6px;border-radius:3px;background:#f0f0f0;overflow:hidden;margin-top:6px;">
+              <div style="height:100%;width:{{ [pct|float, 100]|min }}%;background:{{ color }};border-radius:3px;transition:width .6s;"></div>
+            </div>
+          </div>
+          {% endmacro %}
+
+          {{ tasa_row("📩", "Tasa de respuesta", t_respuesta, "#3b82f6") }}
+          {{ tasa_row("🚫", "% No respondidos", t_no_resp, "#6b7280") }}
+          {{ tasa_row("🤝", "Conv. fluidas", t_cf_pct, "#22c55e") }}
+          {{ tasa_row("⭐", "Potencial compra", t_pc_pct, "#f59e0b") }}
+        </div>
+        <div style="margin-top:10px;border:2px solid #ede9fe;border-radius:10px;padding:10px 12px;background:linear-gradient(135deg,#faf5ff,#f3e8ff);">
+          <div style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">🏆 Tasa de cierre</div>
+          <div style="display:flex;align-items:baseline;gap:8px;">
+            <div style="font-size:28px;font-weight:900;color:#8b5cf6;line-height:1;">{{ t_cierre }}%</div>
+            <div style="font-size:11px;color:#9ca3af;">{{ vr }} ventas de 550 leads</div>
+          </div>
+          <div style="height:8px;border-radius:4px;background:#ede9fe;overflow:hidden;margin-top:6px;">
+            <div style="height:100%;width:{{ [t_cierre|float, 100]|min }}%;background:linear-gradient(90deg,#8b5cf6,#c026d3);border-radius:4px;transition:width .6s;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ OBJETIVOS PERSONALES ══ -->
     <div class="goals-card">
       <div class="goals-header">
@@ -687,29 +733,73 @@ const dailyEntries = {{ entries | tojson }};
 // ── Reward banner ─────────────────────────────────────────────────────────────
 {% if saved_today %}
 const FRASES = [
-  "Cada registro que hacés es una prueba de que sos el tipo de vendedor que construye con consistencia. 🌱",
-  "Los grandes no esperan el momento perfecto — crean el hábito. Y vos lo acabás de demostrar. 💪",
-  "El 90% de los vendedores no registra. Vos sí. Eso ya te pone en otra categoría. 🔝",
-  "Consistencia es el músculo más difícil de entrenar. Y vos lo estás ejercitando. 🏋️",
-  "El tracking diario es lo que separa al que sueña del que ejecuta. Seguí así. 🚀",
-  "Un día a la vez. Un registro a la vez. Así se construyen los resultados que duran. 📈",
-  "La disciplina es libertad. Cada día que cargás tus KPIs, te acercás más a tus metas. ✨",
-  "Los números no mienten — y los tuyos dicen que estás en el camino. 🎯",
-  "Hoy cumpliste. Eso es lo único que importa. Mañana también podés. 🔥",
-  "El que sabe dónde está, sabe a dónde va. Buen trabajo con el registro. 🧭",
-  "Tus leads de hoy son tus ventas de mañana. Ya plantaste la semilla. 🌟",
-  "No importa el número — importa que estás presente y consciente. Eso es vender bien. 💡",
-  "Cada conversación que anotás es datos que te hacen mejor. Seguís aprendiendo. 📚",
-  "La venta es un juego de repetición. Y vos apareciste a jugar hoy. 🏆",
-  "Registro hecho = mente clara. Mente clara = mejores conversaciones. ¡Muy bien! 😎",
-  "El lanzamiento se gana en los detalles. Y vos los estás cuidando. 💎",
-  "Vendedor que mide, vendedor que mejora. Eso sos vos hoy. 📊",
-  "La constancia hace lo que el talento no puede solo. Seguí construyendo. ⚡",
-  "Cada número que cargás es un paso más cerca del cierre que estás buscando. 🎰",
-  "Hoy fuiste mejor versión de vendedor que ayer. Eso se construye así, de a poco. 🌙",
-  "El que registra aprende. El que aprende vende. El que vende... ese sos vos. 🦁",
+  "El 95% de los vendedores no registra sus números. Vos sos del 5% que sabe exactamente dónde está parado. Eso vale más que el talento.",
+  "Los que ganan no son los más inteligentes — son los que aparecen cada día. Hoy apareciste. Eso es lo que te diferencia.",
+  "Cada conversación que registrás es una decisión de tu cerebro que dice: yo soy alguien que toma en serio lo que hace. Ese es tu estándar.",
+  "Los grandes vendedores de la historia tenían algo en común: sabían sus números de memoria. Vos estás construyendo esa ventaja ahora.",
+  "No hay talento que supere a la persona que aparece todos los días y mide lo que hace. Hoy esa persona sos vos.",
+  "Vos no sos un vendedor promedio que espera que las cosas pasen. Sos el tipo que construye su resultado con datos. Eso se nota en el cierre.",
+  "Hay vendedores que esperan resultados, y hay vendedores que los construyen número por número. Quedó claro en cuál categoría estás vos.",
+  "El registro de hoy es la diferencia entre adivinar y saber. Y el que sabe, gana. Buen trabajo.",
+  "Cada lead que anotás hoy es una conversación que mañana va a tener más contexto, más fuerza, más cierre. Estás jugando a largo plazo.",
+  "Disciplina no es lo que hacés cuando tenés ganas. Es lo que hacés cuando no tenés ganas y lo hacés igual. Acabás de demostrarlo.",
+  "Tu cerebro acaba de liberar dopamina por cumplir. No es casualidad — es el sistema de recompensa diciéndote que hiciste lo correcto.",
+  "La mayoría vende de memoria y emoción. Vos vendés con datos. Esa es una ventaja competitiva que pocos tienen y que se acumula con el tiempo.",
+  "Un vendedor que se conoce es imparable. Cada registro te da más información sobre vos mismo. Eso no tiene precio.",
+  "No existe el éxito de golpe en ventas. Existe el resultado de cien decisiones pequeñas como la que tomaste hoy.",
+  "Vas a recordar este lanzamiento como el momento en que empezaste a vender con intención. Y este registro es parte de esa historia.",
+  "Los números que cargás hoy van a ser la base de las decisiones que te hagan cerrar mañana. Estás construyendo tu ventaja.",
+  "El que mide controla. El que controla elige. El que elige es libre. Hoy elegiste registrar. Eso es poder.",
+  "Hay algo en vos que eligió ser mejor que el promedio. Ese algo acaba de hacer que registres tus KPIs. Escuchalo siempre.",
+  "No necesitás suerte cuando tenés datos. Y vos acabás de sumar un dato más al mapa que te lleva al cierre.",
+  "Cada vez que registrás, tu cerebro aprende a medir. Y la mente que mide encuentra patrones que los demás no ven. Eso es tu ventaja.",
+  "Los mejores del equipo no son los más carismáticos — son los más consistentes. Y vos acabo de demostrar que sos de los mejores.",
+  "No hay ningún vendedor top que no sepa sus números. Hoy sumaste otro ladrillo a ese edificio. Seguí.",
+  "El registro diario no es burocracia — es el mapa que te dice exactamente qué está funcionando y qué no. Esa claridad vale plata.",
+  "El hábito que estás construyendo hoy vale más que cualquier técnica de cierre. La disciplina es la técnica más poderosa que existe.",
+  "Tomaste una decisión que el 90% de los vendedores no toma: ser consciente de tu proceso. Eso ya te pone adelante.",
+  "Vos no estás vendiendo de intuición — estás construyendo un sistema. Y los sistemas ganan a largo plazo siempre.",
+  "Cada número que cargás es evidencia de que sos el tipo de vendedor que hace lo que dijo que iba a hacer. Eso construye carácter.",
+  "El éxito no se logra en los días grandes. Se construye en los días ordinarios como hoy, cuando decidís aparecer igual.",
+  "Tu competencia improvisa. Vos medís. Esa diferencia se va a notar en el resultado final del lanzamiento.",
+  "Sabés lo que pasa cuando alguien mide, ajusta y vuelve a ejecutar? Cierra. Vos estás haciendo exactamente eso.",
+  "Este registro es la prueba de que para vos vender no es suerte — es método. Y el método gana.",
+  "Hoy cargaste tus números y tu cerebro registró: 'soy alguien que cumple'. Esa identidad se acumula y se transforma en resultados.",
+  "El vendedor que sabe sus tasas tiene poder de negociación consigo mismo. Sabe cuándo apretar y cuándo ajustar. Ese conocimiento es tuyo.",
+  "Hay dos tipos de vendedores: los que reaccionan y los que anticipan. Vos acabás de elegir ser de los que anticipan.",
+  "El ritual diario que estás construyendo hoy es el que te va a separar del resto en 30 días. Seguí.",
+  "No es talento. No es suerte. Es el hábito de registrar, revisar y mejorar. Hoy hiciste el primer paso de ese ciclo.",
+  "El vendedor que registra hoy tiene claridad mañana. El que tiene claridad mañana cierra la semana. Así funciona.",
+  "Vos elegís ser del tipo de personas que mide su impacto. Eso requiere coraje y disciplina. Y vos los tenés.",
+  "Cada KPI que cargás es una pequeña victoria que tu cerebro celebra. No lo ignores — es tuyo, merecido.",
+  "En ventas, la información es poder. Y vos acabás de hacer que esa información trabaje para vos.",
+  "El lanzamiento se gana en los pequeños actos de disciplina que nadie ve. Este registro es uno de ellos.",
+  "No hay vendedor sin autoconocimiento. Y no hay autoconocimiento sin datos. Acabás de invertir en los dos.",
+  "El registro constante no es para el equipo — es para vos. Para que al final del lanzamiento sepas exactamente por qué ganaste.",
+  "Tu cerebro busca evidencia de que sos capaz. Cada registro le das exactamente eso. Seguí alimentando esa certeza.",
+  "La diferencia entre el que llega y el que no, en la mayoría de los casos, es este tipo de acto. Simple, consistente, poderoso.",
+  "Sos del tipo de vendedor que trata su proceso como un profesional. Y los profesionales tienen resultados que los amateurs no entienden.",
+  "Hoy no fue el día más fácil, pero igual registraste. Eso dice más de vos que cualquier número que hayas cargado.",
+  "El que sabe dónde está parado puede decidir adónde va. Vos sabés dónde estás. Esa es tu ventaja.",
+  "No existe la motivación permanente. Existe el hábito que funciona cuando la motivación no está. Vos lo acabás de ejercitar.",
+  "Los grandes lanzamientos los ganan los vendedores que registran en los días buenos y en los malos. Vos hoy estuviste.",
+  "Este registro es tuyo. Nadie te lo puede quitar. Es parte del vendedor que estás eligiendo ser cada día.",
+  "Cada número que cargás es una conversación con tu mejor versión como vendedor. Hoy esa conversación la tuviste.",
+  "No necesitás que alguien te diga que sos bueno. Tus números te lo van a decir. Y vos los acabás de actualizar.",
+  "La constancia es la habilidad más cara del mercado. Muy poca gente la tiene. Vos la estás construyendo ahora.",
+  "Vos no dependés de la inspiración para hacer lo que tenés que hacer. Eso te hace mejor que la mayoría.",
+  "Los cierres que vas a lograr esta semana tienen raíz en el registro que hiciste hoy. Así funciona el proceso.",
+  "Sos un vendedor que entiende que los datos son aliados. Muy pocos llegan a esa comprensión. Vos ya llegaste.",
+  "El proceso funciona. Vos estás trabajando el proceso. El resultado es inevitable.",
+  "Hoy elegiste ser profesional en un mundo lleno de improvisadores. Eso tiene un valor enorme.",
+  "No importa el número de hoy — importa que mañana vas a poder compararlo con algo. Eso se llama crecimiento.",
+  "Tu consistencia es la promesa más poderosa que le podés hacer a tus resultados futuros. Hoy renovaste esa promesa.",
 ];
-const dayIdx = new Date().getDate() % FRASES.length;
+// Use day of year for unique phrase per day throughout the lanzamiento
+const now = new Date();
+const start = new Date(now.getFullYear(), 0, 0);
+const dayOfYear = Math.floor((now - start) / 86400000);
+const dayIdx = dayOfYear % FRASES.length;
 document.getElementById('rewardFrase').textContent = FRASES[dayIdx];
 
 // Animated stars sequence

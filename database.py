@@ -113,8 +113,25 @@ class _Conn:
 
 
 def get_connection():
+    global _pool
     pool = _get_pool()
     raw = pool.getconn()
+    # Validate connection — Railway closes idle connections; detect stale ones and reconnect
+    try:
+        raw.cursor().execute("SELECT 1")
+    except Exception:
+        try:
+            pool.putconn(raw, close=True)
+        except Exception:
+            pass
+        # Force full pool reset and get a fresh connection
+        try:
+            pool.closeall()
+        except Exception:
+            pass
+        _pool = None
+        pool = _get_pool()
+        raw = pool.getconn()
     raw.autocommit = False
     conn = _Conn(raw)
     conn._pool_ref = pool
