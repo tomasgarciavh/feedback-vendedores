@@ -704,71 +704,78 @@
 {% endif %}
 
 <!-- ══════════════════════════════════════════════════════════
-     ACTIVIDAD DIARIA — por fecha con detalle de vendedores
+     TABLA AIRTABLE — cargas diarias completas
      ══════════════════════════════════════════════════════════ -->
-{% if daily_activity %}
-<div class="section-title mt-4"><i class="bi bi-calendar3" style="color:#c9a066;"></i> Actividad Diaria</div>
+{% if entries %}
+<div class="section-title mt-4"><i class="bi bi-table" style="color:#c9a066;"></i> Cargas diarias — tabla completa</div>
 
-<div id="dailyActivitySection">
-  {% for day in daily_activity %}
-  <div style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:10px;overflow:hidden;">
-    <!-- Day header -->
-    <div onclick="toggleDay('day-{{ loop.index }}')"
-         style="background:#f8f8f8;padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:13px;font-weight:800;color:#1a0810;">{{ day.date }}</span>
-        {% if day.loaded %}
-        <span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">
-          {{ day.loaded|length }} cargaron
-        </span>
-        {% endif %}
-        {% if day.missing %}
-        <span style="background:#fee2e2;color:#7f1d1d;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">
-          {{ day.missing|length }} sin KPI
-        </span>
-        {% endif %}
-      </div>
-      <span style="font-size:12px;color:#aaa;">▾</span>
-    </div>
-    <!-- Day detail (collapsed by default except first) -->
-    <div id="day-{{ loop.index }}" style="display:{% if loop.first %}block{% else %}none{% endif %};">
-      {% if day.loaded %}
-      <div style="padding:10px 14px 6px;border-bottom:1px solid #f5f5f5;">
-        <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Cargaron</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          {% for v in day.loaded %}
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:6px;">
-            {% if v.photo_path %}
-            <img src="/uploads/photos/{{ v.photo_path }}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;">
-            {% else %}
-            <span style="font-size:14px;">👤</span>
-            {% endif %}
-            <span style="font-weight:700;color:#065f46;">{{ v.vendor_name }}</span>
-            {% if v.venta_realizada > 0 %}
-            <span style="background:#a78bfa20;color:#7c3aed;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800;">💵 {{ v.venta_realizada }}</span>
-            {% endif %}
-            {% if v.total_leads > 0 %}
-            <span style="color:#9ca3af;font-size:10px;">{{ v.total_leads }} leads</span>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-      {% if day.missing %}
-      <div style="padding:8px 14px 10px;">
-        <div style="font-size:10px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Sin KPI ese día</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;">
-          {% for v in day.missing %}
-          <span style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:3px 9px;font-size:11px;color:#7f1d1d;font-weight:600;">{{ v.name }}</span>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% endfor %}
+{# Filtro rápido por vendedor en la tabla #}
+<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <input type="text" id="tableSearch" oninput="filterTable()" placeholder="Buscar vendedor…"
+    style="border:1.5px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;min-width:180px;">
+  <span id="tableCount" style="font-size:11px;color:#aaa;"></span>
 </div>
+
+<div style="overflow-x:auto;border-radius:12px;border:1px solid #e9ecef;">
+<table id="kpiTable" style="border-collapse:collapse;width:100%;font-size:12px;min-width:900px;">
+  <thead>
+    <tr style="background:#1a0810;color:#c9a066;position:sticky;top:0;z-index:2;">
+      <th onclick="sortTable(0)" style="padding:10px 12px;text-align:left;cursor:pointer;white-space:nowrap;font-weight:700;border-right:1px solid #3d0f1e;">Fecha ↕</th>
+      <th onclick="sortTable(1)" style="padding:10px 12px;text-align:left;cursor:pointer;white-space:nowrap;font-weight:700;border-right:1px solid #3d0f1e;">Vendedor ↕</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="No Respondido">😶 NR</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Interacción Leve">❄️ IL</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Conversación Fluida">🤝 CF</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Potencial Compra">🔥 PC</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Venta Realizada">💵 VR</th>
+      {% for lbl in custom_labels %}
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;background:#2d1040;color:#d8b4fe;" title="{{ lbl.label_name }}">🏷️ {{ lbl.label_name[:8] }}</th>
+      {% endfor %}
+      <th style="padding:10px 12px;text-align:left;font-weight:700;">Nota</th>
+    </tr>
+  </thead>
+  <tbody id="kpiTableBody">
+  {% for e in entries %}
+  {% set e_cv = e.get('custom_values') | default('{}') %}
+  {% set cv = e_cv | fromjson if e_cv else {} %}
+  {% set il_total = (e.get('interaccion_leve_frio',0) or 0) + (e.get('interaccion_leve_tibio',0) or 0) + (e.get('interaccion_leve_caliente',0) or 0) %}
+  {% set cf_total = (e.get('conversacion_fluida_frio',0) or 0) + (e.get('conversacion_fluida_tibio',0) or 0) + (e.get('conversacion_fluida_caliente',0) or 0) %}
+  {% set pc_total = (e.get('potencial_compra_frio',0) or 0) + (e.get('potencial_compra_tibio',0) or 0) + (e.get('potencial_compra_caliente',0) or 0) %}
+  <tr class="kpi-row" data-vendor="{{ e.get('vendor_name','') | lower }}"
+      style="border-bottom:1px solid #f0f0f0;transition:background .1s;"
+      onmouseover="this.style.background='#faf8f5'" onmouseout="this.style.background=''">
+    <td style="padding:9px 12px;font-weight:700;color:#444;white-space:nowrap;border-right:1px solid #f0f0f0;">{{ e.get('entry_date','') }}</td>
+    <td style="padding:9px 12px;font-weight:800;color:#1a0810;white-space:nowrap;border-right:1px solid #f0f0f0;">
+      {% if e.get('photo_path') %}<img src="/uploads/photos/{{ e.photo_path }}" style="width:18px;height:18px;border-radius:4px;object-fit:cover;margin-right:5px;vertical-align:middle;">{% endif %}
+      {{ e.get('vendor_name','—') }}
+    </td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if (e.get('no_respondido',0) or 0) > 0 %}#9ca3af{% else %}#e5e7eb{% endif %};">{{ e.get('no_respondido',0) or 0 }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if il_total > 0 %}#3b82f6{% else %}#e5e7eb{% endif %};font-weight:{% if il_total > 0 %}700{% else %}400{% endif %};">{{ il_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if cf_total > 0 %}#22c55e{% else %}#e5e7eb{% endif %};font-weight:{% if cf_total > 0 %}700{% else %}400{% endif %};">{{ cf_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if pc_total > 0 %}#f59e0b{% else %}#e5e7eb{% endif %};font-weight:{% if pc_total > 0 %}700{% else %}400{% endif %};">{{ pc_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if (e.get('venta_realizada',0) or 0) > 0 %}#8b5cf6{% else %}#e5e7eb{% endif %};font-weight:{% if (e.get('venta_realizada',0) or 0) > 0 %}900{% else %}400{% endif %};">{{ e.get('venta_realizada',0) or 0 }}</td>
+    {% for lbl in custom_labels %}
+    {% set cv_val = cv.get(lbl.id|string, 0) | int %}
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if cv_val > 0 %}#7c3aed{% else %}#e5e7eb{% endif %};font-weight:{% if cv_val > 0 %}800{% else %}400{% endif %};">{{ cv_val if cv_val > 0 else '—' }}</td>
+    {% endfor %}
+    <td style="padding:9px 12px;color:#555;font-size:11px;max-width:200px;white-space:pre-wrap;word-break:break-word;">{{ e.get('notes','') or '' }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<!-- Resumen de quién no cargó hoy -->
+{% if daily_activity %}
+{% set today_day = daily_activity | selectattr('date', 'equalto', today) | list | first | default(none) %}
+{% if today_day and today_day.missing %}
+<div style="margin-top:14px;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;">
+  <span style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;">⚠️ Sin KPI hoy ({{ today }}):</span>
+  <span style="margin-left:8px;">
+    {% for v in today_day.missing %}<span style="background:#fee2e2;border-radius:5px;padding:2px 8px;font-size:11px;color:#7f1d1d;font-weight:600;margin-right:4px;">{{ v.name }}</span>{% endfor %}
+  </span>
+</div>
+{% endif %}
 {% endif %}
 
 {% endif %}{# end else (global view) #}
@@ -1134,9 +1141,40 @@ function mdLine(s) {
   return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
 }
 
-function toggleDay(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+// ── Tabla KPI: búsqueda y sort ────────────────────────────────────────────────
+let _sortCol = 0, _sortAsc = false;
+
+function filterTable() {
+  const q = (document.getElementById('tableSearch')?.value || '').toLowerCase();
+  const rows = document.querySelectorAll('#kpiTableBody .kpi-row');
+  let shown = 0;
+  rows.forEach(r => {
+    const match = !q || r.dataset.vendor.includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  const cnt = document.getElementById('tableCount');
+  if (cnt) cnt.textContent = shown + ' entradas';
 }
+
+function sortTable(col) {
+  if (_sortCol === col) _sortAsc = !_sortAsc; else { _sortCol = col; _sortAsc = true; }
+  const tbody = document.getElementById('kpiTableBody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('.kpi-row'));
+  rows.sort((a, b) => {
+    const va = a.cells[col]?.textContent.trim() || '';
+    const vb = b.cells[col]?.textContent.trim() || '';
+    return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// Init count
+(function() {
+  const rows = document.querySelectorAll('#kpiTableBody .kpi-row');
+  const cnt = document.getElementById('tableCount');
+  if (cnt && rows.length) cnt.textContent = rows.length + ' entradas';
+})();
 </script>
 {% endblock %}

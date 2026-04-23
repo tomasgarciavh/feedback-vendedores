@@ -582,19 +582,15 @@ def kpi_aggregate_entries(entries: list[dict]) -> dict:
                 totals[k] += sum(int(e.get(k, 0) or 0) for e in ves)
             else:
                 totals[k] += int(latest.get(k, 0) or 0)
-        # Custom labels: cumulative — use latest non-zero value per label across all entries
-        label_latest: dict = {}
-        for entry in sorted_ves:  # latest-first order
+        # Custom labels: daily increments — SUM all entries per vendor
+        for entry in sorted_ves:
             raw = entry.get("custom_values") or "{}"
             try:
                 cv = _json.loads(raw)
             except Exception:
                 cv = {}
             for lid, val in cv.items():
-                if lid not in label_latest and int(val or 0) > 0:
-                    label_latest[lid] = int(val)
-        for lid, val in label_latest.items():
-            custom_totals[lid] = custom_totals.get(lid, 0) + val
+                custom_totals[lid] = custom_totals.get(lid, 0) + int(val or 0)
 
     # Derived totals
     totals["interaccion_leve"] = sum(totals[k] for k in ["interaccion_leve_frio","interaccion_leve_tibio","interaccion_leve_caliente"])
