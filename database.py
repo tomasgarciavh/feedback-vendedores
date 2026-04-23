@@ -245,7 +245,9 @@ def init_db():
                 messages_json TEXT DEFAULT '[]',
                 feedback_text TEXT,
                 score DOUBLE PRECISION,
-                status TEXT DEFAULT 'active'
+                status TEXT DEFAULT 'active',
+                deleted_by_vendor BOOLEAN DEFAULT FALSE,
+                deleted_at TEXT
             )
         """)
         conn.execute("""
@@ -305,6 +307,9 @@ def init_db():
         # Soft-delete columns for roleplay sessions papelera
         conn.execute("ALTER TABLE roleplay_sessions ADD COLUMN IF NOT EXISTS deleted_by_vendor BOOLEAN DEFAULT FALSE")
         conn.execute("ALTER TABLE roleplay_sessions ADD COLUMN IF NOT EXISTS deleted_at TEXT")
+        # Soft-delete columns for lanzamiento coach sessions
+        conn.execute("ALTER TABLE lanzamiento_coach_sessions ADD COLUMN IF NOT EXISTS deleted_by_vendor BOOLEAN DEFAULT FALSE")
+        conn.execute("ALTER TABLE lanzamiento_coach_sessions ADD COLUMN IF NOT EXISTS deleted_at TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_director_config (
                 config_key TEXT PRIMARY KEY,
@@ -577,14 +582,19 @@ def kpi_aggregate_entries(entries: list[dict]) -> dict:
                 totals[k] += sum(int(e.get(k, 0) or 0) for e in ves)
             else:
                 totals[k] += int(latest.get(k, 0) or 0)
-        # Custom labels: cumulative — use latest entry
-        raw = latest.get("custom_values") or "{}"
-        try:
-            cv = _json.loads(raw)
-        except Exception:
-            cv = {}
-        for lid, val in cv.items():
-            custom_totals[lid] = custom_totals.get(lid, 0) + int(val or 0)
+        # Custom labels: cumulative — use latest non-zero value per label across all entries
+        label_latest: dict = {}
+        for entry in sorted_ves:  # latest-first order
+            raw = entry.get("custom_values") or "{}"
+            try:
+                cv = _json.loads(raw)
+            except Exception:
+                cv = {}
+            for lid, val in cv.items():
+                if lid not in label_latest and int(val or 0) > 0:
+                    label_latest[lid] = int(val)
+        for lid, val in label_latest.items():
+            custom_totals[lid] = custom_totals.get(lid, 0) + val
 
     # Derived totals
     totals["interaccion_leve"] = sum(totals[k] for k in ["interaccion_leve_frio","interaccion_leve_tibio","interaccion_leve_caliente"])
@@ -1500,10 +1510,22 @@ def lanzamiento_coach_get_vendor_sessions(vendor_id: int) -> list:
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT * FROM lanzamiento_coach_sessions
-               WHERE vendor_id=? ORDER BY started_at DESC LIMIT 50""",
+               WHERE vendor_id=? AND (deleted_by_vendor IS NULL OR deleted_by_vendor = FALSE)
+               ORDER BY started_at DESC LIMIT 50""",
             (vendor_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def delete_lanzamiento_session(session_id: int, vendor_id: int) -> bool:
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE lanzamiento_coach_sessions SET deleted_by_vendor=TRUE, deleted_at=? "
+            "WHERE id=? AND vendor_id=?",
+            (_now(), session_id, vendor_id)
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def get_vendor_sessions(vendor_id: int) -> list:

@@ -215,9 +215,9 @@
 <div class="mt-5">
   <h6 class="fw-bold mb-3" style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.5px;">Sesiones anteriores</h6>
   {% for s in rp_sessions[:10] %}
-  <div class="hist-card">
-    <div class="d-flex justify-content-between align-items-center">
-      <div class="d-flex align-items-center gap-2">
+  <div class="hist-card" id="lz-row-{{ s.id }}">
+    <div class="d-flex justify-content-between align-items-center w-100">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
         <span class="hist-badge roleplay">🎭 Roleplay</span>
         {% for key, ph in phases.items() %}{% if key == s.phase %}<span style="font-size:12px;">{{ ph.emoji }} {{ ph.label }}</span>{% endif %}{% endfor %}
         {% if s.lead_name %}<span style="font-size:12px;color:#666;">— {{ s.lead_name }}</span>{% endif %}
@@ -225,6 +225,9 @@
       <div class="d-flex align-items-center gap-2">
         {% if s.score %}<span style="font-size:12px;font-weight:800;color:{% if s.score >= 7 %}#2d6a4f{% elif s.score >= 5 %}#8b6914{% else %}#8b1a2b{% endif %};">{{ "%.1f"|format(s.score) }}/10</span>{% endif %}
         <span style="font-size:11px;color:#aaa;">{{ s.started_at[:10] if s.started_at else '' }}</span>
+        <button onclick="deleteLzSession({{ s.id }})" title="Eliminar"
+          style="background:none;border:none;cursor:pointer;padding:2px 4px;color:#ccc;font-size:14px;line-height:1;"
+          onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#ccc'">🗑</button>
       </div>
     </div>
   </div>
@@ -430,5 +433,17 @@ function newRoleplay() {
     if (c.dataset.phase !== firstPhase) c.style.display = 'none';
   });
 })();
+
+async function deleteLzSession(id) {
+  if (!confirm('¿Eliminar esta práctica? Podrá ser restaurada desde la administración.')) return;
+  const resp = await fetch(`/chat/lanzamiento/session/${id}/delete`, { method: 'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    const row = document.getElementById(`lz-row-${id}`);
+    if (row) { row.style.transition = 'opacity .3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+  } else {
+    alert('No se pudo eliminar.');
+  }
+}
 </script>
 {% endblock %}

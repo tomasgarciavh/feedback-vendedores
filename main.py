@@ -2002,6 +2002,15 @@ desapego: [0-10]
         return jsonify({"ok": True, "feedback": "", "score": None})
 
 
+@app.route("/chat/lanzamiento/session/<int:session_id>/delete", methods=["POST"])
+def chat_lanzamiento_delete_session(session_id: int):
+    vendor = _vendor_session()
+    if not vendor:
+        return jsonify({"ok": False}), 401
+    ok = database.delete_lanzamiento_session(session_id, vendor["id"])
+    return jsonify({"ok": ok})
+
+
 # ── Ventas Lanzamiento ─────────────────────────────────────────────────────────
 
 @app.route("/ventas")
@@ -2764,6 +2773,30 @@ def lanzamiento_kpi_director():
         for e in today_entries
     ], key=lambda x: x["totals"].get("venta_realizada", 0), reverse=True)
 
+    # Daily activity detail: per-date, per-vendor breakdown
+    # Build: {date -> {vendor_id -> entry}}
+    daily_vendor_map: dict = defaultdict(dict)
+    for e in database.kpi_get_all_entries(from_date=from_date or None, to_date=to_date or None):
+        daily_vendor_map[e["entry_date"]][e["vendor_id"]] = e
+
+    kpi_vendor_ids = {v["id"] for v in vendors_list}
+    daily_activity = sorted([
+        {
+            "date": d,
+            "loaded": sorted([
+                {"vendor_id": vid2, "vendor_name": e.get("vendor_name",""), "photo_path": e.get("photo_path"),
+                 "venta_realizada": int(e.get("venta_realizada",0) or 0),
+                 "total_leads": int(e.get("no_respondido",0) or 0) + int(e.get("interaccion_leve_frio",0) or 0) + int(e.get("interaccion_leve_tibio",0) or 0) + int(e.get("interaccion_leve_caliente",0) or 0) + int(e.get("conversacion_fluida_frio",0) or 0) + int(e.get("conversacion_fluida_tibio",0) or 0) + int(e.get("conversacion_fluida_caliente",0) or 0) + int(e.get("potencial_compra_frio",0) or 0) + int(e.get("potencial_compra_tibio",0) or 0) + int(e.get("potencial_compra_caliente",0) or 0) + int(e.get("venta_realizada",0) or 0),
+                }
+                for vid2, e in vendor_map.items()
+            ], key=lambda x: x["vendor_name"]),
+            "missing": sorted([
+                v for v in vendors_list if v["id"] not in vendor_map
+            ], key=lambda x: x["name"]),
+        }
+        for d, vendor_map in daily_vendor_map.items()
+    ], key=lambda x: x["date"], reverse=True)
+
     custom_labels = database.kpi_get_active_labels()
     director_goal = database.get_director_goal()
     return render_template("lanzamiento_kpi_director.html",
@@ -2773,6 +2806,7 @@ def lanzamiento_kpi_director():
                            vendors_list=vendors_list,
                            daily_series=daily_series,
                            today_totals=today_totals,
+                           daily_activity=daily_activity,
                            today_by_vendor=today_by_vendor,
                            today=today,
                            from_date=from_date, to_date=to_date,

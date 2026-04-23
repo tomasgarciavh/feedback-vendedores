@@ -703,6 +703,74 @@
 </div>
 {% endif %}
 
+<!-- ══════════════════════════════════════════════════════════
+     ACTIVIDAD DIARIA — por fecha con detalle de vendedores
+     ══════════════════════════════════════════════════════════ -->
+{% if daily_activity %}
+<div class="section-title mt-4"><i class="bi bi-calendar3" style="color:#c9a066;"></i> Actividad Diaria</div>
+
+<div id="dailyActivitySection">
+  {% for day in daily_activity %}
+  <div style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:10px;overflow:hidden;">
+    <!-- Day header -->
+    <div onclick="toggleDay('day-{{ loop.index }}')"
+         style="background:#f8f8f8;padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;font-weight:800;color:#1a0810;">{{ day.date }}</span>
+        {% if day.loaded %}
+        <span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">
+          {{ day.loaded|length }} cargaron
+        </span>
+        {% endif %}
+        {% if day.missing %}
+        <span style="background:#fee2e2;color:#7f1d1d;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">
+          {{ day.missing|length }} sin KPI
+        </span>
+        {% endif %}
+      </div>
+      <span style="font-size:12px;color:#aaa;">▾</span>
+    </div>
+    <!-- Day detail (collapsed by default except first) -->
+    <div id="day-{{ loop.index }}" style="display:{% if loop.first %}block{% else %}none{% endif %};">
+      {% if day.loaded %}
+      <div style="padding:10px 14px 6px;border-bottom:1px solid #f5f5f5;">
+        <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Cargaron</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          {% for v in day.loaded %}
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:6px;">
+            {% if v.photo_path %}
+            <img src="/uploads/photos/{{ v.photo_path }}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;">
+            {% else %}
+            <span style="font-size:14px;">👤</span>
+            {% endif %}
+            <span style="font-weight:700;color:#065f46;">{{ v.vendor_name }}</span>
+            {% if v.venta_realizada > 0 %}
+            <span style="background:#a78bfa20;color:#7c3aed;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800;">💵 {{ v.venta_realizada }}</span>
+            {% endif %}
+            {% if v.total_leads > 0 %}
+            <span style="color:#9ca3af;font-size:10px;">{{ v.total_leads }} leads</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if day.missing %}
+      <div style="padding:8px 14px 10px;">
+        <div style="font-size:10px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Sin KPI ese día</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          {% for v in day.missing %}
+          <span style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:3px 9px;font-size:11px;color:#7f1d1d;font-weight:600;">{{ v.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% endif %}{# end else (global view) #}
 
 {% endblock %}
@@ -1064,6 +1132,11 @@ function renderStrategy(text, bottleneck, rate) {
 }
 function mdLine(s) {
   return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
+}
+
+function toggleDay(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 </script>
 {% endblock %}
