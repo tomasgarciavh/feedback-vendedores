@@ -2369,6 +2369,67 @@ def ventas():
     for r in table_rows:
         del r["fecha_obj"]
 
+    # ── Lanzamiento 5 data ──────────────────────────────────────────────────
+    L5_AVG_COT = 1150  # cotización promedio estimada; actualizable
+    l5_raw = database.l5_get_all()
+
+    def l5_to_usd(r):
+        if r["moneda"] == "USD":
+            return r["importe"]
+        return round(r["importe"] / (r["cotizacion"] or L5_AVG_COT), 2)
+
+    def l5_parse_fecha(s):
+        try:
+            parts = s.split("/")
+            if len(parts) == 3:
+                return _date(int(parts[2]), int(parts[1]), int(parts[0]))
+        except Exception:
+            pass
+        return _date(2026, 1, 1)
+
+    seen_l5 = set()
+    for r in sorted(l5_raw, key=lambda x: (l5_parse_fecha(x["fecha"]), x["id"])):
+        ref = r["cliente_ref"].strip().lower() if r["cliente_ref"] else f"__noid_{r['id']}"
+        if ref not in seen_l5:
+            r["is_first"] = True
+            seen_l5.add(ref)
+        else:
+            r["is_first"] = False
+        r["usd_equiv"] = l5_to_usd(r)
+
+    l5_ventas_unicas = sum(1 for r in l5_raw if r.get("is_first"))
+    l5_total_usd = round(sum(r["usd_equiv"] for r in l5_raw), 2)
+    l5_total_ars = sum(r["importe"] for r in l5_raw if r["moneda"] == "ARS")
+    l5_total_usd_direct = sum(r["importe"] for r in l5_raw if r["moneda"] == "USD")
+
+    # Daily sales for L5
+    l5_daily = defaultdict(lambda: {"count": 0, "usd": 0.0})
+    for r in l5_raw:
+        if r.get("is_first"):
+            l5_daily[r["fecha"]]["count"] += 1
+        l5_daily[r["fecha"]]["usd"] += r["usd_equiv"]
+    l5_sorted_days = sorted(l5_daily.keys(), key=l5_parse_fecha)
+
+    # Per-vendor totals for L5
+    l5_vendor_sales = defaultdict(int)
+    l5_vendor_usd = defaultdict(float)
+    for r in l5_raw:
+        if r.get("is_first"):
+            l5_vendor_sales[r["vendedor"]] += 1
+        l5_vendor_usd[r["vendedor"]] += r["usd_equiv"]
+    l5_vendor_ranking = sorted(l5_vendor_usd.items(), key=lambda x: -x[1])
+
+    # Cash collected L5
+    l5_neto_usd = 0.0
+    l5_neto_ars = 0.0
+    for r in l5_raw:
+        fee = FEE.get(r["metodo"].strip(), 0.0)
+        neto = r["importe"] * (1 - fee)
+        if r["moneda"] == "USD":
+            l5_neto_usd += neto
+        else:
+            l5_neto_ars += neto
+
     return render_template(
         "ventas.html",
         total_sales=total_sales,
@@ -2413,7 +2474,52 @@ def ventas():
         tipo_labels=json.dumps(tipo_labels_list),
         tipo_counts=json.dumps(tipo_counts_list),
         tipo_usd=json.dumps(tipo_usd_list),
+        # Lanzamiento 5
+        l5_raw=l5_raw,
+        l5_ventas_unicas=l5_ventas_unicas,
+        l5_total_usd=l5_total_usd,
+        l5_total_ars=int(l5_total_ars),
+        l5_total_usd_direct=round(l5_total_usd_direct, 2),
+        l5_neto_ars=int(l5_neto_ars),
+        l5_neto_usd=round(l5_neto_usd, 2),
+        l5_sorted_days=l5_sorted_days,
+        l5_daily=dict(l5_daily),
+        l5_vendor_ranking=l5_vendor_ranking,
+        l5_vendor_sales=dict(l5_vendor_sales),
+        l5_avg_cot=L5_AVG_COT,
     )
+
+
+# ── Lanzamiento 5 ventas API ──────────────────────────────────────────────────
+
+@app.route("/ventas/l5/add", methods=["POST"])
+def ventas_l5_add():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False}), 403
+    d = request.get_json() or {}
+    try:
+        entry_id = database.l5_add_venta(
+            tipo_pago=(d.get("tipo_pago") or "PAGO").strip(),
+            importe=float(d.get("importe") or 0),
+            moneda=(d.get("moneda") or "ARS").strip().upper(),
+            vendedor=(d.get("vendedor") or "").strip(),
+            fecha=(d.get("fecha") or "").strip(),
+            cotizacion=float(d["cotizacion"]) if d.get("cotizacion") else None,
+            metodo=(d.get("metodo") or "PESOS FINANCIERA").strip(),
+            cliente_ref=(d.get("cliente_ref") or "").strip(),
+        )
+        return jsonify({"ok": True, "id": entry_id})
+    except Exception as e:
+        logger.error("l5 add error: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/ventas/l5/delete/<int:entry_id>", methods=["POST"])
+def ventas_l5_delete(entry_id: int):
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False}), 403
+    ok = database.l5_delete_venta(entry_id)
+    return jsonify({"ok": ok})
 
 
 # ── Lanzamiento feedback ──────────────────────────────────────────────────────

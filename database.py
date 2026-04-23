@@ -311,6 +311,20 @@ def init_db():
         conn.execute("ALTER TABLE lanzamiento_coach_sessions ADD COLUMN IF NOT EXISTS deleted_by_vendor BOOLEAN DEFAULT FALSE")
         conn.execute("ALTER TABLE lanzamiento_coach_sessions ADD COLUMN IF NOT EXISTS deleted_at TEXT")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS lanzamiento5_ventas (
+                id SERIAL PRIMARY KEY,
+                tipo_pago TEXT NOT NULL,
+                importe DOUBLE PRECISION NOT NULL,
+                moneda TEXT NOT NULL DEFAULT 'ARS',
+                vendedor TEXT NOT NULL,
+                fecha TEXT NOT NULL,
+                cotizacion DOUBLE PRECISION,
+                metodo TEXT NOT NULL DEFAULT 'PESOS FINANCIERA',
+                cliente_ref TEXT DEFAULT '',
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS lanzamiento_director_config (
                 config_key TEXT PRIMARY KEY,
                 config_value TEXT NOT NULL DEFAULT '0',
@@ -1829,3 +1843,34 @@ def seed_system_leads():
         logger.info("Seeded %d new system leads.", len(new_leads))
     else:
         logger.info("System leads already up to date.")
+
+
+# ── Lanzamiento 5 Ventas ────────────────────────────────────────────────────
+
+def l5_add_venta(tipo_pago: str, importe: float, moneda: str, vendedor: str,
+                  fecha: str, cotizacion: float | None, metodo: str, cliente_ref: str = "") -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO lanzamiento5_ventas
+               (tipo_pago, importe, moneda, vendedor, fecha, cotizacion, metodo, cliente_ref, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?) RETURNING id""",
+            (tipo_pago, importe, moneda, vendedor, fecha, cotizacion, metodo, cliente_ref, _now())
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row["id"] if row else None
+
+
+def l5_get_all() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM lanzamiento5_ventas ORDER BY fecha ASC, id ASC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def l5_delete_venta(entry_id: int) -> bool:
+    with get_connection() as conn:
+        cur = conn.execute("DELETE FROM lanzamiento5_ventas WHERE id=?", (entry_id,))
+        conn.commit()
+        return cur.rowcount > 0

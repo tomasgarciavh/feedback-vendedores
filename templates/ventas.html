@@ -1,7 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Ventas Lanzamiento — VH{% endblock %}
 
+{% block extra_head %}
+<style>
+/* ── L5 Tab system ───────────────────────────────────────────────────────── */
+.lz-tabs { display:flex; gap:6px; margin-bottom:24px; }
+.lz-tab {
+  padding:9px 20px; border-radius:10px; font-size:13px; font-weight:700;
+  cursor:pointer; border:2px solid #e9ecef; background:#fff; color:#888;
+  transition:all .15s;
+}
+.lz-tab.active { background:linear-gradient(135deg,#1a0810,#3d0f1e); color:#c9a066; border-color:#3d0f1e; }
+.lz-tab:hover:not(.active) { border-color:#c9a066; color:#c9a066; }
+
+/* ── L5 KPI cards ────────────────────────────────────────────────────────── */
+.l5-kpi { background:#fff; border:1px solid #e9ecef; border-radius:12px; padding:16px 18px; }
+.l5-kpi .val { font-size:28px; font-weight:900; line-height:1; }
+.l5-kpi .lbl { font-size:11px; color:#888; margin-top:3px; }
+
+/* ── L5 form ─────────────────────────────────────────────────────────────── */
+.l5-form { background:#faf8f5; border:1px solid #e9e0d0; border-radius:14px; padding:20px; margin-bottom:20px; }
+.l5-form label { font-size:11px; font-weight:700; color:#555; margin-bottom:4px; display:block; }
+.l5-form input, .l5-form select {
+  border:1.5px solid #e9ecef; border-radius:8px; padding:7px 10px;
+  font-size:13px; width:100%; background:#fff;
+}
+.l5-form input:focus, .l5-form select:focus { outline:none; border-color:#c9a066; }
+
+/* ── L5 table ────────────────────────────────────────────────────────────── */
+.l5-table { width:100%; border-collapse:collapse; font-size:12px; }
+.l5-table th { background:#1a0810; color:#c9a066; padding:9px 10px; text-align:left; font-weight:700; white-space:nowrap; }
+.l5-table td { padding:8px 10px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+.l5-table tr:hover td { background:#faf8f5; }
+</style>
+{% endblock %}
+
 {% block content %}
+
+<!-- Tab switcher -->
+<div class="lz-tabs">
+  <button class="lz-tab active" onclick="showTab('l4')" id="tab-l4">📦 Lanzamiento 4</button>
+  <button class="lz-tab" onclick="showTab('l5')" id="tab-l5">🚀 Lanzamiento 5 <span id="l5-badge" style="background:#c9a066;color:#1a0810;border-radius:20px;font-size:10px;padding:1px 7px;margin-left:4px;">{{ l5_ventas_unicas }} ventas</span></button>
+</div>
+
+<div id="panel-l4">
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h4 class="mb-0 fw-bold" style="color:#1a0810;">Ventas — Lanzamiento N4</h4>
@@ -450,8 +492,268 @@
   </div>
 </div>
 
+</div>{# end panel-l4 #}
+
+<!-- ════════════════════════════════════════════════════════════════
+     PANEL LANZAMIENTO 5
+     ════════════════════════════════════════════════════════════════ -->
+<div id="panel-l5" style="display:none;">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold" style="color:#1a0810;">Ventas — Lanzamiento 5 <span style="font-size:14px;color:#888;font-weight:400;">en curso</span></h4>
+    <small class="text-muted">Datos en tiempo real · <strong id="l5-vuniq">{{ l5_ventas_unicas }}</strong> ventas únicas · {{ l5_raw|length }} transacciones</small>
+  </div>
+  <span class="badge" style="background:linear-gradient(135deg,#0f4c2a,#1a7a4a);color:#d4f7e8;font-size:13px;padding:8px 14px;border-radius:20px;">
+    🚀 Lanzamiento 5
+  </span>
+</div>
+
+<!-- KPI Cards L5 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="l5-kpi">
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Ventas únicas</div>
+      <div class="val" style="color:#1a0810;" id="l5-kv-ventas">{{ l5_ventas_unicas }}</div>
+      <div class="lbl">clientes nuevos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="l5-kpi">
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Facturación USD</div>
+      <div class="val" style="color:#1a4a7a;" id="l5-kv-usd">U$D {{ "{:,.0f}".format(l5_total_usd) }}</div>
+      <div class="lbl">equivalente total (bruto)</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="l5-kpi">
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Cash Neto ARS</div>
+      <div class="val" style="color:#1a7a4a;" id="l5-kv-neto-ars">${{ "{:,.0f}".format(l5_neto_ars) }}</div>
+      <div class="lbl">después de fees</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="l5-kpi">
+      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Cash Neto USD</div>
+      <div class="val" style="color:#6b3a1e;" id="l5-kv-neto-usd">U$D {{ "{:,.2f}".format(l5_neto_usd) }}</div>
+      <div class="lbl">después de fees</div>
+    </div>
+  </div>
+</div>
+
+<!-- Progreso visual -->
+{% set L5_META = 100 %}
+{% set l5_pct = ((l5_ventas_unicas / L5_META) * 100)|round(1) if L5_META > 0 else 0 %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-size:13px;font-weight:700;color:#1a0810;">Progreso del lanzamiento</span>
+    <span style="font-size:13px;font-weight:900;color:#1a7a4a;">{{ l5_pct }}% ({{ l5_ventas_unicas }} / {{ L5_META }} ventas)</span>
+  </div>
+  <div style="background:#f0f0f0;border-radius:8px;height:12px;overflow:hidden;">
+    <div style="height:100%;width:{{ [l5_pct|float, 100]|min }}%;background:linear-gradient(90deg,#1a7a4a,#c9a066);border-radius:8px;transition:width .5s;"></div>
+  </div>
+  <div style="font-size:10px;color:#aaa;margin-top:5px;">Meta: {{ L5_META }} ventas únicas</div>
+</div>
+
+<!-- Rankings por vendedor L5 -->
+{% if l5_vendor_ranking %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:12px;">Ranking vendedores</div>
+  {% for vendor, usd in l5_vendor_ranking %}
+  {% set v_sales = l5_vendor_sales.get(vendor, 0) %}
+  {% set max_usd = l5_vendor_ranking[0][1] if l5_vendor_ranking else 1 %}
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <div style="font-size:12px;font-weight:800;color:#1a0810;min-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ vendor }}</div>
+    <div style="flex:1;background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;">
+      <div style="height:100%;width:{{ ((usd / max_usd)*100)|round(0) }}%;background:linear-gradient(90deg,#1a7a4a,#c9a066);border-radius:4px;"></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#1a7a4a;min-width:80px;text-align:right;">U$D {{ "{:,.0f}".format(usd) }}</div>
+    <div style="font-size:11px;color:#888;min-width:50px;text-align:right;">{{ v_sales }} venta{{ 's' if v_sales != 1 }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Ventas diarias L5 -->
+{% if l5_sorted_days %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:12px;">Ventas por día</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    {% for d in l5_sorted_days %}
+    {% set dd = l5_daily[d] %}
+    <div style="background:#f8f8f8;border:1px solid #e9ecef;border-radius:8px;padding:8px 12px;text-align:center;min-width:80px;">
+      <div style="font-size:10px;color:#888;margin-bottom:3px;">{{ d }}</div>
+      <div style="font-size:18px;font-weight:900;color:#1a7a4a;">{{ dd.count }}</div>
+      <div style="font-size:10px;color:#888;">U$D {{ "{:,.0f}".format(dd.usd) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Formulario agregar venta L5 -->
+<div class="l5-form">
+  <div style="font-size:13px;font-weight:800;color:#1a0810;margin-bottom:14px;">➕ Registrar nueva transacción</div>
+  <div class="row g-2">
+    <div class="col-6 col-md-2">
+      <label>Fecha (dd/mm/aaaa)</label>
+      <input type="text" id="l5-fecha" placeholder="23/04/2026">
+    </div>
+    <div class="col-6 col-md-2">
+      <label>Vendedor</label>
+      <input type="text" id="l5-vendedor" placeholder="Nombre">
+    </div>
+    <div class="col-6 col-md-2">
+      <label>Tipo pago</label>
+      <select id="l5-tipo">
+        <option>PAGO</option><option>SEÑA</option><option>CUOTA 1</option><option>CUOTA 2</option><option>CUOTA 3</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-1">
+      <label>Moneda</label>
+      <select id="l5-moneda" onchange="toggleCot()">
+        <option value="ARS">ARS</option><option value="USD">USD</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label>Importe</label>
+      <input type="number" id="l5-importe" placeholder="750000">
+    </div>
+    <div class="col-6 col-md-2" id="l5-cot-wrap">
+      <label>Cotización</label>
+      <input type="number" id="l5-cotizacion" placeholder="{{ l5_avg_cot }}">
+    </div>
+    <div class="col-6 col-md-2">
+      <label>Método</label>
+      <select id="l5-metodo">
+        <option>PESOS FINANCIERA</option>
+        <option>DOLARES MULTID</option>
+        <option>BINANCE</option>
+        <option>Stripe</option>
+        <option>PAYPAL</option>
+        <option>TRANSFERENCIA</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label>Ref. cliente (email/nombre)</label>
+      <input type="text" id="l5-cliente" placeholder="email@ejemplo.com">
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end">
+      <button onclick="l5AddVenta()"
+        style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;width:100%;">
+        Guardar
+      </button>
+    </div>
+  </div>
+  <div id="l5-msg" style="font-size:12px;margin-top:8px;display:none;"></div>
+</div>
+
+<!-- Tabla transacciones L5 -->
+{% if l5_raw %}
+<div style="overflow-x:auto;border-radius:12px;border:1px solid #e9ecef;margin-bottom:20px;">
+<table class="l5-table" id="l5-table">
+  <thead>
+    <tr>
+      <th>ID</th><th>Fecha</th><th>Vendedor</th><th>Tipo</th>
+      <th>Importe</th><th>Moneda</th><th>Método</th><th>Cotización</th>
+      <th>Ref. Cliente</th><th>Venta</th><th></th>
+    </tr>
+  </thead>
+  <tbody id="l5-tbody">
+  {% for r in l5_raw | sort(attribute='fecha') %}
+  {% set fee_pct = {'PESOS FINANCIERA':0.07,'DOLARES MULTID':0.21,'PESOS MULTI D':0.21,'BINANCE':0.0,'Stripe':0.058,'PAYPAL':0.09,'TRANSFERENCIA':0.0}.get(r.metodo, 0) %}
+  {% set neto = (r.importe * (1 - fee_pct))|round(0) %}
+  <tr id="l5-row-{{ r.id }}">
+    <td style="color:#aaa;">{{ r.id }}</td>
+    <td style="font-weight:700;">{{ r.fecha }}</td>
+    <td style="font-weight:800;">{{ r.vendedor }}</td>
+    <td><span class="badge" style="font-size:10px;{% if r.tipo_pago == 'PAGO' %}background:#d4edda;color:#155724;{% elif r.tipo_pago == 'SEÑA' %}background:#fff3cd;color:#856404;{% else %}background:#e2e3e5;color:#383d41;{% endif %}">{{ r.tipo_pago }}</span></td>
+    <td>{% if r.moneda == 'ARS' %}<span style="color:#6b3a1e;">${{ "{:,.0f}".format(r.importe) }}</span>{% else %}<span style="color:#1a4a7a;">U$D {{ r.importe }}</span>{% endif %}</td>
+    <td><span class="badge" style="font-size:10px;{% if r.moneda == 'ARS' %}background:#f0e8dc;color:#6b3a1e;{% else %}background:#d0e8f0;color:#0d3a5c;{% endif %}">{{ r.moneda }}</span></td>
+    <td style="font-size:11px;">{{ r.metodo }}</td>
+    <td style="font-size:11px;color:#888;">{{ r.cotizacion if r.cotizacion else '—' }}</td>
+    <td style="font-size:11px;color:#555;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.cliente_ref or '—' }}</td>
+    <td>{% if r.is_first %}<span style="font-size:10px;color:#c9a066;font-weight:700;">✓ nueva</span>{% endif %}</td>
+    <td><button onclick="l5Delete({{ r.id }})" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:14px;" onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#ddd'">🗑</button></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div style="text-align:center;padding:40px;color:#bbb;font-size:14px;">
+  <div style="font-size:40px;margin-bottom:10px;">📭</div>
+  Aún no hay transacciones registradas para el Lanzamiento 5.
+</div>
+{% endif %}
+
+</div>{# end panel-l5 #}
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
+const L5_AVG_COT = {{ l5_avg_cot }};
+const L5_FEE = {
+  'PESOS FINANCIERA':0.07,'DOLARES MULTID':0.21,'PESOS MULTI D':0.21,
+  'BINANCE':0.0,'Stripe':0.058,'PAYPAL':0.09,'TRANSFERENCIA':0.0
+};
+
+function toggleCot() {
+  const moneda = document.getElementById('l5-moneda').value;
+  document.getElementById('l5-cot-wrap').style.display = moneda === 'ARS' ? '' : 'none';
+}
+toggleCot();
+
+async function l5AddVenta() {
+  const fecha = document.getElementById('l5-fecha').value.trim();
+  const vendedor = document.getElementById('l5-vendedor').value.trim();
+  const tipo_pago = document.getElementById('l5-tipo').value;
+  const moneda = document.getElementById('l5-moneda').value;
+  const importe = parseFloat(document.getElementById('l5-importe').value);
+  const cotStr = document.getElementById('l5-cotizacion').value.trim();
+  const cotizacion = cotStr ? parseFloat(cotStr) : null;
+  const metodo = document.getElementById('l5-metodo').value;
+  const cliente_ref = document.getElementById('l5-cliente').value.trim();
+  const msg = document.getElementById('l5-msg');
+
+  if (!fecha || !vendedor || !importe) {
+    msg.style.display='block'; msg.style.color='#e74c3c';
+    msg.textContent='Completá fecha, vendedor e importe.'; return;
+  }
+
+  const resp = await fetch('/ventas/l5/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ tipo_pago, importe, moneda, vendedor, fecha, cotizacion, metodo, cliente_ref })
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    msg.style.display='block'; msg.style.color='#1a7a4a';
+    msg.textContent='✓ Guardado. Recargando...';
+    setTimeout(() => { location.reload(); }, 800);
+  } else {
+    msg.style.display='block'; msg.style.color='#e74c3c';
+    msg.textContent='Error: ' + (data.error || 'Intentá de nuevo.');
+  }
+}
+
+async function l5Delete(id) {
+  if (!confirm('¿Eliminar esta transacción?')) return;
+  const resp = await fetch(`/ventas/l5/delete/${id}`, { method:'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    const row = document.getElementById(`l5-row-${id}`);
+    if (row) { row.style.opacity='0'; row.style.transition='opacity .3s'; setTimeout(() => { row.remove(); }, 300); }
+  }
+}
+
+const VH_COLORS = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
+const VH_LABELS_FULL = {
+  'PAGO':   'Pago completo',
+  'SEÑA':   'Seña / anticipo',
+  'CUOTA 1':'Cuota 1',
+  'CUOTA 2':'Cuota 2',
+};
+
+
 const VH_COLORS = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
 const VH_LABELS_FULL = {
   'PAGO':   'Pago completo',
@@ -620,6 +922,14 @@ const tipoChartData = {
   count:{ data:tipoCounts },
   usd:  { data:tipoUsd }
 };
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.getElementById('panel-l4').style.display = tab === 'l4' ? '' : 'none';
+  document.getElementById('panel-l5').style.display = tab === 'l5' ? '' : 'none';
+  document.getElementById('tab-l4').classList.toggle('active', tab === 'l4');
+  document.getElementById('tab-l5').classList.toggle('active', tab === 'l5');
+}
 
 document.querySelectorAll('.chart-toggle').forEach(btn => {
   btn.addEventListener('click', () => {
