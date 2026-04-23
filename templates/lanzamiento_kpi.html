@@ -159,6 +159,10 @@
   <div class="reward-text">
     <div class="rt-title">¡KPI cargado en tiempo y forma!</div>
     <div class="rt-frase" id="rewardFrase">Cargando tu frase del día...</div>
+    <div id="rewardTip" style="margin-top:10px;border-top:1px solid rgba(201,160,102,.25);padding-top:10px;display:none;">
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c9a066;opacity:.7;">💡 Tip para mañana</span>
+      <div id="rewardTipText" style="font-size:13px;color:rgba(255,255,255,.9);line-height:1.6;margin-top:4px;"></div>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -801,6 +805,72 @@ const start = new Date(now.getFullYear(), 0, 0);
 const dayOfYear = Math.floor((now - start) / 86400000);
 const dayIdx = dayOfYear % FRASES.length;
 document.getElementById('rewardFrase').textContent = FRASES[dayIdx];
+
+const TIPS = [
+  "Tomá agua apenas te levantás mañana — antes del café. Tu cuerpo lleva 8 hs sin hidratarse y eso afecta tu foco, tu humor y tu energía desde el primer mensaje del día.",
+  "Antes de mirar el celular mañana, tomá 3 respiraciones profundas. Inhala 4 segundos, retené 4, exhala 4. Eso baja el cortisol matutino y te pone en modo calma y claridad.",
+  "Comé algo con proteína en tu desayuno de mañana — huevos, queso, yogur. La proteína de mañana reduce el hambre compulsiva de la tarde y te da energía sostenida para las conversaciones.",
+  "Caminá 10 minutos al aire libre mañana aunque sea. Ese movimiento libera BDNF, la proteína del cerebro que mejora el aprendizaje y la memoria. Más ventas, literalmente.",
+  "Mañana, antes de arrancar el trabajo, escribí 1 sola cosa que querés lograr en el día. Solo una. El cerebro funciona mejor cuando tiene foco, no cuando tiene una lista de 20 tareas.",
+  "Exponate a luz natural en los primeros 30 minutos del día mañana. Eso sincroniza tu reloj biológico, mejora el sueño de esa noche y te da más energía para el día siguiente.",
+  "Si mañana sentís que te falta energía a la tarde, en vez de café probá comer 2 dátiles o una banana. El azúcar natural con fibra da un boost sin el crash posterior.",
+  "Dormí con el cuarto a 18-20°C si podés. El cuerpo necesita bajar su temperatura para entrar en sueño profundo. Una noche mejor cambia completamente cómo te sentís al día siguiente.",
+  "Mañana intentá no mirar redes sociales en los primeros 30 minutos del día. Esos 30 minutos son los más importantes para tu corteza prefrontal — úsalos para lo tuyo, no para el feed de otros.",
+  "Agregá limón a tu agua de mañana por la mañana. Vitamina C, alcaliniza el cuerpo y activa la digestión. Pequeño hábito, impacto real en tu energía y defensas.",
+  "Mañana, cuando termines una conversación difícil o un no, hacé una pausa de 2 minutos y recordá un logro reciente. Eso resetea tu estado emocional y te evita llevar la frustración a la siguiente conversación.",
+  "Escuchá música que te guste mientras preparás algo de comer mañana. Ese simple acto reduce el cortisol hasta un 12% según estudios. No es capricho — es salud mental.",
+  "Si tenés reunión o llamada importante mañana, preparala parado. La postura erguida activa testosterona y baja cortisol. Esto se llama 'power pose' y funciona aunque nadie te vea.",
+  "Desconectate del celular 30 minutos antes de dormir esta noche. La luz azul engaña a tu cerebro haciéndole creer que es de día. Menos melatonina = menos sueño profundo = menos recuperación.",
+  "Comé despacio mañana al mediodía. El cerebro tarda 20 minutos en recibir la señal de saciedad. Los que comen rápido comen más y se sienten peor. Masticar bien es gratis y es salud.",
+  "Reí mañana con alguien. Aunque sea por WhatsApp. La risa activa los mismos circuitos de recompensa que el ejercicio. Y en ventas, el humor es energía que se contagia.",
+  "Mañana, si sentís tensión en el cuerpo, poné las manos bajo agua fría por 30 segundos. El sistema nervioso parasimpático se activa al instante. Es el 'reset' más rápido que existe.",
+  "Antes de dormir esta noche anotá 3 cosas que salieron bien hoy, por pequeñas que sean. El cerebro en modo negativo tiende a magnificar lo malo. Este hábito re-entrena el patrón.",
+  "Tomá el sol directo en los ojos (sin anteojos de sol) por 5 minutos mañana a la mañana. Eso activa la serotonina matutina que se convierte en melatonina nocturna. Mejor día y mejor noche.",
+  "Mañana cuando sientas un bloqueo mental, levantate y movete 5 minutos. El flujo sanguíneo al cerebro aumenta con el movimiento. Las mejores ideas no vienen sentado — vienen caminando.",
+  "Evitá el azúcar en las primeras 2 horas del día mañana. Eso estabiliza la glucosa y evita el pico-caída que te deja sin energía antes del mediodía. El foco de la mañana vale oro.",
+  "Ponete los auriculares y escuchá sonidos binaurales de 40Hz mientras trabajás mañana. Esas frecuencias activan ondas gamma en el cerebro, asociadas con máxima concentración y memoria.",
+  "Mañana cuando hables de algo que te preocupa, hablalo en tercera persona mentalmente. 'Lucas está nervioso con esto' en vez de 'estoy nervioso'. Eso activa el córtex prefrontal y reduce la ansiedad al instante.",
+  "Hidratate antes de cada comida principal mañana — 1 vaso de agua. Eso mejora la digestión, te da sensación de saciedad y te ayuda a comer mejor sin hacer dieta.",
+  "Mañana probá la técnica del '5-4-3-2-1' si sentís ansiedad: nombrá 5 cosas que ves, 4 que escuchás, 3 que podés tocar, 2 que olés, 1 que podés saborear. Te saca del loop mental al instante.",
+  "Esta noche dormite en la misma posición: de costado, con una almohada entre las rodillas. Eso alinea la columna y reduce el dolor de espalda. Pequeño cambio, enorme diferencia en cómo te levantás.",
+  "Mañana comé algo verde a la tarde — una ensalada, espinaca, lo que sea. Los nitratos de las verduras verdes dilatan los vasos sanguíneos y mejoran el flujo al cerebro. Más foco en las conversaciones de cierre.",
+  "Si podés, mañana hacé 20 sentadillas antes de ducharte. Sin ir al gym. Eso activa las endorfinas, mejora la circulación y te da la sensación de haber hecho algo por vos mismo antes de arrancar el día.",
+  "Esta noche, antes de dormir, apagá todas las luces del cuarto por completo. La oscuridad total aumenta la producción de melatonina hasta un 50%. Esa noche vale por dos.",
+  "Mañana tomá un mate o café antes de hacer algo que requiera creatividad — pero esperá 90 minutos desde que te levantás para tomarlo. Así la cafeína amplifica el adenosín natural, en vez de bloquearlo.",
+  "Escribí mañana una sola cosa que aprendiste esta semana. Escribirla consolida el aprendizaje en memoria de largo plazo. El cerebro guarda lo que se repite y se escribe. Esta semana tuya queda.",
+  "Mañana, antes de arrancar con el celular, estirá el cuello 3 veces de cada lado. El 80% de la tensión del trabajo en pantalla se acumula ahí. Eso afecta el humor, la voz y la energía. Liberar eso cambia el día.",
+  "Comé nueces esta semana — un puñado al día. Son ricas en omega-3, el ácido graso que protege las neuronas, reduce el estrés crónico y mejora la regulación emocional. Lo llaman comida cerebro por algo.",
+  "Mañana, si tenés 5 minutos antes de una conversación importante, escuchá una canción que te haga sentir poderoso. Eso modifica el estado emocional más rápido que cualquier pensamiento racional.",
+  "Mañana a la noche, antes de dormir, ponete crema en las manos y masajeate las plantas de los pies por 2 minutos. Activa terminaciones nerviosas que relajan todo el sistema nervioso. La calidad del sueño sube notoriamente.",
+  "El próximo momento que sientas tensión, sacá el pecho y elevá el mentón levemente. La postura modifica la química del cuerpo más rápido de lo que creés. El cuerpo le dice al cerebro cómo sentirse — no al revés.",
+  "Mañana en el desayuno, antes de comer, tomá una cucharadita de aceite de oliva. Activa la producción de colecistoquinina, la hormona que regula el hambre y la saciedad. Menos ansiedad por comer al rato.",
+  "Cuando hables por teléfono mañana, sonreí aunque el otro no te vea. El tono de voz cambia físicamente cuando sonreís. El otro lo percibe subconscientemente. Eso genera confianza antes de que digas algo.",
+  "Mañana mirá al cielo o a algo lejano por 2 minutos. Tu sistema visual se relaja cuando mira a distancia. Si pasás el día en pantallas, esto previene la fatiga ocular que baja el estado de ánimo y el foco.",
+  "Esta noche, si podés, dormí 7 horas completas aunque no tengas sueño. Durante el sueño profundo, el cerebro limpia las toxinas del día y consolida lo aprendido. 6 horas no es lo mismo que 7. Un hora importa.",
+  "Mañana probá terminar tu ducha con 30 segundos de agua fría. Activa el sistema nervioso, libera norepinefrina (el neurotransmisor del alerta positivo) y te da una sensación de logro desde el minuto 1 del día.",
+  "El magnesio es el mineral más deficiente en personas con estrés. Comé chocolate negro mañana (70%+), espinaca o almendras. Ese mineral mejora el sueño, reduce la ansiedad y potencia la memoria de trabajo.",
+  "Si mañana sentís que una conversación se pone densa, pausá y decí: 'dame un segundo para pensar en eso'. Ese segundo te da tiempo de respuesta, transmite seguridad y evita respuestas impulsivas. Cambia el resultado.",
+  "Esta semana, un día, sacate los auriculares y caminá en silencio 10 minutos. El silencio activa la red neuronal por defecto — el modo donde el cerebro procesa, integra y encuentra soluciones creativas.",
+  "Mañana a la tarde, si sentís bajón de energía, hacé 10 respiraciones largas y profundas. Eso sube el CO2 y activa el nervio vago, que regula el sistema nervioso. Más efectivo que el café del mediodía.",
+  "Dormí mañana con tu teléfono en otra habitación si podés. La sola presencia del celular cerca activa el estado de alerta en el cerebro aunque esté en silencio. Esto reduce la profundidad del sueño aunque no lo notes.",
+  "Mañana, sumate a una conversación que te entretenga genuinamente. La conexión social real — no virtual — libera oxitocina, el neurotransmisor que reduce el estrés, fortalece el sistema inmune y sube la energía.",
+  "Esta semana probá ayuno intermitente simple: no comer nada en las 2 horas antes de dormir. Eso mejora la calidad del sueño, reduce el reflujo nocturno y activa la autofagia — el proceso natural de limpieza celular.",
+  "Mañana antes de arrancar el trabajo, hacé una sola cosa que te cueste un poco pero que te guste. Tocar la guitarra, hacer una serie, lo que sea. Eso activa el circuito de recompensa y le da al cerebro una razón para rendir.",
+  "El próximo que te haga enojar algo, esperá 6 segundos antes de responder. La amígdala — el centro del enojo — tarda exactamente eso en bajar su activación. En 6 segundos pasás de reactivo a inteligente.",
+  "Mañana tomá sol directo en el pecho o los brazos aunque sea 10 minutos. La vitamina D que produce tu piel no es lo mismo que la del suplemento — activa la inmunidad, el humor y la testosterona de forma natural.",
+  "Esta noche hacé esta cosa simple: al cerrar los ojos, respirá lento y pensá en una conversación que salió bien esta semana. El cerebro no distingue muy bien entre el recuerdo y el presente — se lleva esa sensación al sueño.",
+  "Mañana probá comer sin pantalla, aunque sea una comida. Comer con distracción visual enlentece las señales de saciedad, aumenta el estrés digestivo y te hace comer más sin darte cuenta. Una comida consciente cambia el resto del día.",
+  "Hidratá tu cerebro esta tarde con agua, no con bebidas con azúcar. La deshidratación leve — apenas el 1-2% — reduce el rendimiento cognitivo en un 20%. Antes de pensar en concentración, pensá en agua.",
+  "Mañana cuando alguien te diga algo que no esperabas, respondé primero con 'qué interesante'. Esa pausa — aunque sea automática — activa la curiosidad en vez del juicio. Y la curiosidad cierra más que la defensa.",
+  "Esta semana dormí siempre a la misma hora aunque sea 1 día. El ritmo circadiano funciona como un reloj — la consistencia es más importante que las horas totales. Dormir a la misma hora sincroniza todo el sistema hormonal.",
+  "Mañana, si podés, comé tu comida más grande en el almuerzo y la más liviana en la cena. Tu metabolismo y tu microbioma están más activos a la tarde que a la noche. Eso afecta la energía, el sueño y el peso sin hacer dieta.",
+  "Conectate con alguien que no hayas hablado esta semana — un mensaje corto. La soledad activa los mismos circuitos de dolor físico en el cerebro. La conexión, aunque breve, revierte ese efecto en minutos.",
+  "Esta noche antes de dormir estirá el torso suavemente hacia atrás por 30 segundos. Si pasás horas mirando pantalla, tu columna se curva levemente hacia adelante. Ese estiramiento previene el dolor crónico de cuello y hombros.",
+  "Mañana, frente a algo que te preocupa, preguntate: '¿esto me va a importar en 5 años?'. Si la respuesta es no, bajale la prioridad emocional. El cerebro trata todas las amenazas igual hasta que vos le das perspectiva.",
+];
+const tipIdx = (dayOfYear + 7) % TIPS.length;
+document.getElementById('rewardTipText').textContent = TIPS[tipIdx];
+document.getElementById('rewardTip').style.display = 'block';
 
 // Animated stars sequence
 const stars = ['⭐','🌟','✨','💫','🏆'];
