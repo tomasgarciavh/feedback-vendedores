@@ -100,7 +100,7 @@
   {% endif %}
 
   <form method="POST" id="loginForm">
-    <input type="hidden" name="vendor_id_pick" id="vendorIdPick" value="">
+    <input type="hidden" name="vendor_id_pick" id="vendorIdPick" value="{{ preserved_vendor_id or '' }}">
 
     {% if show_name_selector %}
     <!-- ── Paso 2: email no encontrado, elegir nombre ── -->
@@ -129,17 +129,38 @@
     <input type="hidden" name="email" value="{{ prefill_email }}">
 
     {% else %}
+
+    {% if prefill_name and preserved_vendor_id %}
+    <!-- Vendedor identificado — mostrar nombre en lugar del campo email -->
+    <div class="mb-3">
+      <div style="display:flex;align-items:center;gap:10px;background:#f8f9fa;border:2px solid #e9ecef;
+                  border-radius:10px;padding:10px 14px;">
+        <div style="width:36px;height:36px;border-radius:9px;flex-shrink:0;
+                    background:linear-gradient(135deg,#c9a066,#8b5a2b);
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:15px;font-weight:900;color:#fff;">{{ prefill_name[0] }}</div>
+        <div>
+          <div style="font-weight:800;color:#1a0810;font-size:14px;">{{ prefill_name }}</div>
+          <div style="font-size:11px;color:#888;">Ingresá tu contraseña para continuar</div>
+        </div>
+        <a href="{{ url_for('vendor_login') }}" style="margin-left:auto;font-size:11px;color:#aaa;text-decoration:none;"
+           onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#aaa'">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      </div>
+      <input type="hidden" name="email" value="{{ prefill_email }}">
+    </div>
+    {% else %}
     <!-- ── Paso 1: ingresar email ── -->
     <div class="mb-3">
       <label class="form-label">Tu email</label>
       <input type="text" name="email" class="form-control" required
              value="{{ prefill_email or '' }}"
              placeholder="tucorreo@email.com" autocomplete="email"
-             style="text-transform:lowercase;">
+             style="text-transform:lowercase;" autofocus>
     </div>
     {% endif %}
 
-    {% if not show_name_selector %}
     <div class="mb-3">
       <label class="form-label" id="pw-label">
         {% if first_time %}Crear contraseña{% else %}Contraseña{% endif %}
@@ -147,7 +168,8 @@
       <div class="input-group">
         <input type="password" name="password" id="pw-input" class="form-control"
                placeholder="{% if first_time %}Mínimo 4 caracteres{% else %}Tu contraseña{% endif %}"
-               autocomplete="{% if first_time %}new-password{% else %}current-password{% endif %}">
+               autocomplete="{% if first_time %}new-password{% else %}current-password{% endif %}"
+               autofocus>
         <span class="input-group-text toggle-pw" onclick="togglePw('pw-input', this)">
           <i class="bi bi-eye"></i>
         </span>

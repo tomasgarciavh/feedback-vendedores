@@ -998,6 +998,14 @@ def get_kpi_vendors_with_pins() -> list:
     return [dict(row) for row in rows]
 
 
+def get_all_vendors() -> list:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, photo_path FROM vendors ORDER BY name"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_all_vendors_with_pins() -> list:
     with get_connection() as conn:
         rows = conn.execute(
@@ -1009,7 +1017,7 @@ def get_all_vendors_with_pins() -> list:
 def get_vendor_by_id(vendor_id: int):
     with get_connection() as conn:
         row = conn.execute(
-            """SELECT id, name, email, photo_path, role, phone, bio, objectives,
+            """SELECT id, name, email, pin, photo_path, role, phone, bio, objectives,
                       achievements, results, experience, status, joined_program, metrics
                FROM vendors WHERE id = ?""", (vendor_id,)
         ).fetchone()
@@ -1211,15 +1219,6 @@ def count_pending() -> int:
 
 
 # ── Roleplay ──────────────────────────────────────────────────────────────────
-
-def get_vendor_by_name(name: str):
-    with get_connection() as conn:
-        rows = conn.execute("SELECT id, name, email, pin, photo_path FROM vendors").fetchall()
-    for row in rows:
-        if row["name"].strip().lower() == name.strip().lower():
-            return dict(row)
-    return None
-
 
 def get_vendor_by_email(email: str):
     email = email.strip().lower()

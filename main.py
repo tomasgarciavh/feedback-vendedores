@@ -268,9 +268,61 @@ def _extract_drive_file_id(url: str):
     return None
 
 
+def _download_from_drive(file_id_drive: str, dest_path: str) -> str:
+    """Download a Google Drive file, handling large-file confirmation pages."""
+    import re
+    import requests as _req
+
+    sess = _req.Session()
+    sess.headers.update({"User-Agent": "Mozilla/5.0"})
+
+    base_url = "https://drive.google.com/uc"
+    params = {"export": "download", "id": file_id_drive}
+
+    resp = sess.get(base_url, params=params, stream=True, timeout=60)
+    resp.raise_for_status()
+
+    ctype = resp.headers.get("Content-Type", "")
+    if "text/html" in ctype:
+        html = resp.text
+        # Extract confirm token (old and new style)
+        confirm = None
+        m = re.search(r'name="confirm"\s+value="([^"]+)"', html)
+        if m:
+            confirm = m.group(1)
+        else:
+            m = re.search(r'confirm=([0-9A-Za-z_\-]+)', html)
+            if m:
+                confirm = m.group(1)
+
+        if confirm:
+            params["confirm"] = confirm
+            m2 = re.search(r'name="uuid"\s+value="([^"]+)"', html)
+            if m2:
+                params["uuid"] = m2.group(1)
+        else:
+            params["confirm"] = "t"
+
+        resp = sess.get(base_url, params=params, stream=True, timeout=120)
+        resp.raise_for_status()
+
+    total = 0
+    with open(dest_path, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=65536):
+            if chunk:
+                f.write(chunk)
+                total += len(chunk)
+
+    if total < 2048:
+        raise RuntimeError(
+            "El archivo descargado es demasiado pequeño. "
+            "Verificá que esté compartido con 'Cualquiera con el link'."
+        )
+    return dest_path
+
+
 @app.route("/upload_drive", methods=["POST"])
 def upload_drive():
-    import gdown
     vendor_name = (request.form.get("vendor_name") or "").strip()
     drive_url = (request.form.get("drive_url") or "").strip()
 
@@ -295,17 +347,9 @@ def upload_drive():
     file_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp4")
 
     try:
-        # gdown handles confirmation pages, large files, and retries automatically
-        output = gdown.download(
-            id=file_id_drive,
-            output=file_path,
-            quiet=True,
-            fuzzy=True,
-        )
-        if not output or not os.path.exists(file_path):
-            raise RuntimeError("La descarga falló. Verificá que el archivo esté compartido con 'Cualquiera con el link'.")
+        _download_from_drive(file_id_drive, file_path)
 
-        # Try to detect real extension from downloaded file
+        # Detect real extension from downloaded file
         import subprocess
         orig_name = f"video_drive_{file_id_drive[:8]}.mp4"
         try:
@@ -696,6 +740,8 @@ def vendor_login():
     error = None
     first_time = False
     prefill_email = ""
+    prefill_name = ""
+    preserved_vendor_id = ""
     show_name_selector = False
     all_vendors = []
 
@@ -721,18 +767,22 @@ def vendor_login():
         if not vendor_id_pick and not vendor:
             # Email not found — show name selector so vendor can identify themselves
             show_name_selector = True
-            all_vendors = database.get_kpi_vendors()
+            all_vendors = database.get_all_vendors()
         elif vendor:
             has_pin = bool(vendor.get("pin"))
             if not has_pin:
                 if not password:
                     first_time = True
+                    prefill_name = vendor["name"]
+                    preserved_vendor_id = str(vendor["id"])
                 elif len(password) < 4:
                     error = "La contraseña debe tener al menos 4 caracteres."
                     first_time = True
+                    preserved_vendor_id = str(vendor["id"])
                 elif password != confirm:
                     error = "Las contraseñas no coinciden."
                     first_time = True
+                    preserved_vendor_id = str(vendor["id"])
                 else:
                     database.update_vendor_pin(vendor["id"], password)
                     flask_session["vendor_id"] = vendor["id"]
@@ -742,8 +792,12 @@ def vendor_login():
             else:
                 if not password:
                     error = "Ingresá tu contraseña."
+                    prefill_name = vendor["name"]
+                    preserved_vendor_id = str(vendor["id"])
                 elif vendor.get("pin") != password:
                     error = "Contraseña incorrecta."
+                    prefill_name = vendor["name"]
+                    preserved_vendor_id = str(vendor["id"])
                 else:
                     flask_session["vendor_id"] = vendor["id"]
                     flask_session["chat_vendor_id"] = vendor["id"]
@@ -752,6 +806,8 @@ def vendor_login():
 
     return render_template("vendor_login.html", error=error, first_time=first_time,
                            prefill_email=prefill_email,
+                           prefill_name=prefill_name,
+                           preserved_vendor_id=preserved_vendor_id,
                            show_name_selector=show_name_selector,
                            all_vendors=all_vendors)
 

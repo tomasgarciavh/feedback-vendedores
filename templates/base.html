@@ -378,6 +378,271 @@
 <!-- Toast container -->
 <div id="toast-container"></div>
 
+{% if current_vendor %}
+<!-- ── Vendor upload floating button ── -->
+<button id="vendor-upload-fab" onclick="document.getElementById('vendorUploadModal').style.display='flex'"
+  title="Subir video de roleplay"
+  style="position:fixed;bottom:28px;right:28px;z-index:9999;
+         width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;
+         background:linear-gradient(135deg,#c9a066,#8b5a2b);color:#fff;
+         font-size:22px;box-shadow:0 4px 18px rgba(0,0,0,.35);
+         display:flex;align-items:center;justify-content:center;
+         transition:transform .15s,box-shadow .15s;"
+  onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 24px rgba(0,0,0,.45)'"
+  onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 18px rgba(0,0,0,.35)'">
+  <i class="bi bi-camera-video-fill"></i>
+</button>
+
+<!-- Vendor upload modal overlay -->
+<div id="vendorUploadModal"
+  style="display:none;position:fixed;inset:0;z-index:10000;
+         background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;overflow:hidden;
+              box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:18px 22px;
+                display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-weight:800;font-size:15px;color:#fff;">
+          <i class="bi bi-camera-video-fill me-2" style="color:#c9a066;"></i>Subir video de roleplay
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;">
+          Vendedor: <strong style="color:#c9a066;">{{ current_vendor.name }}</strong>
+        </div>
+      </div>
+      <button onclick="closeVendorUploadModal()"
+        style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;
+               line-height:1;padding:0;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.5)'">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid #e5e7eb;">
+      <button id="vu-tab-drive" onclick="vuSwitchTab('drive')"
+        style="flex:1;padding:11px;border:none;background:#fff;font-size:13px;font-weight:700;
+               color:#667eea;border-bottom:2px solid #667eea;cursor:pointer;">
+        <i class="bi bi-google me-1"></i>Google Drive
+      </button>
+      <button id="vu-tab-local" onclick="vuSwitchTab('local')"
+        style="flex:1;padding:11px;border:none;background:#fff;font-size:13px;font-weight:600;
+               color:#9ca3af;border-bottom:2px solid transparent;cursor:pointer;">
+        <i class="bi bi-laptop me-1"></i>Mi computadora
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:22px;">
+      <!-- Drive tab -->
+      <div id="vu-panel-drive">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;
+                    margin-bottom:14px;font-size:12px;color:#166534;">
+          <i class="bi bi-info-circle me-1"></i>
+          Compartí con <strong>"Cualquiera con el link"</strong> en Google Drive antes de pegar el link.
+        </div>
+        <div style="position:relative;">
+          <i class="bi bi-link-45deg" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);
+                                              color:#9ca3af;font-size:17px;"></i>
+          <input type="text" id="vu-drive-url" placeholder="https://drive.google.com/file/d/..."
+            style="width:100%;padding:11px 12px 11px 34px;border:2px solid #e5e7eb;
+                   border-radius:9px;font-size:13px;outline:none;"
+            oninput="vuCheckDriveReady()"
+            onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e5e7eb'">
+        </div>
+        <div id="vu-drive-progress" style="display:none;margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:4px;">
+            <span>Descargando desde Drive...</span>
+            <span class="spinner-border spinner-border-sm text-primary" style="width:14px;height:14px;"></span>
+          </div>
+          <div style="height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;">
+            <div style="height:100%;width:100%;background:linear-gradient(90deg,#667eea,#764ba2);
+                        animation:progress-anim 1.5s linear infinite;"
+                 class="progress-bar-striped progress-bar-animated"></div>
+          </div>
+        </div>
+        <button id="vu-drive-btn" onclick="vuUploadDrive()" disabled
+          style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:9px;font-size:14px;
+                 font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;
+                 opacity:.5;transition:opacity .15s;">
+          <i class="bi bi-cloud-download me-2"></i>Descargar y analizar
+        </button>
+      </div>
+
+      <!-- Local tab -->
+      <div id="vu-panel-local" style="display:none;">
+        <form id="vu-local-form" method="POST" action="/upload" enctype="multipart/form-data">
+          <input type="hidden" name="vendor_name" value="{{ current_vendor.name }}">
+          <div id="vu-dropzone"
+            onclick="document.getElementById('vu-file-input').click()"
+            style="border:2px dashed #d1d5db;border-radius:10px;padding:28px;text-align:center;
+                   cursor:pointer;transition:border-color .2s,background .2s;"
+            onmouseover="this.style.borderColor='#667eea';this.style.background='#f8f9ff'"
+            onmouseout="this.style.borderColor='#d1d5db';this.style.background=''">
+            <i class="bi bi-film" style="font-size:34px;color:#d1d5db;display:block;margin-bottom:8px;"></i>
+            <div id="vu-file-label" style="font-weight:600;color:#374151;font-size:13px;">
+              Arrastrá el video acá o hacé clic para seleccionar
+            </div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">MP4, MOV, AVI, MKV — máx. 5 GB</div>
+          </div>
+          <input type="file" id="vu-file-input" name="video"
+            accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.wmv,.flv,.3gp"
+            style="display:none" onchange="vuFileSelected(this)">
+          <div id="vu-local-progress" style="display:none;margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:4px;">
+              <span id="vu-prog-label">Subiendo...</span>
+              <span id="vu-prog-pct">0%</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;">
+              <div id="vu-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#667eea,#764ba2);transition:width .2s;"></div>
+            </div>
+          </div>
+          <button type="button" id="vu-local-btn" onclick="vuSubmitLocal()" disabled
+            style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:9px;font-size:14px;
+                   font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;
+                   opacity:.5;transition:opacity .15s;">
+            <i class="bi bi-send me-2"></i>Analizar y generar feedback
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function closeVendorUploadModal() {
+  document.getElementById('vendorUploadModal').style.display = 'none';
+  document.getElementById('vu-drive-url').value = '';
+  document.getElementById('vu-drive-btn').disabled = true;
+  document.getElementById('vu-drive-btn').style.opacity = '.5';
+  document.getElementById('vu-drive-progress').style.display = 'none';
+}
+
+document.getElementById('vendorUploadModal').addEventListener('click', function(e) {
+  if (e.target === this) closeVendorUploadModal();
+});
+
+function vuSwitchTab(tab) {
+  const isDrive = tab === 'drive';
+  document.getElementById('vu-panel-drive').style.display = isDrive ? '' : 'none';
+  document.getElementById('vu-panel-local').style.display = isDrive ? 'none' : '';
+  const tDrive = document.getElementById('vu-tab-drive');
+  const tLocal = document.getElementById('vu-tab-local');
+  tDrive.style.color = isDrive ? '#667eea' : '#9ca3af';
+  tDrive.style.borderBottomColor = isDrive ? '#667eea' : 'transparent';
+  tDrive.style.fontWeight = isDrive ? '700' : '600';
+  tLocal.style.color = isDrive ? '#9ca3af' : '#667eea';
+  tLocal.style.borderBottomColor = isDrive ? 'transparent' : '#667eea';
+  tLocal.style.fontWeight = isDrive ? '600' : '700';
+}
+
+function vuCheckDriveReady() {
+  const val = document.getElementById('vu-drive-url').value.trim();
+  const btn = document.getElementById('vu-drive-btn');
+  const ready = val.length > 10;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '.5';
+}
+
+async function vuUploadDrive() {
+  const url = document.getElementById('vu-drive-url').value.trim();
+  if (!url) return;
+  const btn = document.getElementById('vu-drive-btn');
+  const prog = document.getElementById('vu-drive-progress');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Descargando...';
+  prog.style.display = 'block';
+  try {
+    const fd = new FormData();
+    fd.append('drive_url', url);
+    const resp = await fetch('/upload_drive', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast(data.message || 'Video en cola. El feedback estará listo pronto.', 'success');
+      closeVendorUploadModal();
+    } else {
+      showToast(data.error || 'Error al subir el video.', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-cloud-download me-2"></i>Descargar y analizar';
+      btn.style.opacity = '1';
+      prog.style.display = 'none';
+    }
+  } catch(e) {
+    showToast('Error de red. Intentá de nuevo.', 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cloud-download me-2"></i>Descargar y analizar';
+    btn.style.opacity = '1';
+    prog.style.display = 'none';
+  }
+}
+
+let _vuFileSelected = false;
+function vuFileSelected(input) {
+  if (input.files.length) {
+    _vuFileSelected = true;
+    document.getElementById('vu-file-label').textContent = input.files[0].name;
+    document.getElementById('vu-dropzone').style.borderColor = '#667eea';
+  }
+  const btn = document.getElementById('vu-local-btn');
+  btn.disabled = !_vuFileSelected;
+  btn.style.opacity = _vuFileSelected ? '1' : '.5';
+}
+
+function vuSubmitLocal() {
+  const form = document.getElementById('vu-local-form');
+  const fileInput = document.getElementById('vu-file-input');
+  if (!fileInput.files.length) return;
+  if (fileInput.files[0].size > 5 * 1024 * 1024 * 1024) {
+    showToast('El archivo supera los 5 GB.', 'danger'); return;
+  }
+  const btn = document.getElementById('vu-local-btn');
+  const prog = document.getElementById('vu-local-progress');
+  const bar = document.getElementById('vu-prog-bar');
+  const label = document.getElementById('vu-prog-label');
+  const pct = document.getElementById('vu-prog-pct');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Subiendo...';
+  prog.style.display = 'block';
+  const fd = new FormData(form);
+  const xhr = new XMLHttpRequest();
+  xhr.upload.addEventListener('progress', evt => {
+    if (evt.lengthComputable) {
+      const p = Math.round(evt.loaded / evt.total * 100);
+      bar.style.width = p + '%';
+      pct.textContent = p + '%';
+      if (p === 100) label.textContent = 'Procesando con Gemini...';
+    }
+  });
+  xhr.addEventListener('load', () => {
+    showToast('Video subido. El feedback estará listo en unos minutos.', 'success');
+    closeVendorUploadModal();
+    _vuFileSelected = false;
+  });
+  xhr.addEventListener('error', () => {
+    showToast('Error de red. Intentá de nuevo.', 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send me-2"></i>Analizar y generar feedback';
+    prog.style.display = 'none';
+  });
+  xhr.timeout = 0;
+  xhr.open('POST', '/upload');
+  xhr.send(fd);
+}
+
+// Drag & drop for vendor upload
+const _vuZone = document.getElementById('vu-dropzone');
+if (_vuZone) {
+  _vuZone.addEventListener('dragover', e => { e.preventDefault(); _vuZone.style.borderColor='#667eea'; _vuZone.style.background='#f8f9ff'; });
+  _vuZone.addEventListener('dragleave', () => { _vuZone.style.borderColor='#d1d5db'; _vuZone.style.background=''; });
+  _vuZone.addEventListener('drop', e => {
+    e.preventDefault(); _vuZone.style.borderColor='#d1d5db'; _vuZone.style.background='';
+    const inp = document.getElementById('vu-file-input');
+    inp.files = e.dataTransfer.files;
+    vuFileSelected(inp);
+  });
+}
+</script>
+{% endif %}
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   // Sidebar toggle (mobile)

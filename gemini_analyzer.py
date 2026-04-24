@@ -1,5 +1,7 @@
 import logging
 import os
+import subprocess
+import tempfile
 import time
 
 from google import genai
@@ -7,6 +9,69 @@ from google import genai
 import config
 
 logger = logging.getLogger(__name__)
+
+
+def _transcode_to_h264(input_path: str) -> str:
+    """
+    Re-encode video to H.264/AAC mp4 using the bundled ffmpeg from imageio-ffmpeg.
+    Returns path to the transcoded file (caller must delete it).
+    Raises RuntimeError if transcoding fails.
+    """
+    try:
+        import imageio_ffmpeg
+        ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        raise RuntimeError("imageio-ffmpeg no está instalado. Ejecutá: pip install imageio-ffmpeg")
+
+    fd, out_path = tempfile.mkstemp(suffix="_h264.mp4")
+    os.close(fd)
+
+    cmd = [
+        ffmpeg_bin,
+        "-y",               # overwrite output
+        "-i", input_path,
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-movflags", "+faststart",
+        "-max_muxing_queue_size", "1024",
+        out_path,
+    ]
+    logger.info("Transcoding to H.264: %s → %s", input_path, out_path)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        if os.path.exists(out_path):
+            os.unlink(out_path)
+        raise RuntimeError(
+            f"ffmpeg transcoding failed (code {result.returncode}): {result.stderr[-300:]}"
+        )
+    logger.info("Transcoding complete: %s", out_path)
+    return out_path
+
+
+def _needs_transcode(file_path: str) -> bool:
+    """Return True if the file is likely to fail Gemini's codec check."""
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+    # Always safe formats for Gemini (H.264 mp4 / webm VP8): no transcode needed
+    # For everything else transcode to be safe
+    try:
+        import imageio_ffmpeg
+        ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+        probe = subprocess.run(
+            [ffmpeg_bin, "-i", file_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        output = probe.stderr
+        # If already H.264 in an mp4/mov container, skip transcode
+        if ("h264" in output.lower() or "avc" in output.lower()):
+            if ext in ("mp4", "m4v", "mov"):
+                logger.info("File is H.264/mp4 — skipping transcode")
+                return False
+    except Exception as e:
+        logger.warning("Could not probe video: %s", e)
+    return True
 
 
 def analyze_video(file_path: str, vendor_name: str, criteria: str) -> str:
@@ -20,24 +85,33 @@ def analyze_video(file_path: str, vendor_name: str, criteria: str) -> str:
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
-    # Upload file
-    logger.info("Uploading video to Gemini Files API: %s", file_path)
+    # Transcode to H.264/mp4 if needed so Gemini accepts any input format/codec
+    transcoded_path = None
+    upload_path = file_path
     try:
-        # Detect mime type from extension
-        ext = os.path.splitext(file_path)[1].lower().lstrip(".")
-        mime_map = {
-            "mp4": "video/mp4", "mov": "video/quicktime", "avi": "video/x-msvideo",
-            "mkv": "video/x-matroska", "webm": "video/webm", "m4v": "video/mp4",
-            "wmv": "video/x-ms-wmv", "flv": "video/x-flv", "3gp": "video/3gpp",
-        }
-        mime_type = mime_map.get(ext, "video/mp4")
+        if _needs_transcode(file_path):
+            transcoded_path = _transcode_to_h264(file_path)
+            upload_path = transcoded_path
+    except Exception as exc:
+        logger.warning("Transcode failed, uploading original: %s", exc)
+        upload_path = file_path
+
+    # Upload file
+    logger.info("Uploading video to Gemini Files API: %s", upload_path)
+    try:
         from google.genai import types as genai_types
         uploaded_file = client.files.upload(
-            file=file_path,
-            config=genai_types.UploadFileConfig(mime_type=mime_type),
+            file=upload_path,
+            config=genai_types.UploadFileConfig(mime_type="video/mp4"),
         )
     except Exception as exc:
         raise RuntimeError(f"Error uploading file to Gemini: {exc}") from exc
+    finally:
+        if transcoded_path and os.path.exists(transcoded_path):
+            try:
+                os.unlink(transcoded_path)
+            except Exception:
+                pass
 
     # Wait for Gemini to finish processing the video
     wait_seconds = 0
@@ -467,15 +541,34 @@ def analyze_lanzamiento(file_path: str, vendor_name: str,
         }
         mime_type = mime_map.get(ext, "video/mp4")
 
-    logger.info("Uploading lanzamiento file to Gemini: %s (%s)", file_path, mime_type)
+    # For video files, transcode to H.264 first to ensure Gemini compatibility
+    transcoded_path = None
+    upload_path = file_path
+    if ext not in image_exts:
+        try:
+            if _needs_transcode(file_path):
+                transcoded_path = _transcode_to_h264(file_path)
+                upload_path = transcoded_path
+                mime_type = "video/mp4"
+        except Exception as exc:
+            logger.warning("Transcode failed, uploading original: %s", exc)
+            upload_path = file_path
+
+    logger.info("Uploading lanzamiento file to Gemini: %s (%s)", upload_path, mime_type)
     try:
         from google.genai import types as genai_types
         uploaded_file = client.files.upload(
-            file=file_path,
+            file=upload_path,
             config=genai_types.UploadFileConfig(mime_type=mime_type),
         )
     except Exception as exc:
         raise RuntimeError(f"Error uploading file to Gemini: {exc}") from exc
+    finally:
+        if transcoded_path and os.path.exists(transcoded_path):
+            try:
+                os.unlink(transcoded_path)
+            except Exception:
+                pass
 
     # Wait for processing (videos only — images are instant)
     wait_seconds = 0
