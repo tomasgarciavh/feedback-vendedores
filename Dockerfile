@@ -14,10 +14,8 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 8080
-
 ENV FLASK_ENV=production \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-CMD gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 "main:create_app()"
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 300 --preload 'main:create_app()'"]
