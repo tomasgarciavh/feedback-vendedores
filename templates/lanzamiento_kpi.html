@@ -147,7 +147,7 @@
     {% endif %}
     <div>
       <div style="font-weight:800;font-size:15px;color:#1a0810;">{{ vendor.name }}</div>
-      <div style="font-size:11px;color:#888;">KPI del lanzamiento · {{ today }}</div>
+      <div style="font-size:11px;color:#888;">KPI del lanzamiento · {{ today | fmt_date }}</div>
     </div>
   </div>
 </div>
@@ -173,7 +173,7 @@
   <i class="bi bi-check-circle-fill" style="font-size:20px;color:#2d6a4f;"></i>
   <div>
     <strong>¡KPI guardado correctamente!</strong>
-    <div style="font-size:12px;">Los datos del {{ request.args.get('entry_date', today) }} fueron actualizados.</div>
+    <div style="font-size:12px;">Los datos del {{ request.args.get('entry_date', today) | fmt_date }} fueron actualizados.</div>
   </div>
 </div>
 {% endif %}
@@ -615,7 +615,7 @@
         {% set ecv = e.get('custom_values', '{}') %}
         <tr id="row-{{ e.entry_date }}">
           <td><input type="checkbox" class="row-chk" value="{{ e.entry_date }}" onchange="updateSelCount()" style="cursor:pointer;accent-color:#c9a066;"></td>
-          <td style="font-weight:700;color:#1a0810;white-space:nowrap;">{{ e.entry_date }}</td>
+          <td style="font-weight:700;color:#1a0810;white-space:nowrap;">{{ e.entry_date | fmt_date }}</td>
           <td>{{ e.no_respondido or 0 }}</td>
           <td>{{ e.interaccion_leve_frio or 0 }}</td>
           <td>{{ e.interaccion_leve_tibio or 0 }}</td>
@@ -916,7 +916,7 @@ if (tCtx && dailyEntries.length > 0) {
   new Chart(tCtx, {
     type: 'line',
     data: {
-      labels: rev.map(e => e.entry_date.slice(5)),
+      labels: rev.map(e => { const p = e.entry_date.split('-'); return p[2]+'/'+p[1]; }),
       datasets: [
         {label:'Potencial',data:rev.map(e=>(e.potencial_compra_frio||0)+(e.potencial_compra_tibio||0)+(e.potencial_compra_caliente||0)),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.1)',fill:true,tension:.3,pointRadius:3},
         {label:'Conv. Fluida',data:rev.map(e=>(e.conversacion_fluida_frio||0)+(e.conversacion_fluida_tibio||0)+(e.conversacion_fluida_caliente||0)),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.3,pointRadius:3},

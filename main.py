@@ -137,6 +137,24 @@ def _fromjson(s):
         return {}
 
 
+@app.template_filter("fmt_date")
+def _fmt_date(s):
+    """Convert YYYY-MM-DD or YYYY-MM-DDTHH:MM... to DD/MM/YYYY or DD/MM/YYYY HH:MM."""
+    if not s:
+        return ""
+    s = str(s)
+    try:
+        if "T" in s or (len(s) > 10 and s[10] == " "):
+            sep = "T" if "T" in s else " "
+            date_part, time_part = s.split(sep, 1)
+            y, m, d = date_part.split("-")
+            return f"{d}/{m}/{y} {time_part[:5]}"
+        y, m, d = s[:10].split("-")
+        return f"{d}/{m}/{y}"
+    except Exception:
+        return s
+
+
 @app.context_processor
 def inject_current_vendor():
     vid = flask_session.get("vendor_id")
@@ -503,7 +521,8 @@ def vendor_profile(vendor_id: int):
     scored_count = 0
 
     for r in records:
-        date_label = (r["processed_at"] or "")[:10]
+        raw_date = (r["processed_at"] or "")[:10]
+        date_label = _fmt_date(raw_date) if raw_date else ""
         labels.append(date_label)
         scores_line.append(r["score"] if r["score"] else None)
 

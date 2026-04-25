@@ -364,7 +364,7 @@
 </div>
 
 <!-- ── AYER ── -->
-<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado ayer — {{ yesterday }}</div>
+<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado ayer — {{ yesterday | fmt_date }}</div>
 
 {% if today_by_vendor %}
 <div class="row g-2 mb-3">
@@ -768,7 +768,7 @@
   <tr class="kpi-row" data-vendor="{{ e.get('vendor_name','') | lower }}" data-date="{{ e.get('entry_date','') }}"
       style="border-bottom:1px solid #f0f0f0;transition:background .1s;"
       onmouseover="this.style.background='#faf8f5'" onmouseout="this.style.background=''">
-    <td style="padding:9px 12px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f0f0f0;">{{ e.get('entry_date','') }}</td>
+    <td style="padding:9px 12px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f0f0f0;">{{ e.get('entry_date','') | fmt_date }}</td>
     <td style="padding:9px 12px;font-weight:800;color:#1a0810;white-space:nowrap;border-right:1px solid #f0f0f0;">
       {% if e.get('photo_path') %}<img src="{{ url_for('vendor_photo', filename=e.photo_path) }}" style="width:18px;height:18px;border-radius:4px;object-fit:cover;margin-right:5px;vertical-align:middle;" onerror="this.style.display='none'">{% endif %}
       {{ e.get('vendor_name','—') }}
@@ -795,7 +795,7 @@
 {% set yest_day = daily_activity | selectattr('date', 'equalto', yesterday) | list | first | default(none) %}
 {% if yest_day and yest_day.missing %}
 <div style="margin-top:14px;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;">
-  <span style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;">⚠️ Sin KPI ayer ({{ yesterday }}):</span>
+  <span style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;">⚠️ Sin KPI ayer ({{ yesterday | fmt_date }}):</span>
   <span style="margin-left:8px;">
     {% for v in yest_day.missing %}<span style="background:#fee2e2;border-radius:5px;padding:2px 8px;font-size:11px;color:#7f1d1d;font-weight:600;margin-right:4px;">{{ v.name }}</span>{% endfor %}
   </span>
@@ -948,7 +948,7 @@ if (stageTrendCtx && stageFilter && dailySeries.length > 1) {
   }
   new Chart(stageTrendCtx, {
     type: 'line',
-    data: { labels: dailySeries.map(d=>d.date), datasets },
+    data: { labels: dailySeries.map(d=>{ const p=d.date.split('-'); return p[2]+'/'+p[1]; }), datasets },
     options: {
       plugins: { legend: { labels: { font:{ size:11 }, boxWidth:11 } } },
       scales: {

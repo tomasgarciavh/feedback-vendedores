@@ -325,7 +325,7 @@
             <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                 title="{{ rec.file_name }}">{{ rec.file_name }}</td>
             <td class="text-muted" style="white-space:nowrap;">
-              {% if rec.processed_at %}{{ rec.processed_at[:16].replace('T',' ') }}{% else %}—{% endif %}
+              {% if rec.processed_at %}{{ rec.processed_at | fmt_date }}{% else %}—{% endif %}
             </td>
             <td style="text-align:center;">
               {% if rec.score %}

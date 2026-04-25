@@ -197,7 +197,7 @@
   <div class="doc-header-left">
     <h1>{{ vendor_name }}</h1>
     <div class="program">Roleplay VH · Evaluación de llamada de ventas</div>
-    <div class="date">{{ processed_at[:10] if processed_at else "" }}</div>
+    <div class="date">{{ processed_at | fmt_date if processed_at else "" }}</div>
   </div>
   <div class="doc-header-right">
     <div class="brand-tag">Vendedores Humanos</div>

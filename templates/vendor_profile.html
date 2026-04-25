@@ -650,7 +650,7 @@
         <td class="ps-4 text-muted">{{ loop.index }}</td>
         <td class="fw-medium">{{ rec.file_name }}</td>
         <td class="text-muted" style="white-space:nowrap;">
-          {{ rec.processed_at[:10] if rec.processed_at else '—' }}
+          {{ rec.processed_at | fmt_date if rec.processed_at else '—' }}
         </td>
         <td style="text-align:center;">
           {% if rec.score %}
