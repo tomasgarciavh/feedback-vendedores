@@ -350,6 +350,7 @@ def _seed_vendors():
         ("Rocio Lopez", "rolopez.03@gmail.com"),
         ("Daniela Ruiz Diaz", "dulcerecreodulce@gmail.com"),
         ("Roxana Molina", "roxi_molina@yahoo.com"),
+        ("Hugo Loncaric", "hugo.loncaric@vh.com"),
     ]
     for name, email in _KPI_VENDORS:
         try:

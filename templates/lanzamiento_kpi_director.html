@@ -363,8 +363,8 @@
   </div>
 </div>
 
-<!-- ── HOY ── -->
-<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado hoy — {{ today }}</div>
+<!-- ── AYER ── -->
+<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado ayer — {{ yesterday }}</div>
 
 {% if today_by_vendor %}
 <div class="row g-2 mb-3">
@@ -415,7 +415,7 @@
 {% else %}
 <div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:18px;color:#bbb;font-size:13px;text-align:center;margin-bottom:4px;">
   <i class="bi bi-clock" style="font-size:20px;display:block;margin-bottom:6px;opacity:.35;"></i>
-  Ningún vendedor cargó datos hoy todavía.
+  Ningún vendedor cargó datos ayer.
 </div>
 {% endif %}
 
@@ -492,6 +492,24 @@
           {% endif %}
         </div>
         {% endmacro %}
+        {# No Respondido — sin subdivisión de temperatura, barra sólida #}
+        {% set nr_total = global_totals.get('no_respondido', 0) %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:12px;font-weight:700;color:#6b7280;">😶 No Respondido</span>
+            <span style="font-size:12px;color:#888;">{{ nr_total }}</span>
+          </div>
+          {% if nr_total > 0 %}
+          <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;">
+            <div style="width:100%;background:#9ca3af;" title="😶 No Respondido: {{ nr_total }}"></div>
+          </div>
+          <div class="d-flex gap-2 mt-1">
+            <span class="temp-pill" style="background:#f3f4f6;color:#374151;">😶 {{ nr_total }}</span>
+          </div>
+          {% else %}
+          <div style="font-size:11px;color:#bbb;">Sin datos</div>
+          {% endif %}
+        </div>
         {{ temp_row('💬','Interacción Leve',
             global_totals.get('interaccion_leve_frio',0),
             global_totals.get('interaccion_leve_tibio',0),
@@ -519,15 +537,6 @@
   </div>
 </div>
 
-<!-- Daily trend -->
-{% if daily_series and daily_series|length > 1 %}
-<div class="section-title"><i class="bi bi-activity" style="color:#c9a066;"></i> Evolución diaria del equipo</div>
-<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
-  <div class="card-body p-4">
-    <canvas id="dailyTrendChart" height="130"></canvas>
-  </div>
-</div>
-{% endif %}
 
 <!-- Per-vendor detail -->
 <div class="section-title"><i class="bi bi-person-lines-fill" style="color:#c9a066;"></i>
@@ -709,11 +718,25 @@
 {% if entries %}
 <div class="section-title mt-4"><i class="bi bi-table" style="color:#c9a066;"></i> Cargas diarias — tabla completa</div>
 
-{# Filtro rápido por vendedor en la tabla #}
+{# Filtros de tabla: búsqueda + rango de fechas #}
 <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
   <input type="text" id="tableSearch" oninput="filterTable()" placeholder="Buscar vendedor…"
-    style="border:1.5px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;min-width:180px;">
-  <span id="tableCount" style="font-size:11px;color:#aaa;"></span>
+    style="border:1.5px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;min-width:160px;">
+  <div style="display:flex;align-items:center;gap:4px;">
+    <label style="font-size:11px;font-weight:700;color:#666;white-space:nowrap;">Desde</label>
+    <input type="date" id="tableFrom" oninput="filterTable()"
+      style="border:1.5px solid #e9ecef;border-radius:8px;padding:5px 8px;font-size:12px;color:#333;">
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <label style="font-size:11px;font-weight:700;color:#666;white-space:nowrap;">Hasta</label>
+    <input type="date" id="tableTo" oninput="filterTable()"
+      style="border:1.5px solid #e9ecef;border-radius:8px;padding:5px 8px;font-size:12px;color:#333;">
+  </div>
+  <button onclick="clearTableFilters()"
+    style="border:1.5px solid #e9ecef;border-radius:8px;padding:5px 10px;font-size:11px;background:#fafafa;cursor:pointer;color:#666;">
+    <i class="bi bi-x-lg me-1"></i>Limpiar
+  </button>
+  <span id="tableCount" style="font-size:11px;color:#aaa;margin-left:4px;"></span>
 </div>
 
 <div style="overflow-x:auto;border-radius:12px;border:1px solid #e9ecef;">
@@ -740,24 +763,26 @@
   {% set il_total = (e.get('interaccion_leve_frio',0) or 0) + (e.get('interaccion_leve_tibio',0) or 0) + (e.get('interaccion_leve_caliente',0) or 0) %}
   {% set cf_total = (e.get('conversacion_fluida_frio',0) or 0) + (e.get('conversacion_fluida_tibio',0) or 0) + (e.get('conversacion_fluida_caliente',0) or 0) %}
   {% set pc_total = (e.get('potencial_compra_frio',0) or 0) + (e.get('potencial_compra_tibio',0) or 0) + (e.get('potencial_compra_caliente',0) or 0) %}
-  <tr class="kpi-row" data-vendor="{{ e.get('vendor_name','') | lower }}"
+  {% set nr_val = e.get('no_respondido',0) or 0 %}
+  {% set vr_val = e.get('venta_realizada',0) or 0 %}
+  <tr class="kpi-row" data-vendor="{{ e.get('vendor_name','') | lower }}" data-date="{{ e.get('entry_date','') }}"
       style="border-bottom:1px solid #f0f0f0;transition:background .1s;"
       onmouseover="this.style.background='#faf8f5'" onmouseout="this.style.background=''">
-    <td style="padding:9px 12px;font-weight:700;color:#444;white-space:nowrap;border-right:1px solid #f0f0f0;">{{ e.get('entry_date','') }}</td>
+    <td style="padding:9px 12px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f0f0f0;">{{ e.get('entry_date','') }}</td>
     <td style="padding:9px 12px;font-weight:800;color:#1a0810;white-space:nowrap;border-right:1px solid #f0f0f0;">
-      {% if e.get('photo_path') %}<img src="/uploads/photos/{{ e.photo_path }}" style="width:18px;height:18px;border-radius:4px;object-fit:cover;margin-right:5px;vertical-align:middle;">{% endif %}
+      {% if e.get('photo_path') %}<img src="{{ url_for('vendor_photo', filename=e.photo_path) }}" style="width:18px;height:18px;border-radius:4px;object-fit:cover;margin-right:5px;vertical-align:middle;" onerror="this.style.display='none'">{% endif %}
       {{ e.get('vendor_name','—') }}
     </td>
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if (e.get('no_respondido',0) or 0) > 0 %}#9ca3af{% else %}#e5e7eb{% endif %};">{{ e.get('no_respondido',0) or 0 }}</td>
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if il_total > 0 %}#3b82f6{% else %}#e5e7eb{% endif %};font-weight:{% if il_total > 0 %}700{% else %}400{% endif %};">{{ il_total }}</td>
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if cf_total > 0 %}#22c55e{% else %}#e5e7eb{% endif %};font-weight:{% if cf_total > 0 %}700{% else %}400{% endif %};">{{ cf_total }}</td>
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if pc_total > 0 %}#f59e0b{% else %}#e5e7eb{% endif %};font-weight:{% if pc_total > 0 %}700{% else %}400{% endif %};">{{ pc_total }}</td>
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if (e.get('venta_realizada',0) or 0) > 0 %}#8b5cf6{% else %}#e5e7eb{% endif %};font-weight:{% if (e.get('venta_realizada',0) or 0) > 0 %}900{% else %}400{% endif %};">{{ e.get('venta_realizada',0) or 0 }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if nr_val > 0 %}800{% else %}400{% endif %};color:{% if nr_val > 0 %}#374151{% else %}#d1d5db{% endif %};">{{ nr_val }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if il_total > 0 %}800{% else %}400{% endif %};color:{% if il_total > 0 %}#1d4ed8{% else %}#d1d5db{% endif %};">{{ il_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if cf_total > 0 %}800{% else %}400{% endif %};color:{% if cf_total > 0 %}#15803d{% else %}#d1d5db{% endif %};">{{ cf_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if pc_total > 0 %}800{% else %}400{% endif %};color:{% if pc_total > 0 %}#b45309{% else %}#d1d5db{% endif %};">{{ pc_total }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if vr_val > 0 %}900{% else %}400{% endif %};color:{% if vr_val > 0 %}#5b21b6{% else %}#d1d5db{% endif %};">{{ vr_val }}</td>
     {% for lbl in custom_labels %}
     {% set cv_val = cv.get(lbl.id|string, 0) | int %}
-    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;color:{% if cv_val > 0 %}#7c3aed{% else %}#e5e7eb{% endif %};font-weight:{% if cv_val > 0 %}800{% else %}400{% endif %};">{{ cv_val if cv_val > 0 else '—' }}</td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-weight:{% if cv_val > 0 %}800{% else %}400{% endif %};color:{% if cv_val > 0 %}#6b21a8{% else %}#d1d5db{% endif %};">{{ cv_val if cv_val > 0 else '—' }}</td>
     {% endfor %}
-    <td style="padding:9px 12px;color:#555;font-size:11px;max-width:200px;white-space:pre-wrap;word-break:break-word;">{{ e.get('notes','') or '' }}</td>
+    <td style="padding:9px 12px;color:#374151;font-size:11px;max-width:200px;white-space:pre-wrap;word-break:break-word;">{{ e.get('notes','') or '' }}</td>
   </tr>
   {% endfor %}
   </tbody>
@@ -765,14 +790,14 @@
 </div>
 {% endif %}
 
-<!-- Resumen de quién no cargó hoy -->
+<!-- Resumen de quién no cargó ayer -->
 {% if daily_activity %}
-{% set today_day = daily_activity | selectattr('date', 'equalto', today) | list | first | default(none) %}
-{% if today_day and today_day.missing %}
+{% set yest_day = daily_activity | selectattr('date', 'equalto', yesterday) | list | first | default(none) %}
+{% if yest_day and yest_day.missing %}
 <div style="margin-top:14px;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;">
-  <span style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;">⚠️ Sin KPI hoy ({{ today }}):</span>
+  <span style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;">⚠️ Sin KPI ayer ({{ yesterday }}):</span>
   <span style="margin-left:8px;">
-    {% for v in today_day.missing %}<span style="background:#fee2e2;border-radius:5px;padding:2px 8px;font-size:11px;color:#7f1d1d;font-weight:600;margin-right:4px;">{{ v.name }}</span>{% endfor %}
+    {% for v in yest_day.missing %}<span style="background:#fee2e2;border-radius:5px;padding:2px 8px;font-size:11px;color:#7f1d1d;font-weight:600;margin-right:4px;">{{ v.name }}</span>{% endfor %}
   </span>
 </div>
 {% endif %}
@@ -860,37 +885,7 @@ if (groupedCtx && vendorSummaries.length > 0) {
         y: {
           grid: { color: '#f0f0f0' },
           ticks: { font: { size: 9 }, stepSize: 100 },
-          max: 200, beginAtZero: true,
-        }
-      }
-    }
-  });
-}
-
-// ── Daily trend chart ────────────────────────────────────────────────────────
-const trendCtx = document.getElementById('dailyTrendChart');
-if (trendCtx && dailySeries.length > 1) {
-  new Chart(trendCtx, {
-    type: 'line',
-    data: {
-      labels: dailySeries.map(d => d.date),
-      datasets: stageKeys.map(k => ({
-        label: stageMeta[k].emoji + ' ' + stageMeta[k].label,
-        borderColor: stageMeta[k].color,
-        backgroundColor: stageMeta[k].color + '22',
-        data: dailySeries.map(d => d.totals[k] || 0),
-        tension: .35, fill: false, pointRadius: 3,
-        borderWidth: k === 'venta_realizada' ? 2.5 : 1.5,
-      }))
-    },
-    options: {
-      plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 14 } },
-        y: {
-          grid: { color: '#f0f0f0' },
-          ticks: { font: { size: 10 }, stepSize: 100 },
-          max: 400, beginAtZero: true,
+          max: 500, beginAtZero: true,
         }
       }
     }
@@ -1145,16 +1140,29 @@ function mdLine(s) {
 let _sortCol = 0, _sortAsc = false;
 
 function filterTable() {
-  const q = (document.getElementById('tableSearch')?.value || '').toLowerCase();
+  const q    = (document.getElementById('tableSearch')?.value || '').toLowerCase();
+  const from = document.getElementById('tableFrom')?.value || '';
+  const to   = document.getElementById('tableTo')?.value || '';
   const rows = document.querySelectorAll('#kpiTableBody .kpi-row');
   let shown = 0;
   rows.forEach(r => {
-    const match = !q || r.dataset.vendor.includes(q);
-    r.style.display = match ? '' : 'none';
-    if (match) shown++;
+    const vendorMatch = !q || r.dataset.vendor.includes(q);
+    const rowDate = r.dataset.date || '';
+    const fromMatch = !from || rowDate >= from;
+    const toMatch   = !to   || rowDate <= to;
+    const show = vendorMatch && fromMatch && toMatch;
+    r.style.display = show ? '' : 'none';
+    if (show) shown++;
   });
   const cnt = document.getElementById('tableCount');
   if (cnt) cnt.textContent = shown + ' entradas';
+}
+
+function clearTableFilters() {
+  const s = document.getElementById('tableSearch'); if (s) s.value = '';
+  const f = document.getElementById('tableFrom');   if (f) f.value = '';
+  const t = document.getElementById('tableTo');     if (t) t.value = '';
+  filterTable();
 }
 
 function sortTable(col) {

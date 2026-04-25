@@ -2921,9 +2921,12 @@ def lanzamiento_kpi_director():
         for d, es in daily_by_date.items()
     ], key=lambda x: x["date"])
 
-    # Today's breakdown by vendor
+    # Yesterday's breakdown by vendor (vendors load at end of day)
+    from datetime import timedelta
     today = datetime.now(TZ).date().isoformat()
-    today_entries = [e for e in entries if e["entry_date"] == today]
+    yesterday = (datetime.now(TZ).date() - timedelta(days=1)).isoformat()
+    yest_all_entries = database.kpi_get_all_entries(from_date=yesterday, to_date=yesterday)
+    today_entries = [e for e in yest_all_entries]  # "today" slot = yesterday data
     today_totals = database.kpi_aggregate_entries(today_entries)
     today_by_vendor = sorted([
         {
@@ -2971,6 +2974,7 @@ def lanzamiento_kpi_director():
                            daily_activity=daily_activity,
                            today_by_vendor=today_by_vendor,
                            today=today,
+                           yesterday=yesterday,
                            from_date=from_date, to_date=to_date,
                            vendor_filter=vendor_filter,
                            stage_filter=stage_filter,
