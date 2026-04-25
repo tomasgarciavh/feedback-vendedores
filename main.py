@@ -157,6 +157,13 @@ def add_no_cache(response):
     return response
 
 
+# ── Health check ───────────────────────────────────────────────────────────────
+
+@app.route("/health")
+def health():
+    return "ok", 200
+
+
 # ── Dashboard ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
