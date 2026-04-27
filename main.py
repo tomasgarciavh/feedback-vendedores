@@ -3397,10 +3397,10 @@ def _cleanup_on_startup():
     except Exception as e:
         logger.warning("Error during upload cleanup: %s", e)
 
-    # Eliminar archivos de roleplay de submissions ya procesadas (done/error) — el feedback está en la DB
+    # Eliminar archivos de roleplay de submissions DONE — los errores se conservan para poder reintentarlos
     try:
         done_ids = {r["file_id"] for r in database.get_recent_records(limit=10000)
-                    if r.get("status") in ("done", "error")}
+                    if r.get("status") == "done"}
         freed = 0
         for folder in (UPLOAD_FOLDER, ROLEPLAYS_FOLDER):
             if not os.path.isdir(folder):
@@ -3415,14 +3415,41 @@ def _cleanup_on_startup():
                     os.unlink(fpath)
                     freed += sz
         if freed:
-            logger.info("Freed %.1f MB from processed roleplay files.", freed / 1024 / 1024)
+            logger.info("Freed %.1f MB from done roleplay files.", freed / 1024 / 1024)
     except Exception as e:
         logger.warning("Error during processed-file cleanup: %s", e)
 
-    # Eliminar archivos de lanzamiento de submissions ya procesadas
+    # Re-encolar automáticamente errores donde el archivo sigue disponible
+    try:
+        error_records = [r for r in database.get_recent_records(limit=10000)
+                         if r.get("status") == "error"]
+        requeued = 0
+        for rec in error_records:
+            fid = rec["file_id"]
+            fname = rec.get("file_name", f"{fid}.mp4")
+            ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "mp4"
+            for folder in (UPLOAD_FOLDER, ROLEPLAYS_FOLDER):
+                candidate = os.path.join(folder, f"{fid}.{ext}")
+                if os.path.isfile(candidate):
+                    database.mark_processing(fid, fname, rec.get("vendor_name", ""), None)
+                    _processing_queue.put({
+                        "file_id": fid,
+                        "file_path": candidate,
+                        "vendor_name": rec.get("vendor_name", ""),
+                        "file_name": fname,
+                    })
+                    requeued += 1
+                    logger.info("Re-queued errored video: %s (%s)", fname, rec.get("vendor_name"))
+                    break
+        if requeued:
+            logger.info("Auto-requeued %d previously errored video(s).", requeued)
+    except Exception as e:
+        logger.warning("Error during auto-retry of errored videos: %s", e)
+
+    # Eliminar archivos de lanzamiento de submissions DONE — errores se conservan
     try:
         done_lanz_ids = {r["file_id"] for r in database.lanzamiento_get_recent(limit=5000)
-                         if r.get("status") in ("done", "error")}
+                         if r.get("status") == "done"}
         freed_lanz = 0
         if os.path.isdir(LANZAMIENTO_FOLDER):
             for fname in os.listdir(LANZAMIENTO_FOLDER):
@@ -3435,9 +3462,46 @@ def _cleanup_on_startup():
                     os.unlink(fpath)
                     freed_lanz += sz
         if freed_lanz:
-            logger.info("Freed %.1f MB from processed lanzamiento files.", freed_lanz / 1024 / 1024)
+            logger.info("Freed %.1f MB from done lanzamiento files.", freed_lanz / 1024 / 1024)
     except Exception as e:
         logger.warning("Error during lanzamiento file cleanup: %s", e)
+
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    flash("El archivo es demasiado grande. Máximo 5 GB.", "danger")
+    return redirect(url_for("index"))
+
+
+@app.route("/admin/retry-errors", methods=["POST"])
+def admin_retry_errors():
+    redir = _require_vendor()
+    if redir:
+        return jsonify({"ok": False}), 403
+    requeued = 0
+    not_found = 0
+    records = [r for r in database.get_recent_records(limit=10000) if r.get("status") == "error"]
+    for rec in records:
+        fid = rec["file_id"]
+        fname = rec.get("file_name", f"{fid}.mp4")
+        ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "mp4"
+        found = False
+        for folder in (UPLOAD_FOLDER, ROLEPLAYS_FOLDER):
+            candidate = os.path.join(folder, f"{fid}.{ext}")
+            if os.path.isfile(candidate):
+                database.mark_processing(fid, fname, rec.get("vendor_name", ""), None)
+                _processing_queue.put({
+                    "file_id": fid,
+                    "file_path": candidate,
+                    "vendor_name": rec.get("vendor_name", ""),
+                    "file_name": fname,
+                })
+                requeued += 1
+                found = True
+                break
+        if not found:
+            not_found += 1
+    return jsonify({"ok": True, "requeued": requeued, "not_found": not_found})
 
 
 def create_app():

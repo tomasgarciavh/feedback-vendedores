@@ -269,6 +269,13 @@
         <option value="error">Error</option>
       </select>
       <span class="badge bg-secondary" id="visible-count">{{ records | length }}</span>
+      {% set error_count = records | selectattr('status','equalto','error') | list | length %}
+      {% if error_count > 0 %}
+      <button id="retry-btn" onclick="retryErrors()"
+              style="padding:5px 10px;font-size:11px;font-weight:700;border-radius:7px;border:none;background:#fee2e2;color:#991b1b;cursor:pointer;">
+        <i class="bi bi-arrow-clockwise me-1"></i>Reintentar {{ error_count }} error{{ 'es' if error_count != 1 }}
+      </button>
+      {% endif %}
     </div>
   </div>
 
@@ -758,6 +765,28 @@
     } catch { showToast('Error de red.', 'danger'); }
     _pendingDeleteId = null;
   });
+
+  // ── Retry errored videos ──
+  async function retryErrors() {
+    const btn = document.getElementById('retry-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:10px;height:10px;"></span>Reintentando...';
+    try {
+      const resp = await fetch('/admin/retry-errors', { method: 'POST' });
+      const data = await resp.json();
+      if (data.ok) {
+        if (data.requeued > 0) {
+          showToast(`${data.requeued} video(s) en cola para reprocesar. El feedback aparecerá en unos minutos.`, 'success');
+          setTimeout(() => window.location.reload(), 3000);
+        } else {
+          showToast(`Los archivos de video ya no están disponibles (${data.not_found} sin archivo). Por favor re-subí esos videos.`, 'warning');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Reintentar errores';
+        }
+      }
+    } catch { showToast('Error de red.', 'danger'); btn.disabled = false; }
+  }
 
   // ── Drive upload ──
   function checkDriveReady() {
