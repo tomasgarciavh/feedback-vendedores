@@ -206,7 +206,8 @@
     <label class="avatar-wrap" for="photo-input" title="Cambiar foto">
       {% if vendor.photo_path %}
         <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}"
-             class="avatar-img" id="avatar-img" alt="{{ vendor.name }}">
+             class="avatar-img" id="avatar-img" alt="{{ vendor.name }}"
+             onerror="this.style.display='none';document.getElementById('avatar-initials').style.display='flex'">
       {% else %}
         <div class="avatar-initials" id="avatar-initials">{{ vendor.name[0].upper() }}</div>
       {% endif %}

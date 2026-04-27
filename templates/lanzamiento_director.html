@@ -287,7 +287,7 @@
     <div class="vc-banner">
       <!-- Avatar -->
       {% if v.photo_path %}
-        <img src="{{ url_for('vendor_photo', filename=v.photo_path.split('/')[-1]) }}" class="vc-avatar" alt="{{ v.vendor_name }}">
+        <img src="{{ url_for('vendor_photo', filename=v.photo_path.split('/')[-1]) }}" class="vc-avatar" alt="{{ v.vendor_name }}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">
       {% else %}
         <div class="vc-avatar-initials">{{ v.vendor_name[0]|upper }}</div>
       {% endif %}

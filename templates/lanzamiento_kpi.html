@@ -121,7 +121,7 @@
   <a href="{{ url_for('lanzamiento_kpi', vendor_id=v.id) }}" class="vendor-tile">
     <div class="vendor-avatar">
       {% if v.photo_path %}
-      <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}" alt="{{ v.name }}">
+      <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}" alt="{{ v.name }}" onerror="this.style.display='none'">
       {% else %}
       {{ v.name[0] }}
       {% endif %}
@@ -141,7 +141,7 @@
   </a>
   <div class="d-flex align-items-center gap-3">
     {% if vendor.photo_path %}
-    <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+    <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
     {% else %}
     <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;">{{ vendor.name[0] }}</div>
     {% endif %}

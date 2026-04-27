@@ -147,7 +147,7 @@
       {% for v in vendors %}
       <div class="vendor-pick-btn" onclick="selectVendor('{{ v.name }}', this)" data-name="{{ v.name }}">
         {% if v.photo_path %}
-          <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}" class="vendor-pick-avatar" alt="{{ v.name }}">
+          <img src="{{ url_for('vendor_photo', filename=v.photo_path) }}" class="vendor-pick-avatar" alt="{{ v.name }}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='')">
         {% else %}
           <div class="vendor-pick-initials">{{ v.name[0].upper() }}</div>
         {% endif %}

@@ -228,7 +228,8 @@
         <!-- Avatar sobre el banner -->
         {% if vendor.photo_path %}
           <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}"
-               class="vendor-avatar" alt="{{ vendor.name }}">
+               class="vendor-avatar" alt="{{ vendor.name }}"
+               onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">
         {% else %}
           <div class="vendor-avatar-initials">{{ vendor.name[0].upper() }}</div>
         {% endif %}

@@ -629,6 +629,10 @@ def upload_photo(vendor_id: int):
 
 @app.route("/uploads/photos/<filename>")
 def vendor_photo(filename: str):
+    filepath = os.path.join(PHOTO_FOLDER, filename)
+    if not os.path.isfile(filepath):
+        from flask import abort
+        abort(404)
     return send_from_directory(PHOTO_FOLDER, filename)
 
 
@@ -2990,6 +2994,33 @@ def lanzamiento_kpi_director():
 
     custom_labels = database.kpi_get_active_labels()
     director_goal = database.get_director_goal()
+
+    # Per-day and grand totals for table subtotal rows
+    import json as _json_tbl
+    daily_entry_sums: dict = {}
+    grand_entry_total = {"nr": 0, "il": 0, "cf": 0, "pc": 0, "vr": 0, "custom": {}}
+    for e in entries:
+        d = e.get("entry_date", "")
+        if d not in daily_entry_sums:
+            daily_entry_sums[d] = {"nr": 0, "il": 0, "cf": 0, "pc": 0, "vr": 0, "custom": {}}
+        ds = daily_entry_sums[d]
+        nr = int(e.get("no_respondido", 0) or 0)
+        il = sum(int(e.get(k, 0) or 0) for k in ["interaccion_leve_frio", "interaccion_leve_tibio", "interaccion_leve_caliente"])
+        cf = sum(int(e.get(k, 0) or 0) for k in ["conversacion_fluida_frio", "conversacion_fluida_tibio", "conversacion_fluida_caliente"])
+        pc = sum(int(e.get(k, 0) or 0) for k in ["potencial_compra_frio", "potencial_compra_tibio", "potencial_compra_caliente"])
+        vr = int(e.get("venta_realizada", 0) or 0)
+        for key, val in [("nr", nr), ("il", il), ("cf", cf), ("pc", pc), ("vr", vr)]:
+            ds[key] += val
+            grand_entry_total[key] += val
+        try:
+            cv = _json_tbl.loads(e.get("custom_values") or "{}")
+        except Exception:
+            cv = {}
+        for lid, val in cv.items():
+            v = int(val or 0)
+            ds["custom"][str(lid)] = ds["custom"].get(str(lid), 0) + v
+            grand_entry_total["custom"][str(lid)] = grand_entry_total["custom"].get(str(lid), 0) + v
+
     return render_template("lanzamiento_kpi_director.html",
                            entries=entries,
                            vendor_summaries=vendor_summaries,
@@ -3005,7 +3036,9 @@ def lanzamiento_kpi_director():
                            vendor_filter=vendor_filter,
                            stage_filter=stage_filter,
                            custom_labels=custom_labels,
-                           director_goal=director_goal)
+                           director_goal=director_goal,
+                           daily_entry_sums=daily_entry_sums,
+                           grand_entry_total=grand_entry_total)
 
 
 @app.route("/lanzamiento/kpi/director/save-goal", methods=["POST"])
@@ -3113,14 +3146,16 @@ Sé directo, concreto y sin relleno. Cada punto debe ser accionable."""
 
     try:
         genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel(config.GEMINI_MODEL)
         response = model.generate_content(prompt)
-        text = response.text.strip()
+        text = response.text.strip() if response.text else ""
+        if not text:
+            return jsonify({"ok": False, "error": "La IA no devolvió respuesta. Intentá de nuevo."}), 200
         return jsonify({"ok": True, "analysis": text,
                         "bottleneck": bottleneck[0], "bottleneck_rate": bottleneck[1]})
     except Exception as e:
         logger.error("Director diagnostico error: %s", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), 200
 
 
 @app.route("/lanzamiento/director")
