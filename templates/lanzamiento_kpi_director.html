@@ -617,29 +617,6 @@
           {% endfor %}
         </div>
       </div>
-      <!-- Tasas vs leads propios del vendedor -->
-      {% if vs_total > 0 %}
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#475569;margin-bottom:8px;">📈 Distribución sobre {{ vs_total }} leads propios</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
-          {% for emoji, label, rate, color in [
-            ('😶','No resp.',own_nr_pct,'#6b7280'),
-            ('❄️','Leve',own_il_pct,'#3b82f6'),
-            ('🤝','Fluido',own_cf_pct,'#22c55e'),
-            ('🔥','Potencial',own_pc_pct,'#f59e0b'),
-            ('💵','Venta',own_vr_pct,'#8b5cf6')
-          ] %}
-          <div style="text-align:center;">
-            <div style="font-size:9px;color:#64748b;margin-bottom:2px;">{{ emoji }} {{ label }}</div>
-            <div style="font-size:13px;font-weight:900;color:{{ color }};">{{ rate }}%</div>
-            <div style="height:3px;border-radius:2px;background:#e2e8f0;overflow:hidden;margin-top:3px;">
-              <div style="height:100%;width:{{ [rate|float,100]|min }}%;background:{{ color }};border-radius:2px;"></div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
     </div>
   </div>
 </div>
