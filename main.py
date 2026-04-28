@@ -635,23 +635,6 @@ def upload_photo(vendor_id: int):
     return jsonify({"ok": True, "filename": filename})
 
 
-@app.route("/sync-photos", methods=["POST"])
-def sync_photos():
-    """Temporary batch photo upload. Token-protected. Remove after use."""
-    import hashlib
-    token = request.form.get("token", "")
-    if hashlib.sha256(token.encode()).hexdigest() != "96403678f3d737274e273b3677cdbc78dcc90f7663da454bc9e3abf82a96427f":
-        return jsonify({"ok": False}), 403
-    os.makedirs(PHOTO_FOLDER, exist_ok=True)
-    saved = []
-    for f in request.files.getlist("photos"):
-        if not f.filename:
-            continue
-        dest = os.path.join(PHOTO_FOLDER, f.filename)
-        f.save(dest)
-        saved.append(f.filename)
-    return jsonify({"ok": True, "saved": saved})
-
 
 @app.route("/uploads/photos/<filename>")
 def vendor_photo(filename: str):
