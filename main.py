@@ -640,7 +640,7 @@ def sync_photos():
     """Temporary batch photo upload. Token-protected. Remove after use."""
     import hashlib
     token = request.form.get("token", "")
-    if hashlib.sha256(token.encode()).hexdigest() != "a3f2e1d4b5c6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2":
+    if hashlib.sha256(token.encode()).hexdigest() != "96403678f3d737274e273b3677cdbc78dcc90f7663da454bc9e3abf82a96427f":
         return jsonify({"ok": False}), 403
     os.makedirs(PHOTO_FOLDER, exist_ok=True)
     saved = []
