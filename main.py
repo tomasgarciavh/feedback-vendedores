@@ -129,6 +129,14 @@ app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024
 app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # solo 1 MB en RAM, el resto va a disco
 
 
+def _gemini_text(prompt: str) -> str:
+    """Generate text with Gemini using the current (google-genai) SDK."""
+    from google import genai as _gc
+    client = _gc.Client(api_key=config.GEMINI_API_KEY)
+    response = client.models.generate_content(model=config.GEMINI_MODEL, contents=prompt)
+    return response.text.strip()
+
+
 @app.template_filter("fromjson")
 def _fromjson(s):
     try:
@@ -1153,7 +1161,6 @@ def chat_message(session_id: int):
 
     lead = database.get_lead_by_id(sess["lead_id"])
 
-    import google.generativeai as genai
     import json as _json
 
     messages = _json.loads(sess["messages_json"] or "[]")
@@ -1205,13 +1212,10 @@ Historial de la conversación:
 {history_text}"""
 
     try:
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel(config.GEMINI_MODEL)
-        response = model.generate_content(system_prompt)
-        raw = response.text.strip()
+        raw = _gemini_text(system_prompt)
     except Exception as e:
         logger.error("Gemini chat error: %s", e)
-        return jsonify({"ok": False, "error": "Error al generar respuesta"}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
     # Parse LEAD and COACHING sections
     coaching_tip = None
@@ -1248,7 +1252,6 @@ def chat_end_session(session_id: int):
 
     lead = database.get_lead_by_id(sess["lead_id"])
 
-    import google.generativeai as genai
     import json as _json
 
     messages = _json.loads(sess["messages_json"] or "[]")
@@ -1313,13 +1316,10 @@ mentalidad: [0-10]
 """
 
     try:
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel(config.GEMINI_MODEL)
-        response = model.generate_content(feedback_prompt)
-        feedback_text = response.text.strip()
+        feedback_text = _gemini_text(feedback_prompt)
     except Exception as e:
         logger.error("Gemini feedback error: %s", e)
-        return jsonify({"ok": False, "error": "Error al generar feedback"}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
     # Parse score and section scores
     import re
@@ -1696,7 +1696,6 @@ def chat_lanzamiento_message(session_id: int):
     if sess["status"] != "active":
         return jsonify({"ok": False, "error": "Sesión cerrada"}), 400
 
-    import google.generativeai as genai
     import json as _json
 
     # Support both JSON (text only) and multipart (text + optional file)
@@ -1809,13 +1808,10 @@ COACHING:
 🎯 **Por qué:** [en 1 oración: el impacto que tiene ese cambio en el lead]"""
 
         try:
-            genai.configure(api_key=config.GEMINI_API_KEY)
-            model = genai.GenerativeModel(config.GEMINI_MODEL)
-            response = model.generate_content(system_prompt)
-            raw = response.text.strip()
+            raw = _gemini_text(system_prompt)
         except Exception as e:
             logger.error("Gemini lanzamiento roleplay error: %s", e)
-            return jsonify({"ok": False, "error": "Error al generar respuesta"}), 500
+            return jsonify({"ok": False, "error": str(e)}), 500
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
@@ -2012,7 +2008,6 @@ def chat_lanzamiento_end(session_id: int):
     if not sess or sess["vendor_id"] != vendor["id"]:
         return jsonify({"ok": False, "error": "Sesión no válida"}), 403
 
-    import google.generativeai as genai
     import json as _json
 
     messages = _json.loads(sess["messages_json"] or "[]")
@@ -2058,10 +2053,7 @@ siembra: [0-10]
 desapego: [0-10]
 """
         try:
-            genai.configure(api_key=config.GEMINI_API_KEY)
-            model = genai.GenerativeModel(config.GEMINI_MODEL)
-            response = model.generate_content(feedback_prompt)
-            feedback_text = response.text.strip()
+            feedback_text = _gemini_text(feedback_prompt)
         except Exception as e:
             logger.error("Gemini lanzamiento feedback error: %s", e)
             feedback_text = "No se pudo generar el feedback automáticamente."
@@ -2730,8 +2722,6 @@ def lanzamiento_kpi_labels_delete():
 @app.route("/lanzamiento/kpi/strategy", methods=["POST"])
 def lanzamiento_kpi_strategy():
     # No auth required — open endpoint for vendors and director
-    import google.generativeai as genai
-
     data = request.get_json()
     totals = data.get("totals", {})
     vendor_name = data.get("vendor_name", "el vendedor")
@@ -2810,13 +2800,10 @@ Generá un análisis estratégico en español argentino con esta estructura exac
 Sé MUY específico. Usá ejemplos de mensajes reales. No des consejos genéricos."""
 
         try:
-            genai.configure(api_key=config.GEMINI_API_KEY)
-            model = genai.GenerativeModel(config.GEMINI_MODEL)
-            response = model.generate_content(prompt)
-            strategy_text = response.text.strip()
+            strategy_text = _gemini_text(prompt)
         except Exception as e:
             logger.error("KPI stage strategy error: %s", e)
-            return jsonify({"ok": False, "error": "Error al generar análisis"}), 500
+            return jsonify({"ok": False, "error": str(e)}), 500
 
         return jsonify({
             "ok": True,
@@ -2895,13 +2882,10 @@ Basándote en esta información, entregá un análisis estratégico en español 
 Sé MUY específico. Incluí frases, mensajes y ejemplos reales. No des consejos genéricos."""
 
     try:
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel(config.GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        strategy_text = response.text.strip()
+        strategy_text = _gemini_text(prompt)
     except Exception as e:
         logger.error("KPI strategy error: %s", e)
-        return jsonify({"ok": False, "error": "Error al generar estrategias"}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
     return jsonify({
         "ok": True,
@@ -3053,7 +3037,6 @@ def lanzamiento_kpi_director_save_goal():
 
 @app.route("/lanzamiento/kpi/director/diagnostico", methods=["POST"])
 def lanzamiento_kpi_director_diagnostico():
-    import google.generativeai as genai
     data = request.get_json()
     totals = data.get("totals", {})
     vendor_summaries = data.get("vendor_summaries", [])
@@ -3145,10 +3128,7 @@ Generá un diagnóstico comercial completo con este formato exacto:
 Sé directo, concreto y sin relleno. Cada punto debe ser accionable."""
 
     try:
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel(config.GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        text = response.text.strip() if response.text else ""
+        text = _gemini_text(prompt)
         if not text:
             return jsonify({"ok": False, "error": "La IA no devolvió respuesta. Intentá de nuevo."}), 200
         return jsonify({"ok": True, "analysis": text,
