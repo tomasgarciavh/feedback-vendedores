@@ -352,275 +352,253 @@
   </div>
 </div>
 
-<!-- ── AYER ── -->
-<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> Cargado ayer — {{ yesterday | fmt_date }}</div>
-
-{% if today_by_vendor %}
-<div class="row g-2 mb-3">
-  {% for stage_key, (emoji, color, label, short) in STAGE_META.items() %}
-  <div class="col-6 col-sm-4 col-lg">
-    <div class="kpi-card">
-      <div class="kpi-val" style="color:{{ color }};">{{ today_totals.get(stage_key, 0) }}</div>
-      <div class="kpi-lbl">{{ emoji }} {{ label }}</div>
-      <div class="kpi-sub">Hoy</div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<div class="row g-2 mb-2">
-  {% for tv in today_by_vendor %}
-  <div class="col-12 col-sm-6 col-lg-4">
-    <div class="today-vendor-card">
-      {% if tv.photo_path %}
-      <img src="{{ url_for('vendor_photo', filename=tv.photo_path) }}" class="avatar">
-      {% else %}
-      <div class="avatar-fallback"><i class="bi bi-person-fill text-white" style="font-size:16px;"></i></div>
-      {% endif %}
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:800;color:#1a0810;margin-bottom:5px;">{{ tv.vendor_name }}</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;">
-          {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
-          <span class="stage-chip" style="background:{{ color }}18;color:{{ color }};border:1px solid {{ color }}40;">
-            <span style="font-size:9px;font-weight:700;opacity:.7;">{{ emoji }}</span> {{ tv.totals.get(sk, 0) }}
-          </span>
-          {% endfor %}
-          {% if custom_labels %}
-          {% set tv_custom = tv.totals.get('custom', {}) %}
-          {% for lbl in custom_labels %}
-          {% if tv_custom.get(lbl.id|string, 0) > 0 %}
-          <span class="stage-chip" style="background:#f3e8ff;color:#6d4c9e;border:1px solid #e0d0f0;">
-            <span style="font-size:9px;font-weight:700;opacity:.7;">🏷️</span> {{ tv_custom.get(lbl.id|string, 0) }}
-          </span>
+<!-- ══ ACTIVIDAD DEL DÍA ══ -->
+<div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> KPIs del día — {{ yesterday | fmt_date }}</div>
+<div class="row g-3 mb-4">
+  {# — Cargaron — #}
+  <div class="col-12 col-md-7">
+    <div class="kpi-card" style="height:auto;">
+      <div style="font-size:11px;font-weight:800;color:#22c55e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">
+        ✅ Cargaron KPI ({{ today_by_vendor|length }})
+      </div>
+      {% if today_by_vendor %}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for tv in today_by_vendor %}
+        <div style="display:flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:5px 10px;">
+          {% if tv.photo_path %}
+          <img src="{{ url_for('vendor_photo', filename=tv.photo_path) }}" style="width:22px;height:22px;border-radius:5px;object-fit:cover;" onerror="this.style.display='none'">
+          {% else %}
+          <div style="width:22px;height:22px;border-radius:5px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;">{{ tv.vendor_name[0] }}</div>
           {% endif %}
-          {% endfor %}
+          <span style="font-size:12px;font-weight:700;color:#166534;">{{ tv.vendor_name.split()[0] }}</span>
+          {% if tv.totals.get('venta_realizada',0) > 0 %}
+          <span style="font-size:10px;font-weight:800;color:#a78bfa;">💵{{ tv.totals.get('venta_realizada',0) }}</span>
           {% endif %}
         </div>
+        {% endfor %}
       </div>
+      {% else %}
+      <div style="font-size:13px;color:#bbb;">Ningún vendedor cargó datos ayer.</div>
+      {% endif %}
     </div>
   </div>
-  {% endfor %}
+  {# — No cargaron — #}
+  <div class="col-12 col-md-5">
+    <div class="kpi-card" style="height:auto;border-color:#fecaca;">
+      <div style="font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">
+        ⚠️ Sin carga ayer
+      </div>
+      {% set yest_day = daily_activity | selectattr('date', 'equalto', yesterday) | list | first | default(none) %}
+      {% if yest_day and yest_day.missing %}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        {% for v in yest_day.missing %}
+        <span style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;color:#b91c1c;">{{ v.name.split()[0] }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="font-size:13px;color:#22c55e;font-weight:600;">✅ Todos cargaron ayer</div>
+      {% endif %}
+    </div>
+  </div>
 </div>
-{% else %}
-<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:18px;color:#bbb;font-size:13px;text-align:center;margin-bottom:4px;">
-  <i class="bi bi-clock" style="font-size:20px;display:block;margin-bottom:6px;opacity:.35;"></i>
-  Ningún vendedor cargó datos ayer.
-</div>
-{% endif %}
 
-<!-- ── TOTALES ACUMULADOS ── -->
+<!-- ══ TOTALES ACUMULADOS CON % ══ -->
+{% set _tl = global_totals.get('total_leads', 0) %}
+{% set _nr = global_totals.get('no_respondido', 0) %}
+{% set _il = global_totals.get('interaccion_leve', 0) %}
+{% set _cf = global_totals.get('conversacion_fluida', 0) %}
+{% set _pc = global_totals.get('potencial_compra', 0) %}
+{% set _vr = global_totals.get('venta_realizada', 0) %}
+{% set _pct_nr = ((_nr/_tl*100)|round(1)) if _tl>0 else 0 %}
+{% set _pct_il = ((_il/_tl*100)|round(1)) if _tl>0 else 0 %}
+{% set _pct_cf = ((_cf/_tl*100)|round(1)) if _tl>0 else 0 %}
+{% set _pct_pc = ((_pc/_tl*100)|round(1)) if _tl>0 else 0 %}
+{% set _pct_vr = ((_vr/_tl*100)|round(1)) if _tl>0 else 0 %}
+
 <div class="section-title"><i class="bi bi-graph-up-arrow" style="color:#c9a066;"></i> Totales acumulados del lanzamiento</div>
-
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-2">
+<div class="row g-3 mb-3">
+  {# Total leads #}
+  <div class="col-6 col-sm-4 col-lg-2">
     <div class="kpi-card">
-      <div class="kpi-val" style="color:#1a0810;">{{ global_totals.get('total_leads', 0) }}</div>
+      <div class="kpi-val" style="color:#1a0810;">{{ _tl }}</div>
       <div class="kpi-lbl">📊 Total leads</div>
     </div>
   </div>
-  {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
-  <div class="col-6 col-lg-2">
-    <div class="kpi-card" {% if sk == 'venta_realizada' %}style="background:linear-gradient(135deg,#1a0810,#3d0f1e);"{% endif %}>
-      <div class="kpi-val" style="color:{{ color }};">{{ global_totals.get(sk, 0) }}</div>
-      <div class="kpi-lbl" {% if sk == 'venta_realizada' %}style="color:rgba(255,255,255,.55);"{% endif %}>{{ emoji }} {{ label }}</div>
-      {% if sk == 'venta_realizada' %}
-        {% set pc = global_totals.get('potencial_compra', 0) + global_totals.get('venta_realizada', 0) %}
-        {% set vr = global_totals.get('venta_realizada', 0) %}
-        {% if pc > 0 %}<div class="kpi-sub" style="color:#c9a066;">{{ (vr/pc*100)|round(1) }}% de potenciales</div>{% endif %}
-      {% endif %}
+  {# NR #}
+  <div class="col-6 col-sm-4 col-lg-2">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#6b7280;">{{ _nr }}</div>
+      <div class="kpi-lbl">😶 No Respondido</div>
+      <div style="font-size:13px;font-weight:800;color:#9ca3af;margin-top:4px;">{{ _pct_nr }}%</div>
+      <div style="height:3px;background:#f3f4f6;border-radius:2px;margin-top:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ [_pct_nr,100]|min }}%;background:#9ca3af;border-radius:2px;"></div>
+      </div>
     </div>
   </div>
-  {% endfor %}
-  {% if custom_labels %}
-  {% set custom_totals = global_totals.get('custom', {}) %}
+  {# IL #}
+  <div class="col-6 col-sm-4 col-lg-2">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#3b82f6;">{{ _il }}</div>
+      <div class="kpi-lbl">❄️ Inter. Leve</div>
+      <div style="font-size:13px;font-weight:800;color:#3b82f6;margin-top:4px;">{{ _pct_il }}%</div>
+      <div style="height:3px;background:#dbeafe;border-radius:2px;margin-top:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ [_pct_il,100]|min }}%;background:#3b82f6;border-radius:2px;"></div>
+      </div>
+    </div>
+  </div>
+  {# CF #}
+  <div class="col-6 col-sm-4 col-lg-2">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#22c55e;">{{ _cf }}</div>
+      <div class="kpi-lbl">🤝 Conv. Fluida</div>
+      <div style="font-size:13px;font-weight:800;color:#22c55e;margin-top:4px;">{{ _pct_cf }}%</div>
+      <div style="height:3px;background:#dcfce7;border-radius:2px;margin-top:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ [_pct_cf,100]|min }}%;background:#22c55e;border-radius:2px;"></div>
+      </div>
+    </div>
+  </div>
+  {# PC #}
+  <div class="col-6 col-sm-4 col-lg-2">
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#f59e0b;">{{ _pc }}</div>
+      <div class="kpi-lbl">🔥 Potencial</div>
+      <div style="font-size:13px;font-weight:800;color:#f59e0b;margin-top:4px;">{{ _pct_pc }}%</div>
+      <div style="height:3px;background:#fef3c7;border-radius:2px;margin-top:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ [_pct_pc,100]|min }}%;background:#f59e0b;border-radius:2px;"></div>
+      </div>
+    </div>
+  </div>
+  {# VR #}
+  <div class="col-6 col-sm-4 col-lg-2">
+    <div class="kpi-card" style="background:linear-gradient(135deg,#1a0810,#3d0f1e);">
+      <div class="kpi-val" style="color:#a78bfa;">{{ _vr }}</div>
+      <div class="kpi-lbl" style="color:rgba(255,255,255,.5);">💵 Cierre</div>
+      <div style="font-size:13px;font-weight:800;color:#a78bfa;margin-top:4px;">{{ _pct_vr }}%</div>
+      <div style="height:3px;background:rgba(167,139,250,.2);border-radius:2px;margin-top:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ [_pct_vr,100]|min }}%;background:#a78bfa;border-radius:2px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% if custom_labels %}
+{% set custom_totals = global_totals.get('custom', {}) %}
+<div class="row g-2 mb-4">
   {% for label in custom_labels %}
-  <div class="col-6 col-lg-2">
+  <div class="col-6 col-sm-3 col-lg-2">
     <div class="kpi-card" style="border-color:#e0d0f0;">
       <div class="kpi-val" style="color:#6d4c9e;">{{ custom_totals.get(label.id|string, 0) }}</div>
       <div class="kpi-lbl">🏷️ {{ label.label_name }}</div>
     </div>
   </div>
   {% endfor %}
-  {% endif %}
 </div>
+{% endif %}
 
-<!-- Funnel + temperature -->
-<div class="row g-4 mb-4">
-  <div class="col-12 col-lg-7">
+<!-- ══ GRÁFICOS ══ -->
+{% if vendor_summaries %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
     <div class="card border-0 shadow-sm" style="border-radius:14px;">
       <div class="card-body p-4">
-        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:16px;">📊 Embudo global acumulado</div>
+        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:4px;">📊 Comparativa por vendedor — todas las etapas</div>
+        <div style="font-size:11px;color:#aaa;margin-bottom:12px;">Eje Y = leads (máx. 400) · Cada color = un vendedor</div>
+        <canvas id="groupedStageChart" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;height:100%;">
+      <div class="card-body p-4">
+        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:12px;">📈 Embudo global</div>
         <canvas id="globalFunnelChart" height="200"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-12 col-lg-5">
-    <div class="card border-0 shadow-sm" style="border-radius:14px;height:100%;">
-      <div class="card-body p-4">
-        <div style="font-size:13px;font-weight:700;color:#1a0810;margin-bottom:16px;">🌡️ Temperatura del pipeline</div>
-        {% macro temp_row(emoji, label, frio, tibio, caliente, color) %}
-        {% set total_stage = frio + tibio + caliente %}
-        <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span style="font-size:12px;font-weight:700;color:{{ color }};">{{ emoji }} {{ label }}</span>
-            <span style="font-size:12px;color:#888;">{{ total_stage }}</span>
-          </div>
-          {% if total_stage > 0 %}
-          <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;">
-            <div style="width:{{ (frio/total_stage*100)|round }}%;background:#bfdbfe;" title="❄️ Frío: {{ frio }}"></div>
-            <div style="width:{{ (tibio/total_stage*100)|round }}%;background:#f59e0b;" title="🌡️ Tibio: {{ tibio }}"></div>
-            <div style="width:{{ (caliente/total_stage*100)|round }}%;background:#ef4444;" title="🔥 Caliente: {{ caliente }}"></div>
-          </div>
-          <div class="d-flex gap-2 mt-1">
-            <span class="temp-pill pill-frio">❄️ {{ frio }}</span>
-            <span class="temp-pill pill-tibio">🌡️ {{ tibio }}</span>
-            <span class="temp-pill pill-caliente">🔥 {{ caliente }}</span>
-          </div>
-          {% else %}
-          <div style="font-size:11px;color:#bbb;">Sin datos</div>
-          {% endif %}
-        </div>
-        {% endmacro %}
-        {# No Respondido — sin subdivisión de temperatura, barra sólida #}
-        {% set nr_total = global_totals.get('no_respondido', 0) %}
-        <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span style="font-size:12px;font-weight:700;color:#6b7280;">😶 No Respondido</span>
-            <span style="font-size:12px;color:#888;">{{ nr_total }}</span>
-          </div>
-          {% if nr_total > 0 %}
-          <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;">
-            <div style="width:100%;background:#9ca3af;" title="😶 No Respondido: {{ nr_total }}"></div>
-          </div>
-          <div class="d-flex gap-2 mt-1">
-            <span class="temp-pill" style="background:#f3f4f6;color:#374151;">😶 {{ nr_total }}</span>
-          </div>
-          {% else %}
-          <div style="font-size:11px;color:#bbb;">Sin datos</div>
-          {% endif %}
-        </div>
-        {{ temp_row('💬','Interacción Leve',
-            global_totals.get('interaccion_leve_frio',0),
-            global_totals.get('interaccion_leve_tibio',0),
-            global_totals.get('interaccion_leve_caliente',0),'#60a5fa') }}
-        {{ temp_row('🤝','Conversación Fluida',
-            global_totals.get('conversacion_fluida_frio',0),
-            global_totals.get('conversacion_fluida_tibio',0),
-            global_totals.get('conversacion_fluida_caliente',0),'#4ade80') }}
-        {{ temp_row('💰','Potencial Compra',
-            global_totals.get('potencial_compra_frio',0),
-            global_totals.get('potencial_compra_tibio',0),
-            global_totals.get('potencial_compra_caliente',0),'#fbbf24') }}
-      </div>
-    </div>
-  </div>
 </div>
 
-<!-- Grouped vendor chart -->
-{% if vendor_summaries %}
-<div class="section-title"><i class="bi bi-bar-chart-grouped" style="color:#c9a066;"></i> Comparativa por vendedor — todas las etapas</div>
-<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
-  <div class="card-body p-4">
-    <div style="font-size:11px;color:#aaa;margin-bottom:10px;">Eje X = etapas · Eje Y = leads · Cada color = un vendedor</div>
-    <canvas id="groupedStageChart" height="130"></canvas>
-  </div>
-</div>
-
-
-<!-- Per-vendor detail -->
+<!-- ══ DETALLE POR VENDEDOR — TABLA COMPACTA ══ -->
 <div class="section-title"><i class="bi bi-person-lines-fill" style="color:#c9a066;"></i>
   Detalle por vendedor
-  {% if vendor_filter %}
-  — <span style="color:#c9a066;">{{ vendors_list | selectattr('id','equalto', vendor_filter|int) | map(attribute='name') | first | default('') }}</span>
-  {% endif %}
+  {% if vendor_filter %}— <span style="color:#c9a066;">{{ vendors_list | selectattr('id','equalto', vendor_filter|int) | map(attribute='name') | first | default('') }}</span>{% endif %}
 </div>
 
 {% set _base_g = vendor_summaries | selectattr('vendor_id','equalto', vendor_filter|int) | list if vendor_filter else vendor_summaries %}
-{% for vs in _base_g %}
-{% set vs_total = vs.get('total_leads', 0) %}
-{% set vs_nr = vs.get('no_respondido', 0) %}
-{% set vs_responded = vs.get('interaccion_leve',0)+vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
-{% set vs_cf_plus = vs.get('conversacion_fluida',0)+vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
-{% set vs_pc_plus = vs.get('potencial_compra',0)+vs.get('venta_realizada',0) %}
-{% set vs_vr = vs.get('venta_realizada',0) %}
-{# Base de leads: Hugo Loncaric tiene 100, resto 550 #}
-{% set B550 = 100 if vs.vendor_name == 'Hugo Loncaric' else 550 %}
-{% set t550_resp   = ((vs_responded / B550) * 100)|round(1) %}
-{% set t550_nr     = ((vs_nr        / B550) * 100)|round(1) %}
-{% set t550_cf     = ((vs_cf_plus   / B550) * 100)|round(1) %}
-{% set t550_pc     = ((vs_pc_plus   / B550) * 100)|round(1) %}
-{% set t550_cierre = ((vs_vr        / B550) * 100)|round(1) %}
-{# Tasas vs total propio de cada vendedor #}
-{% set vs_il = vs.get('interaccion_leve', 0) %}
-{% set vs_cf_val = vs.get('conversacion_fluida', 0) %}
-{% set vs_pc_val = vs.get('potencial_compra', 0) %}
-{% set own_nr_pct = ((vs_nr / vs_total * 100)|round(1)) if vs_total > 0 else 0 %}
-{% set own_il_pct = ((vs_il / vs_total * 100)|round(1)) if vs_total > 0 else 0 %}
-{% set own_cf_pct = ((vs_cf_val / vs_total * 100)|round(1)) if vs_total > 0 else 0 %}
-{% set own_pc_pct = ((vs_pc_val / vs_total * 100)|round(1)) if vs_total > 0 else 0 %}
-{% set own_vr_pct = ((vs_vr / vs_total * 100)|round(1)) if vs_total > 0 else 0 %}
-
-<div class="vendor-row">
-  <div class="d-flex align-items-start gap-3">
-    {% if vs.photo_path %}
-    <img src="{{ url_for('vendor_photo', filename=vs.photo_path) }}"
-         style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;">
-    {% else %}
-    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <i class="bi bi-person-fill text-white" style="font-size:18px;"></i>
-    </div>
-    {% endif %}
-    <div style="flex:1;min-width:0;">
-      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-        <span style="font-weight:800;font-size:14px;color:#1a0810;">{{ vs.vendor_name }}</span>
-        <span style="font-size:11px;color:#888;">{{ vs.entry_count }} día{{ 's' if vs.entry_count!=1 }}</span>
-        <span style="background:#e0f2fe;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:800;padding:3px 9px;color:#0369a1;">
-          📊 {{ vs_total }} leads
-        </span>
-      </div>
-      <!-- Stage chips -->
-      <div class="d-flex gap-2 mb-2 flex-wrap">
-        {% for sk, (emoji, color, label, short) in STAGE_META.items() %}
-        <div style="background:#f8f8f8;border-radius:9px;padding:5px 11px;text-align:center;min-width:42px;">
-          <div style="font-size:15px;font-weight:900;color:{{ color }};">{{ vs.get(sk,0) }}</div>
-          <div style="font-size:9px;color:#aaa;font-weight:700;">{{ emoji }}</div>
-        </div>
-        {% endfor %}
-        {% if custom_labels %}
-        {% set vs_custom = vs.get('custom', {}) %}
-        {% for lbl in custom_labels %}
-        <div style="background:#f3e8ff;border:1px solid #e0d0f0;border-radius:9px;padding:5px 11px;text-align:center;min-width:42px;">
-          <div style="font-size:15px;font-weight:900;color:#6d4c9e;">{{ vs_custom.get(lbl.id|string, 0) }}</div>
-          <div style="font-size:9px;color:#9d74c5;font-weight:700;">🏷️ {{ lbl.label_name[:6] }}{% if lbl.label_name|length > 6 %}…{% endif %}</div>
-        </div>
-        {% endfor %}
+<div style="overflow-x:auto;border-radius:12px;border:1px solid #e9ecef;margin-bottom:24px;">
+<table style="border-collapse:collapse;width:100%;font-size:12px;min-width:700px;">
+  <thead>
+    <tr style="background:#1a0810;color:#c9a066;">
+      <th style="padding:10px 12px;text-align:left;font-weight:700;border-right:1px solid #3d0f1e;white-space:nowrap;">Vendedor</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Base de leads">Base</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="No Respondido">😶 NR</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Interacción Leve">❄️ IL</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Conversación Fluida">🤝 CF</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;border-right:1px solid #3d0f1e;" title="Potencial Compra">🔥 PC</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:700;" title="Venta Realizada">💵 VR</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for vs in _base_g %}
+  {% set vs_total = vs.get('total_leads', 0) %}
+  {% set vs_nr = vs.get('no_respondido', 0) %}
+  {% set vs_il = vs.get('interaccion_leve', 0) %}
+  {% set vs_cf = vs.get('conversacion_fluida', 0) %}
+  {% set vs_pc = vs.get('potencial_compra', 0) %}
+  {% set vs_vr = vs.get('venta_realizada', 0) %}
+  {% set BASE = 100 if vs.vendor_name == 'Hugo Loncaric' else 550 %}
+  {% set p_nr = ((vs_nr/vs_total*100)|round(1)) if vs_total > 0 else 0 %}
+  {% set p_il = ((vs_il/vs_total*100)|round(1)) if vs_total > 0 else 0 %}
+  {% set p_cf = ((vs_cf/vs_total*100)|round(1)) if vs_total > 0 else 0 %}
+  {% set p_pc = ((vs_pc/vs_total*100)|round(1)) if vs_total > 0 else 0 %}
+  {% set p_vr = ((vs_vr/vs_total*100)|round(1)) if vs_total > 0 else 0 %}
+  <tr style="border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#faf8f5'" onmouseout="this.style.background=''">
+    <td style="padding:9px 12px;border-right:1px solid #f0f0f0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        {% if vs.photo_path %}
+        <img src="{{ url_for('vendor_photo', filename=vs.photo_path) }}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">
+        {% else %}
+        <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#c9a066,#8b5a2b);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">{{ vs.vendor_name[0] }}</div>
         {% endif %}
-      </div>
-      <!-- Tasas sobre base de leads (550 o 100 para Hugo Loncaric) -->
-      <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#93c5fd;margin-bottom:8px;">📊 Tasas sobre {{ B550 }} leads</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
-          {% for emoji, label, rate, color in [
-            ('📩','Respuesta',t550_resp,'#3b82f6'),
-            ('🚫','No resp.',t550_nr,'#6b7280'),
-            ('🤝','Conv. fl.',t550_cf,'#22c55e'),
-            ('⭐','Potencial',t550_pc,'#f59e0b'),
-            ('🏆','Cierre',t550_cierre,'#8b5cf6')
-          ] %}
-          <div style="text-align:center;">
-            <div style="font-size:9px;color:#94a3b8;margin-bottom:2px;">{{ emoji }} {{ label }}</div>
-            <div style="font-size:13px;font-weight:900;color:{{ color }};">{{ rate }}%</div>
-            <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:3px;">
-              <div style="height:100%;width:{{ [rate|float,100]|min }}%;background:{{ color }};border-radius:2px;"></div>
-            </div>
-          </div>
-          {% endfor %}
+        <div>
+          <div style="font-weight:800;color:#1a0810;line-height:1.2;">{{ vs.vendor_name }}</div>
+          <div style="font-size:10px;color:#aaa;">{{ vs.entry_count }} día{{ 's' if vs.entry_count!=1 }}</div>
         </div>
       </div>
-    </div>
-  </div>
+    </td>
+    <td style="padding:9px 8px;text-align:center;border-right:1px solid #f0f0f0;font-size:11px;color:#888;font-weight:700;">{{ BASE }}</td>
+    {# Macro cell: n + % + mini bar #}
+    {% macro cell(n, pct, color, bg) %}
+    <td style="padding:7px 8px;text-align:center;border-right:1px solid #f0f0f0;">
+      <div style="font-size:13px;font-weight:900;color:{{ color }};">{{ n }}</div>
+      <div style="font-size:10px;color:{{ color }};opacity:.75;">{{ pct }}%</div>
+      <div style="height:2px;background:{{ bg }};border-radius:1px;margin-top:3px;overflow:hidden;">
+        <div style="height:100%;width:{{ [pct,100]|min }}%;background:{{ color }};border-radius:1px;"></div>
+      </div>
+    </td>
+    {% endmacro %}
+    {{ cell(vs_nr, p_nr, '#6b7280', '#f3f4f6') }}
+    {{ cell(vs_il, p_il, '#3b82f6', '#dbeafe') }}
+    {{ cell(vs_cf, p_cf, '#22c55e', '#dcfce7') }}
+    {{ cell(vs_pc, p_pc, '#f59e0b', '#fef3c7') }}
+    <td style="padding:7px 8px;text-align:center;">
+      <div style="font-size:13px;font-weight:900;color:#7c3aed;">{{ vs_vr }}</div>
+      <div style="font-size:10px;color:#7c3aed;opacity:.75;">{{ p_vr }}%</div>
+      <div style="height:2px;background:#ede9fe;border-radius:1px;margin-top:3px;overflow:hidden;">
+        <div style="height:100%;width:{{ [p_vr,100]|min }}%;background:#7c3aed;border-radius:1px;"></div>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+  {# Totals row #}
+  <tr style="background:#1a0810;">
+    <td style="padding:8px 12px;font-weight:800;font-size:11px;color:#c9a066;border-right:1px solid #3d0f1e;">TOTAL</td>
+    <td style="padding:8px 8px;text-align:center;border-right:1px solid #3d0f1e;font-size:11px;color:rgba(201,160,102,.5);">—</td>
+    {% for val, color in [(_nr,'#9ca3af'),(_il,'#93c5fd'),(_cf,'#86efac'),(_pc,'#fcd34d'),(_vr,'#c4b5fd')] %}
+    <td style="padding:8px 8px;text-align:center;{% if not loop.last %}border-right:1px solid #3d0f1e;{% endif %}font-weight:900;font-size:13px;color:{{ color }};">{{ val }}</td>
+    {% endfor %}
+  </tr>
+  </tbody>
+</table>
 </div>
-{% endfor %}
 
 <!-- ── DIAGNÓSTICO COMERCIAL ── -->
 <div class="section-title"><i class="bi bi-stethoscope" style="color:#c9a066;"></i> Diagnóstico Comercial del Lanzamiento</div>
@@ -884,7 +862,7 @@ if (groupedCtx && vendorSummaries.length > 0) {
         y: {
           grid: { color: '#f0f0f0' },
           ticks: { font: { size: 9 }, stepSize: 100 },
-          max: 500, beginAtZero: true,
+          max: 400, beginAtZero: true,
         }
       }
     }
