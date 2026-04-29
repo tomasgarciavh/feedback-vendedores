@@ -47,6 +47,35 @@ LANZAMIENTO_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv
 ESTRATEGIA_EXTENSIONS = {"pdf", "txt", "md"}
 ESTRATEGIA_AUDIO_EXTENSIONS = {"mp3", "wav", "ogg", "m4a", "webm", "opus", "aac"}
 
+# ── Lanzamiento 4 reference data (Enero 2026, 21 días, 4200 leads, 7 vendedores) ──
+# Columns: (day_num, NR_cumul, IL_cumul, CF_cumul, PC_cumul, vr_daily)
+# NR/IL/CF/PC are cumulative lead states at end of that day
+_L4_BASE = 4200
+_L4_DAYS = [
+    (1,  2643, 1462,   2,  32,  0),
+    (2,  2599, 1588,  40,  44,  1),
+    (3,  2471, 1591,  80,  38,  1),
+    (4,  1988, 1452, 109,  46,  2),
+    (5,  1058, 1087,  83,  22,  1),
+    (6,  1604, 1132, 111,  44,  0),
+    (7,   929,  571,  67,  15,  0),
+    (8,   986,  609,  80,  79,  4),
+    (9,  1517,  964, 111,  68,  6),
+    (10, 2217, 1528, 153, 104,  7),
+    (11,  866,  490,  62,  44,  1),
+    (12,  866,  489,  62,  42,  3),
+    (13, 1173,  478,  59,  25,  2),
+    (14, 1172,  700,  75,  49,  5),
+    (15, 1451,  906,  82,  67, 14),
+    (16, 1449,  900,  80,  58,  2),
+    (17, 1159,  746,  65,  50,  0),
+    (18, 1152,  734,  64,  42,  1),
+    (19, 1150,  730,  58,  46,  2),
+    (20,  794,  565,  41,  29,  0),
+    (21,  469,  280,   2,  24,  0),
+]
+_L5_START_DATE = "2026-04-26"  # Sunday Apr 26, current launch start
+
 
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -3165,6 +3194,38 @@ def lanzamiento_kpi_director():
 
     estrategias = database.estrategia_get_all()
 
+    # ── L4 vs L5 comparison ──────────────────────────────────────────────────
+    from datetime import date as _date_cls
+    _l5_start = _date_cls.fromisoformat(_L5_START_DATE)
+    _today_dt = datetime.now(TZ).date()
+    current_launch_day = (_today_dt - _l5_start).days + 1
+
+    l4_today = None
+    if 1 <= current_launch_day <= 21:
+        _r = _L4_DAYS[current_launch_day - 1]
+        _pct = lambda n: round(n / _L4_BASE * 100, 1)
+        l4_today = {
+            "day": _r[0], "nr": _r[1], "il": _r[2], "cf": _r[3], "pc": _r[4],
+            "nr_pct": _pct(_r[1]), "il_pct": _pct(_r[2]),
+            "cf_pct": _pct(_r[3]), "pc_pct": _pct(_r[4]),
+        }
+
+    l4_vr_cum = []
+    _c = 0
+    for _r in _L4_DAYS:
+        _c += _r[5]
+        l4_vr_cum.append(_c)
+
+    l5_vr_cum = []
+    _c5 = 0
+    for _i in range(21):
+        _day_dt = _l5_start + timedelta(days=_i)
+        if _day_dt <= _today_dt:
+            _c5 += daily_entry_sums.get(_day_dt.isoformat(), {}).get("vr", 0)
+            l5_vr_cum.append(_c5)
+        else:
+            l5_vr_cum.append(None)
+
     return render_template("lanzamiento_kpi_director.html",
                            entries=entries,
                            vendor_summaries=vendor_summaries,
@@ -3183,7 +3244,11 @@ def lanzamiento_kpi_director():
                            director_goal=director_goal,
                            daily_entry_sums=daily_entry_sums,
                            grand_entry_total=grand_entry_total,
-                           estrategias=estrategias)
+                           estrategias=estrategias,
+                           current_launch_day=current_launch_day,
+                           l4_today=l4_today,
+                           l4_vr_cum=l4_vr_cum,
+                           l5_vr_cum=l5_vr_cum)
 
 
 @app.route("/lanzamiento/kpi/director/estrategia", methods=["POST"])
