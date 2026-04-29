@@ -338,6 +338,12 @@
     <button class="btn btn-sm btn-outline-secondary d-md-none me-3" id="sidebar-toggle">
       <i class="bi bi-list"></i>
     </button>
+    <button onclick="history.back()" title="Volver"
+      style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px;margin-right:8px;transition:color .15s,background .15s;"
+      onmouseover="this.style.color='#1e2235';this.style.background='#f3f4f6'"
+      onmouseout="this.style.color='#9ca3af';this.style.background='none'">
+      <i class="bi bi-arrow-left" style="font-size:15px;"></i>
+    </button>
     <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
     <div class="ms-auto d-flex align-items-center gap-2">
       {% block header_actions %}{% endblock %}

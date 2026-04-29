@@ -376,6 +376,26 @@
           </button>
         </div>
         <div style="font-size:10px;color:#aaa;margin-top:4px;">Formatos: PDF, TXT, MD</div>
+        <!-- Audio context -->
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;">
+          <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:8px;">
+            🎙️ Audio contexto <span style="font-weight:400;color:#aaa;">(opcional) — objetivo del día y estrategia semanal</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button id="estRecordBtn" type="button" onclick="toggleRecording()"
+              style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#166534;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
+              <i class="bi bi-mic-fill" id="estRecordIcon"></i>
+              <span id="estRecordLabel">Grabar</span>
+            </button>
+            <span id="estRecordTimer" style="display:none;font-size:13px;font-weight:800;color:#dc2626;min-width:36px;font-variant-numeric:tabular-nums;">0:00</span>
+            <span style="font-size:11px;color:#ccc;">ó</span>
+            <label style="background:#f8f8f8;border:1.5px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:#555;cursor:pointer;display:flex;align-items:center;gap:6px;" for="estAudioFile">
+              <i class="bi bi-upload"></i><span id="estAudioFileLabel">Subir audio</span>
+            </label>
+            <input type="file" id="estAudioFile" accept=".mp3,.wav,.ogg,.m4a,.webm,.opus,.aac" style="display:none" onchange="onEstAudioFileChange(this)">
+          </div>
+          <audio id="estAudioPreview" controls style="display:none;width:100%;height:36px;border-radius:8px;margin-top:8px;"></audio>
+        </div>
       </div>
     </div>
 
@@ -395,6 +415,10 @@
           {% if est.notes %}
           <div style="font-size:11px;color:#888;margin-top:2px;">{{ est.notes }}</div>
           {% endif %}
+          {% if est.get('audio_file_name') %}
+          <audio controls style="width:100%;height:32px;border-radius:6px;margin-top:6px;max-width:320px;"
+                 src="/lanzamiento/kpi/director/estrategia/audio/{{ est.entry_date }}"></audio>
+          {% endif %}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <a href="/lanzamiento/kpi/director/estrategia/file/{{ est.entry_date }}" target="_blank"
@@ -412,7 +436,12 @@
         </div>
       </div>
       <!-- Analysis panel for this date -->
-      <div id="estanalysis-{{ est.entry_date }}" style="display:none;padding:16px 20px;background:#faf8f5;border-bottom:1px solid #f0f0f0;">
+      <div id="estanalysis-{{ est.entry_date }}" style="display:none;padding:16px 20px;background:#faf8f5;border-bottom:1px solid #f0f0f0;position:relative;">
+        <button onclick="analizarEstrategia('{{ est.entry_date }}')" title="Minimizar"
+          style="position:absolute;top:10px;right:12px;background:none;border:none;color:#bbb;cursor:pointer;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;transition:background .15s;"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">
+          <i class="bi bi-chevron-up"></i> Minimizar
+        </button>
         <div id="estanalysis-loader-{{ est.entry_date }}" class="text-center py-3">
           <div class="spinner-border spinner-border-sm" style="color:#c9a066;"></div>
           <div style="font-size:12px;color:#888;margin-top:6px;">Analizando estrategia vs KPIs...</div>
@@ -709,7 +738,12 @@
   <div style="font-size:11px;color:#aaa;margin-top:6px;">Estrategias basadas en Maxwell · Carnegie · Greene</div>
 </div>
 
-<div id="diagPanel" style="display:none;">
+<div id="diagPanel" style="display:none;background:#faf8f5;border-radius:12px;border:1px solid #e9ecef;padding:20px;margin-bottom:16px;position:relative;">
+  <button onclick="runDiagnostico()" title="Minimizar"
+    style="position:absolute;top:10px;right:12px;background:none;border:none;color:#bbb;cursor:pointer;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;transition:background .15s;"
+    onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='none'">
+    <i class="bi bi-chevron-up"></i> Minimizar
+  </button>
   <div id="diagLoader" class="text-center py-4">
     <div class="spinner-border" style="color:#c9a066;"></div>
     <div style="font-size:12px;color:#888;margin-top:8px;">Analizando el lanzamiento...</div>
@@ -1038,24 +1072,105 @@ function onEstFileChange(input) {
   if (label) label.textContent = input.files[0]?.name || 'Elegir PDF o TXT';
 }
 
+// ── Audio recording ──────────────────────────────────────────────────────────
+let _estMediaRecorder = null;
+let _estAudioChunks = [];
+let _estAudioBlob = null;
+let _estRecordInterval = null;
+let _estRecordSeconds = 0;
+
+function toggleRecording() {
+  if (_estMediaRecorder && _estMediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _estAudioChunks = [];
+    _estAudioBlob = null;
+    _estMediaRecorder = new MediaRecorder(stream);
+    _estMediaRecorder.addEventListener('dataavailable', e => _estAudioChunks.push(e.data));
+    _estMediaRecorder.addEventListener('stop', () => {
+      _estAudioBlob = new Blob(_estAudioChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(_estAudioBlob);
+      const preview = document.getElementById('estAudioPreview');
+      preview.src = url;
+      preview.style.display = 'block';
+      stream.getTracks().forEach(t => t.stop());
+    });
+    _estMediaRecorder.start();
+    _estRecordSeconds = 0;
+    const timer = document.getElementById('estRecordTimer');
+    timer.style.display = 'inline';
+    timer.textContent = '0:00';
+    document.getElementById('estRecordLabel').textContent = 'Detener';
+    document.getElementById('estRecordIcon').className = 'bi bi-stop-circle-fill';
+    const btn = document.getElementById('estRecordBtn');
+    btn.style.background = '#fff5f5';
+    btn.style.borderColor = '#fecaca';
+    btn.style.color = '#dc2626';
+    _estRecordInterval = setInterval(() => {
+      _estRecordSeconds++;
+      const m = Math.floor(_estRecordSeconds / 60);
+      const s = _estRecordSeconds % 60;
+      document.getElementById('estRecordTimer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+  } catch(e) {
+    showToastKPI('No se pudo acceder al micrófono. Verificá los permisos.', 'danger');
+  }
+}
+
+function stopRecording() {
+  if (_estMediaRecorder) _estMediaRecorder.stop();
+  clearInterval(_estRecordInterval);
+  document.getElementById('estRecordLabel').textContent = 'Grabar';
+  document.getElementById('estRecordIcon').className = 'bi bi-mic-fill';
+  document.getElementById('estRecordTimer').style.display = 'none';
+  const btn = document.getElementById('estRecordBtn');
+  btn.style.background = '#f0fdf4';
+  btn.style.borderColor = '#bbf7d0';
+  btn.style.color = '#166534';
+}
+
+function onEstAudioFileChange(input) {
+  if (input.files[0]) {
+    _estAudioBlob = null;
+    const url = URL.createObjectURL(input.files[0]);
+    const preview = document.getElementById('estAudioPreview');
+    preview.src = url;
+    preview.style.display = 'block';
+    document.getElementById('estAudioFileLabel').textContent = input.files[0].name;
+  }
+}
+
 async function uploadEstrategia() {
   const fecha = document.getElementById('estFecha')?.value;
   const fileInput = document.getElementById('estFile');
   const notes = document.getElementById('estNotes')?.value || '';
+  const audioFileInput = document.getElementById('estAudioFile');
   const btn = document.getElementById('estUploadBtn');
   if (!fecha) { showToastKPI('Seleccioná una fecha.', 'danger'); return; }
-  if (!fileInput?.files?.length) { showToastKPI('Seleccioná un archivo.', 'danger'); return; }
+  if (!fileInput?.files?.length) { showToastKPI('Seleccioná un archivo PDF o TXT.', 'danger'); return; }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:10px;height:10px;"></span>Subiendo...';
   const fd = new FormData();
   fd.append('entry_date', fecha);
   fd.append('notes', notes);
   fd.append('file', fileInput.files[0]);
+  if (_estAudioBlob) {
+    fd.append('audio', _estAudioBlob, `audio_estrategia_${fecha}.webm`);
+  } else if (audioFileInput?.files?.length) {
+    fd.append('audio', audioFileInput.files[0]);
+  }
   try {
     const resp = await fetch('/lanzamiento/kpi/director/estrategia', { method: 'POST', body: fd });
     const data = await resp.json();
     if (data.ok) {
-      showToastKPI('Estrategia guardada.', 'success');
+      showToastKPI('Estrategia guardada' + (data.has_audio ? ' con audio.' : '.'), 'success');
       setTimeout(() => window.location.reload(), 800);
     } else {
       showToastKPI(data.error || 'Error al subir.', 'danger');

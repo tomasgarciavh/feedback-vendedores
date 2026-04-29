@@ -45,6 +45,7 @@ os.makedirs(ESTRATEGIAS_FOLDER, exist_ok=True)
 LANZAMIENTO_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv", "3gp",
                            "jpg", "jpeg", "png", "webp"}
 ESTRATEGIA_EXTENSIONS = {"pdf", "txt", "md"}
+ESTRATEGIA_AUDIO_EXTENSIONS = {"mp3", "wav", "ogg", "m4a", "webm", "opus", "aac"}
 
 
 def _allowed_file(filename: str) -> bool:
@@ -3203,22 +3204,33 @@ def estrategia_upload():
     filename = f"estrategia_{entry_date}.{ext}"
     filepath = os.path.join(ESTRATEGIAS_FOLDER, filename)
     f.save(filepath)
-    database.estrategia_upsert(entry_date, filename, f.filename, notes)
-    return jsonify({"ok": True, "filename": filename, "original_name": f.filename})
+    audio_filename = ""
+    if "audio" in request.files and request.files["audio"].filename:
+        af = request.files["audio"]
+        aext = af.filename.rsplit(".", 1)[-1].lower() if "." in af.filename else "webm"
+        if aext not in ESTRATEGIA_AUDIO_EXTENSIONS:
+            aext = "webm"
+        audio_filename = f"audio_estrategia_{entry_date}.{aext}"
+        af.save(os.path.join(ESTRATEGIAS_FOLDER, audio_filename))
+    database.estrategia_upsert(entry_date, filename, f.filename, notes, audio_filename)
+    return jsonify({"ok": True, "filename": filename, "original_name": f.filename, "has_audio": bool(audio_filename)})
 
 
 @app.route("/lanzamiento/kpi/director/estrategia/<entry_date>", methods=["DELETE"])
 def estrategia_delete(entry_date: str):
     redir = _require_vendor()
     if redir: return jsonify({"ok": False}), 403
-    fname = database.estrategia_delete(entry_date)
-    if fname:
-        fpath = os.path.join(ESTRATEGIAS_FOLDER, fname)
-        if os.path.isfile(fpath):
-            try:
-                os.unlink(fpath)
-            except Exception:
-                pass
+    files = database.estrategia_delete(entry_date)
+    if files:
+        for key in ("file_name", "audio_file_name"):
+            fname = files.get(key, "")
+            if fname:
+                fpath = os.path.join(ESTRATEGIAS_FOLDER, fname)
+                if os.path.isfile(fpath):
+                    try:
+                        os.unlink(fpath)
+                    except Exception:
+                        pass
     return jsonify({"ok": True})
 
 
@@ -3233,6 +3245,17 @@ def estrategia_file(entry_date: str):
     return send_from_directory(ESTRATEGIAS_FOLDER, rec["file_name"],
                                as_attachment=False,
                                download_name=rec["original_name"])
+
+
+@app.route("/lanzamiento/kpi/director/estrategia/audio/<entry_date>")
+def estrategia_audio(entry_date: str):
+    redir = _require_vendor()
+    if redir: return redirect(url_for("vendor_login"))
+    rec = database.estrategia_get(entry_date)
+    if not rec or not rec.get("audio_file_name"):
+        from flask import abort
+        abort(404)
+    return send_from_directory(ESTRATEGIAS_FOLDER, rec["audio_file_name"], as_attachment=False)
 
 
 @app.route("/lanzamiento/kpi/director/estrategia/analizar", methods=["POST"])
@@ -3267,8 +3290,18 @@ def estrategia_analizar():
         for vs in sorted(vendor_summaries_data, key=lambda x: x.get("venta_realizada", 0), reverse=True)
     ) or "Sin datos por vendedor"
 
+    audio_filepath = None
+    if rec.get("audio_file_name"):
+        ap = os.path.join(ESTRATEGIAS_FOLDER, rec["audio_file_name"])
+        if os.path.isfile(ap):
+            audio_filepath = ap
+
+    audio_note = ""
+    if audio_filepath:
+        audio_note = "\n\nIMPORTANTE: El director también grabó un audio (incluido) explicando su objetivo del día y estrategia semanal. Transcribí ese audio mentalmente y usalo como contexto prioritario — es la intención real detrás del documento. Tu análisis debe cruzar lo que dice en el audio con los KPIs obtenidos."
+
     prompt = f"""Sos un consultor experto en dirección comercial de lanzamientos digitales.
-El director cargó su estrategia comercial (el documento adjunto) y aquí tenés los resultados KPI acumulados del equipo.
+El director cargó su estrategia comercial (el documento adjunto){' y un audio con su objetivo del día' if audio_filepath else ''}.{audio_note}
 
 RESULTADOS KPI ACUMULADOS DEL LANZAMIENTO:
 - Total leads: {tl}
@@ -3281,10 +3314,10 @@ RESULTADOS KPI ACUMULADOS DEL LANZAMIENTO:
 DETALLE POR VENDEDOR (ordenado por ventas):
 {vendor_lines}
 
-Leé la estrategia del documento y compará con estos resultados. Respondé con este formato exacto:
+Leé la estrategia del documento{' y escuchá el audio' if audio_filepath else ''} y compará con estos resultados. Respondé con este formato exacto:
 
-## 📋 Resumen de la estrategia
-[2-3 oraciones: qué se planificó hacer y cuál era el objetivo]
+## 📋 Resumen de la estrategia{' y objetivo del día' if audio_filepath else ''}
+[2-3 oraciones: qué se planificó hacer, cuál era el objetivo{'  y qué dijo el director en el audio' if audio_filepath else ''}]
 
 ## ✅ Qué está funcionando
 [Lo que la estrategia planteó y se refleja positivamente en los KPIs. Citá números concretos]
@@ -3303,6 +3336,7 @@ Sé directo y específico. Evitá generalidades. Cada punto debe ser accionable.
     try:
         from google import genai as _gc
         from google.genai import types as _gct
+        import time as _time
         client = _gc.Client(api_key=config.GEMINI_API_KEY)
         ext = rec["file_name"].rsplit(".", 1)[-1].lower()
         mime = {"pdf": "application/pdf", "txt": "text/plain", "md": "text/plain"}.get(ext, "text/plain")
@@ -3310,17 +3344,26 @@ Sé directo y específico. Evitá generalidades. Cada punto debe ser accionable.
             file=filepath,
             config=_gct.UploadFileConfig(mime_type=mime)
         )
-        import time as _time
         waited = 0
         while uploaded.state.name == "PROCESSING" and waited < 60:
             _time.sleep(3); waited += 3
             uploaded = client.files.get(name=uploaded.name)
         if uploaded.state.name == "FAILED":
             return jsonify({"ok": False, "error": "No se pudo procesar el documento"}), 200
-        response = client.models.generate_content(
-            model=config.GEMINI_MODEL,
-            contents=[uploaded, prompt]
-        )
+        contents = [uploaded]
+        if audio_filepath:
+            aext = rec["audio_file_name"].rsplit(".", 1)[-1].lower()
+            audio_mime = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg",
+                          "m4a": "audio/mp4", "webm": "audio/webm", "opus": "audio/ogg", "aac": "audio/aac"}.get(aext, "audio/webm")
+            uploaded_audio = client.files.upload(file=audio_filepath, config=_gct.UploadFileConfig(mime_type=audio_mime))
+            waited_a = 0
+            while uploaded_audio.state.name == "PROCESSING" and waited_a < 60:
+                _time.sleep(3); waited_a += 3
+                uploaded_audio = client.files.get(name=uploaded_audio.name)
+            if uploaded_audio.state.name != "FAILED":
+                contents.append(uploaded_audio)
+        contents.append(prompt)
+        response = client.models.generate_content(model=config.GEMINI_MODEL, contents=contents)
         return jsonify({"ok": True, "analysis": response.text.strip()})
     except Exception as e:
         logger.error("Estrategia analysis error: %s", e)

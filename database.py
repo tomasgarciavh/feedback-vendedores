@@ -341,6 +341,9 @@ def init_db():
                 uploaded_at TEXT
             )
         """)
+        conn.execute("""
+            ALTER TABLE lanzamiento_estrategias ADD COLUMN IF NOT EXISTS audio_file_name TEXT DEFAULT ''
+        """)
         conn.commit()
     logger.info("Database schema ready.")
     _seed_vendors()
@@ -1888,16 +1891,17 @@ def l5_delete_venta(entry_id: int) -> bool:
 
 # ── Estrategias diarias ──────────────────────────────────────────────────────
 
-def estrategia_upsert(entry_date: str, file_name: str, original_name: str, notes: str = "") -> None:
+def estrategia_upsert(entry_date: str, file_name: str, original_name: str, notes: str = "", audio_file_name: str = "") -> None:
     now = _now()
     with get_connection() as conn:
         conn.execute(
-            """INSERT INTO lanzamiento_estrategias (entry_date, file_name, original_name, notes, uploaded_at)
-               VALUES (?, ?, ?, ?, ?)
+            """INSERT INTO lanzamiento_estrategias (entry_date, file_name, original_name, notes, uploaded_at, audio_file_name)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(entry_date) DO UPDATE SET
                 file_name=excluded.file_name, original_name=excluded.original_name,
-                notes=excluded.notes, uploaded_at=excluded.uploaded_at""",
-            (entry_date, file_name, original_name, notes, now),
+                notes=excluded.notes, uploaded_at=excluded.uploaded_at,
+                audio_file_name=excluded.audio_file_name""",
+            (entry_date, file_name, original_name, notes, now, audio_file_name),
         )
         conn.commit()
 
@@ -1918,14 +1922,14 @@ def estrategia_get_all() -> list:
     return [dict(r) for r in rows]
 
 
-def estrategia_delete(entry_date: str) -> str | None:
-    """Deletes the DB record, returns file_name so caller can delete the file."""
+def estrategia_delete(entry_date: str) -> dict | None:
+    """Deletes the DB record, returns dict with file names so caller can delete files."""
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT file_name FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,)
+            "SELECT file_name, audio_file_name FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,)
         ).fetchone()
         if not row:
             return None
         conn.execute("DELETE FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,))
         conn.commit()
-    return row["file_name"]
+    return {"file_name": row["file_name"], "audio_file_name": row["audio_file_name"] or ""}
