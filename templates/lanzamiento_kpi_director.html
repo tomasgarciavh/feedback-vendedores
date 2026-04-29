@@ -481,7 +481,7 @@
 </div>
 
 <!-- ══ TOTALES ACUMULADOS CON % ══ -->
-{% set _tl = global_totals.get('total_leads', 0) %}
+{% set _tl = 5600 %}
 {% set _nr = global_totals.get('no_respondido', 0) %}
 {% set _il = global_totals.get('interaccion_leve', 0) %}
 {% set _cf = global_totals.get('conversacion_fluida', 0) %}
@@ -499,7 +499,7 @@
   <div class="col-6 col-sm-4 col-lg-2">
     <div class="kpi-card">
       <div class="kpi-val" style="color:#1a0810;">{{ _tl }}</div>
-      <div class="kpi-lbl">📊 Total leads</div>
+      <div class="kpi-lbl">📊 Leads asignados</div>
     </div>
   </div>
   {# NR #}
@@ -701,39 +701,6 @@
 </div>
 
 <!-- ── DIAGNÓSTICO COMERCIAL ── -->
-<div class="section-title"><i class="bi bi-stethoscope" style="color:#c9a066;"></i> Diagnóstico Comercial del Lanzamiento</div>
-
-{% set vr_d = global_totals.get('venta_realizada', 0) %}
-{% set pc_d = global_totals.get('potencial_compra', 0) %}
-{% set cf_d = global_totals.get('conversacion_fluida', 0) %}
-{% set il_d = global_totals.get('interaccion_leve', 0) %}
-{% set nr_d = global_totals.get('no_respondido', 0) %}
-{% set total_d = nr_d + il_d + cf_d + pc_d + vr_d %}
-{% set responded_d = il_d + cf_d + pc_d + vr_d %}
-{% set cf_plus_d = cf_d + pc_d + vr_d %}
-{% set pc_plus_d = pc_d + vr_d %}
-
-{% macro conv_badge(rate, label) %}
-{% set color = '#22c55e' if rate >= 60 else ('#f59e0b' if rate >= 30 else '#ef4444') %}
-{% set icon = '✅' if rate >= 60 else ('⚠️' if rate >= 30 else '🔴') %}
-<div style="background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:12px 14px;text-align:center;">
-  <div style="font-size:20px;font-weight:900;color:{{ color }};">{{ rate }}%</div>
-  <div style="font-size:10px;color:#888;margin-top:2px;">{{ icon }} {{ label }}</div>
-</div>
-{% endmacro %}
-
-{% set r1 = ((responded_d / total_d * 100) | round(1)) if total_d > 0 else 0 %}
-{% set r2 = ((cf_plus_d / responded_d * 100) | round(1)) if responded_d > 0 else 0 %}
-{% set r3 = ((pc_plus_d / cf_plus_d * 100) | round(1)) if cf_plus_d > 0 else 0 %}
-{% set r4 = ((vr_d / pc_plus_d * 100) | round(1)) if pc_plus_d > 0 else 0 %}
-
-<div class="row g-2 mb-3">
-  <div class="col-6 col-sm-3">{{ conv_badge(r1, 'Respuesta NR→IL') }}</div>
-  <div class="col-6 col-sm-3">{{ conv_badge(r2, 'Escalada IL→CF') }}</div>
-  <div class="col-6 col-sm-3">{{ conv_badge(r3, 'Interés CF→PC') }}</div>
-  <div class="col-6 col-sm-3">{{ conv_badge(r4, 'Cierre PC→Venta') }}</div>
-</div>
-
 <div style="text-align:center;margin-bottom:16px;">
   <button onclick="runDiagnostico()" id="diagBtn"
           style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:12px;padding:12px 28px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(26,8,16,.25);">
