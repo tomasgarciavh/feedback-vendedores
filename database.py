@@ -331,6 +331,16 @@ def init_db():
                 updated_at TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS lanzamiento_estrategias (
+                id SERIAL PRIMARY KEY,
+                entry_date DATE NOT NULL UNIQUE,
+                file_name TEXT NOT NULL,
+                original_name TEXT NOT NULL,
+                notes TEXT DEFAULT '',
+                uploaded_at TEXT
+            )
+        """)
         conn.commit()
     logger.info("Database schema ready.")
     _seed_vendors()
@@ -1874,3 +1884,48 @@ def l5_delete_venta(entry_id: int) -> bool:
         cur = conn.execute("DELETE FROM lanzamiento5_ventas WHERE id=?", (entry_id,))
         conn.commit()
         return cur.rowcount > 0
+
+
+# ── Estrategias diarias ──────────────────────────────────────────────────────
+
+def estrategia_upsert(entry_date: str, file_name: str, original_name: str, notes: str = "") -> None:
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO lanzamiento_estrategias (entry_date, file_name, original_name, notes, uploaded_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(entry_date) DO UPDATE SET
+                file_name=excluded.file_name, original_name=excluded.original_name,
+                notes=excluded.notes, uploaded_at=excluded.uploaded_at""",
+            (entry_date, file_name, original_name, notes, now),
+        )
+        conn.commit()
+
+
+def estrategia_get(entry_date: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def estrategia_get_all() -> list:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM lanzamiento_estrategias ORDER BY entry_date DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def estrategia_delete(entry_date: str) -> str | None:
+    """Deletes the DB record, returns file_name so caller can delete the file."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT file_name FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,)
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM lanzamiento_estrategias WHERE entry_date=?", (entry_date,))
+        conn.commit()
+    return row["file_name"]

@@ -39,8 +39,12 @@ _lanzamiento_queue: queue.Queue = queue.Queue()
 LANZAMIENTO_FOLDER = os.path.join(_BASE_DIR, "uploads", "lanzamiento")
 os.makedirs(LANZAMIENTO_FOLDER, exist_ok=True)
 
+ESTRATEGIAS_FOLDER = os.path.join(_BASE_DIR, "uploads", "estrategias")
+os.makedirs(ESTRATEGIAS_FOLDER, exist_ok=True)
+
 LANZAMIENTO_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv", "3gp",
                            "jpg", "jpeg", "png", "webp"}
+ESTRATEGIA_EXTENSIONS = {"pdf", "txt", "md"}
 
 
 def _allowed_file(filename: str) -> bool:
@@ -3158,6 +3162,8 @@ def lanzamiento_kpi_director():
             ds["custom"][str(lid)] = ds["custom"].get(str(lid), 0) + v
             grand_entry_total["custom"][str(lid)] = grand_entry_total["custom"].get(str(lid), 0) + v
 
+    estrategias = database.estrategia_get_all()
+
     return render_template("lanzamiento_kpi_director.html",
                            entries=entries,
                            vendor_summaries=vendor_summaries,
@@ -3175,7 +3181,150 @@ def lanzamiento_kpi_director():
                            custom_labels=custom_labels,
                            director_goal=director_goal,
                            daily_entry_sums=daily_entry_sums,
-                           grand_entry_total=grand_entry_total)
+                           grand_entry_total=grand_entry_total,
+                           estrategias=estrategias)
+
+
+@app.route("/lanzamiento/kpi/director/estrategia", methods=["POST"])
+def estrategia_upload():
+    redir = _require_vendor()
+    if redir: return jsonify({"ok": False}), 403
+    entry_date = (request.form.get("entry_date") or "").strip()
+    notes = (request.form.get("notes") or "").strip()
+    if not entry_date:
+        return jsonify({"ok": False, "error": "Fecha requerida"}), 400
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"ok": False, "error": "Archivo requerido"}), 400
+    f = request.files["file"]
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    if ext not in ESTRATEGIA_EXTENSIONS:
+        return jsonify({"ok": False, "error": f"Formato no soportado. Usá: PDF, TXT o MD"}), 400
+    os.makedirs(ESTRATEGIAS_FOLDER, exist_ok=True)
+    filename = f"estrategia_{entry_date}.{ext}"
+    filepath = os.path.join(ESTRATEGIAS_FOLDER, filename)
+    f.save(filepath)
+    database.estrategia_upsert(entry_date, filename, f.filename, notes)
+    return jsonify({"ok": True, "filename": filename, "original_name": f.filename})
+
+
+@app.route("/lanzamiento/kpi/director/estrategia/<entry_date>", methods=["DELETE"])
+def estrategia_delete(entry_date: str):
+    redir = _require_vendor()
+    if redir: return jsonify({"ok": False}), 403
+    fname = database.estrategia_delete(entry_date)
+    if fname:
+        fpath = os.path.join(ESTRATEGIAS_FOLDER, fname)
+        if os.path.isfile(fpath):
+            try:
+                os.unlink(fpath)
+            except Exception:
+                pass
+    return jsonify({"ok": True})
+
+
+@app.route("/lanzamiento/kpi/director/estrategia/file/<entry_date>")
+def estrategia_file(entry_date: str):
+    redir = _require_vendor()
+    if redir: return redirect(url_for("vendor_login"))
+    rec = database.estrategia_get(entry_date)
+    if not rec:
+        from flask import abort
+        abort(404)
+    return send_from_directory(ESTRATEGIAS_FOLDER, rec["file_name"],
+                               as_attachment=False,
+                               download_name=rec["original_name"])
+
+
+@app.route("/lanzamiento/kpi/director/estrategia/analizar", methods=["POST"])
+def estrategia_analizar():
+    redir = _require_vendor()
+    if redir: return jsonify({"ok": False}), 403
+    data = request.get_json() or {}
+    entry_date = data.get("entry_date", "")
+    totals = data.get("totals", {})
+    vendor_summaries_data = data.get("vendor_summaries", [])
+
+    rec = database.estrategia_get(entry_date)
+    if not rec:
+        return jsonify({"ok": False, "error": "No hay estrategia cargada para esa fecha"}), 404
+
+    filepath = os.path.join(ESTRATEGIAS_FOLDER, rec["file_name"])
+    if not os.path.isfile(filepath):
+        return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+
+    def pct(a, b): return round(a / b * 100, 1) if b > 0 else 0
+    tl = int(totals.get("total_leads", 0))
+    nr = int(totals.get("no_respondido", 0))
+    il = int(totals.get("interaccion_leve", 0))
+    cf = int(totals.get("conversacion_fluida", 0))
+    pc = int(totals.get("potencial_compra", 0))
+    vr = int(totals.get("venta_realizada", 0))
+
+    vendor_lines = "\n".join(
+        f"  • {vs.get('vendor_name','?')}: VR={vs.get('venta_realizada',0)} | "
+        f"PC={vs.get('potencial_compra',0)} | CF={vs.get('conversacion_fluida',0)} | "
+        f"IL={vs.get('interaccion_leve',0)} | NR={vs.get('no_respondido',0)}"
+        for vs in sorted(vendor_summaries_data, key=lambda x: x.get("venta_realizada", 0), reverse=True)
+    ) or "Sin datos por vendedor"
+
+    prompt = f"""Sos un consultor experto en dirección comercial de lanzamientos digitales.
+El director cargó su estrategia comercial (el documento adjunto) y aquí tenés los resultados KPI acumulados del equipo.
+
+RESULTADOS KPI ACUMULADOS DEL LANZAMIENTO:
+- Total leads: {tl}
+- No respondidos: {nr} ({pct(nr,tl)}%)
+- Interacción Leve: {il} ({pct(il,tl)}%)
+- Conversación Fluida: {cf} ({pct(cf,tl)}%)
+- Potencial Compra: {pc} ({pct(pc,tl)}%)
+- Ventas concretadas: {vr} ({pct(vr,tl)}%)
+
+DETALLE POR VENDEDOR (ordenado por ventas):
+{vendor_lines}
+
+Leé la estrategia del documento y compará con estos resultados. Respondé con este formato exacto:
+
+## 📋 Resumen de la estrategia
+[2-3 oraciones: qué se planificó hacer y cuál era el objetivo]
+
+## ✅ Qué está funcionando
+[Lo que la estrategia planteó y se refleja positivamente en los KPIs. Citá números concretos]
+
+## ⚠️ Qué no está funcionando / Brechas
+[Diferencia entre lo planeado y los resultados reales. Identificá el cuello de botella principal con números]
+
+## 👥 Análisis por vendedor
+[1-2 observaciones sobre quién está ejecutando mejor la estrategia y quién necesita ajustes. Con datos concretos]
+
+## 🎯 Recomendaciones para los próximos días
+[3 acciones concretas y específicas basadas en los datos. Cada una con por qué y cómo ejecutarla]
+
+Sé directo y específico. Evitá generalidades. Cada punto debe ser accionable."""
+
+    try:
+        from google import genai as _gc
+        from google.genai import types as _gct
+        client = _gc.Client(api_key=config.GEMINI_API_KEY)
+        ext = rec["file_name"].rsplit(".", 1)[-1].lower()
+        mime = {"pdf": "application/pdf", "txt": "text/plain", "md": "text/plain"}.get(ext, "text/plain")
+        uploaded = client.files.upload(
+            file=filepath,
+            config=_gct.UploadFileConfig(mime_type=mime)
+        )
+        import time as _time
+        waited = 0
+        while uploaded.state.name == "PROCESSING" and waited < 60:
+            _time.sleep(3); waited += 3
+            uploaded = client.files.get(name=uploaded.name)
+        if uploaded.state.name == "FAILED":
+            return jsonify({"ok": False, "error": "No se pudo procesar el documento"}), 200
+        response = client.models.generate_content(
+            model=config.GEMINI_MODEL,
+            contents=[uploaded, prompt]
+        )
+        return jsonify({"ok": True, "analysis": response.text.strip()})
+    except Exception as e:
+        logger.error("Estrategia analysis error: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 200
 
 
 @app.route("/lanzamiento/kpi/director/save-goal", methods=["POST"])

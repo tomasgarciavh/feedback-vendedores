@@ -352,6 +352,84 @@
   </div>
 </div>
 
+<!-- ══ ESTRATEGIA COMERCIAL DEL DÍA ══ -->
+<div class="section-title"><i class="bi bi-journal-text" style="color:#c9a066;"></i> Estrategia Comercial del Día</div>
+
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;border:1px solid rgba(201,160,102,.2);">
+  <div class="card-body p-0">
+    <!-- Upload strip -->
+    <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:12px;font-weight:700;color:#1a0810;margin-bottom:6px;">Subir estrategia del día</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="date" id="estFecha" value="{{ today }}"
+            style="border:1.5px solid #e9ecef;border-radius:8px;padding:6px 10px;font-size:13px;color:#333;outline:none;">
+          <label style="background:#f8f8f8;border:1.5px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:#555;cursor:pointer;display:flex;align-items:center;gap:6px;" for="estFile">
+            <i class="bi bi-paperclip"></i><span id="estFileLabel">Elegir PDF o TXT</span>
+          </label>
+          <input type="file" id="estFile" accept=".pdf,.txt,.md" style="display:none" onchange="onEstFileChange(this)">
+          <input type="text" id="estNotes" placeholder="Nota opcional…"
+            style="border:1.5px solid #e9ecef;border-radius:8px;padding:6px 10px;font-size:12px;color:#333;outline:none;min-width:160px;">
+          <button onclick="uploadEstrategia()" id="estUploadBtn"
+            style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+            <i class="bi bi-cloud-upload me-1"></i>Guardar
+          </button>
+        </div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px;">Formatos: PDF, TXT, MD</div>
+      </div>
+    </div>
+
+    <!-- List of uploaded strategies -->
+    <div id="estList" style="padding:0;">
+      {% if estrategias %}
+      {% for est in estrategias %}
+      <div class="est-row" id="estrow-{{ est.entry_date }}"
+        style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #f8f8f8;flex-wrap:wrap;">
+        <div style="width:80px;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:800;color:#1a0810;">{{ est.entry_date | fmt_date }}</div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <i class="bi bi-file-earmark-text me-1" style="color:#c9a066;"></i>{{ est.original_name }}
+          </div>
+          {% if est.notes %}
+          <div style="font-size:11px;color:#888;margin-top:2px;">{{ est.notes }}</div>
+          {% endif %}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <a href="/lanzamiento/kpi/director/estrategia/file/{{ est.entry_date }}" target="_blank"
+            style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;color:#0369a1;text-decoration:none;">
+            <i class="bi bi-eye me-1"></i>Ver
+          </a>
+          <button onclick="analizarEstrategia('{{ est.entry_date }}')"
+            style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">
+            <i class="bi bi-lightning-fill me-1"></i>Analizar con IA
+          </button>
+          <button onclick="deleteEstrategia('{{ est.entry_date }}')"
+            style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:5px 8px;font-size:11px;color:#dc2626;cursor:pointer;">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+      <!-- Analysis panel for this date -->
+      <div id="estanalysis-{{ est.entry_date }}" style="display:none;padding:16px 20px;background:#faf8f5;border-bottom:1px solid #f0f0f0;">
+        <div id="estanalysis-loader-{{ est.entry_date }}" class="text-center py-3">
+          <div class="spinner-border spinner-border-sm" style="color:#c9a066;"></div>
+          <div style="font-size:12px;color:#888;margin-top:6px;">Analizando estrategia vs KPIs...</div>
+        </div>
+        <div id="estanalysis-content-{{ est.entry_date }}" class="strategy-block" style="display:none;"></div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="padding:20px;text-align:center;color:#bbb;font-size:13px;">
+        <i class="bi bi-journal-plus" style="font-size:24px;display:block;margin-bottom:8px;opacity:.4;"></i>
+        Aún no hay estrategias cargadas. Subí la estrategia del día para poder analizarla con IA.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <!-- ══ ACTIVIDAD DEL DÍA ══ -->
 <div class="section-title"><i class="bi bi-calendar-check" style="color:#c9a066;"></i> KPIs del día — {{ yesterday | fmt_date }}</div>
 <div class="row g-3 mb-4">
@@ -992,6 +1070,100 @@ async function analyzeStageGlobal() {
 }
 
 // ── Director goal ────────────────────────────────────────────────────────────
+// ── Estrategia Comercial ─────────────────────────────────────────────────────
+
+function onEstFileChange(input) {
+  const label = document.getElementById('estFileLabel');
+  if (label) label.textContent = input.files[0]?.name || 'Elegir PDF o TXT';
+}
+
+async function uploadEstrategia() {
+  const fecha = document.getElementById('estFecha')?.value;
+  const fileInput = document.getElementById('estFile');
+  const notes = document.getElementById('estNotes')?.value || '';
+  const btn = document.getElementById('estUploadBtn');
+  if (!fecha) { showToastKPI('Seleccioná una fecha.', 'danger'); return; }
+  if (!fileInput?.files?.length) { showToastKPI('Seleccioná un archivo.', 'danger'); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:10px;height:10px;"></span>Subiendo...';
+  const fd = new FormData();
+  fd.append('entry_date', fecha);
+  fd.append('notes', notes);
+  fd.append('file', fileInput.files[0]);
+  try {
+    const resp = await fetch('/lanzamiento/kpi/director/estrategia', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.ok) {
+      showToastKPI('Estrategia guardada.', 'success');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToastKPI(data.error || 'Error al subir.', 'danger');
+    }
+  } catch { showToastKPI('Error de red.', 'danger'); }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Guardar';
+}
+
+async function deleteEstrategia(date) {
+  if (!confirm('¿Eliminar estrategia de ' + date + '?')) return;
+  try {
+    const resp = await fetch('/lanzamiento/kpi/director/estrategia/' + date, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.ok) {
+      const row = document.getElementById('estrow-' + date);
+      const analysis = document.getElementById('estanalysis-' + date);
+      if (row) row.remove();
+      if (analysis) analysis.remove();
+    }
+  } catch { showToastKPI('Error al eliminar.', 'danger'); }
+}
+
+const _openAnalysis = new Set();
+async function analizarEstrategia(date) {
+  const panel = document.getElementById('estanalysis-' + date);
+  const loader = document.getElementById('estanalysis-loader-' + date);
+  const content = document.getElementById('estanalysis-content-' + date);
+  if (!panel) return;
+  if (_openAnalysis.has(date)) {
+    panel.style.display = 'none';
+    _openAnalysis.delete(date);
+    return;
+  }
+  _openAnalysis.add(date);
+  panel.style.display = 'block';
+  loader.style.display = 'block';
+  content.style.display = 'none';
+  try {
+    const resp = await fetch('/lanzamiento/kpi/director/estrategia/analizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry_date: date, totals: gt, vendor_summaries: vendorSummaries })
+    });
+    const data = await resp.json();
+    loader.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = data.ok
+      ? renderStrategy(data.analysis, null, null)
+      : `<div style="color:#ef4444;font-size:12px;">${data.error || 'Error al generar análisis.'}</div>`;
+  } catch(e) {
+    loader.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error de conexión.</div>';
+  }
+}
+
+function showToastKPI(msg, type) {
+  // Simple toast using Bootstrap if available
+  const div = document.createElement('div');
+  div.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15);`;
+  div.style.background = type === 'success' ? '#f0fdf4' : type === 'danger' ? '#fff5f5' : '#fef3c7';
+  div.style.color = type === 'success' ? '#166534' : type === 'danger' ? '#b91c1c' : '#92400e';
+  div.style.border = `1px solid ${type === 'success' ? '#bbf7d0' : type === 'danger' ? '#fecaca' : '#fde68a'}`;
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+}
+
 async function saveDirectorGoal() {
   const val = parseInt(document.getElementById('goalInput').value) || 0;
   const resp = await fetch('/lanzamiento/kpi/director/save-goal', {
