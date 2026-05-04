@@ -66,14 +66,23 @@ def process_uploaded_file(file_path: str, vendor_name: str, file_name: str, file
         database.mark_error(file_id, str(exc))
 
     finally:
-        # Move video to persistent roleplays/ folder instead of deleting
+        # Move video to persistent roleplays/ folder instead of deleting.
+        # Handle retries where file_path is already inside roleplays/.
         if os.path.exists(file_path):
             try:
                 import shutil
-                roleplays_dir = os.path.join(os.path.dirname(file_path), "roleplays")
+                base_dir = os.path.dirname(file_path)
+                # If the file is already inside a 'roleplays' directory, keep it there.
+                if os.path.basename(base_dir) == "roleplays":
+                    roleplays_dir = base_dir
+                else:
+                    roleplays_dir = os.path.join(base_dir, "roleplays")
                 os.makedirs(roleplays_dir, exist_ok=True)
                 dest = os.path.join(roleplays_dir, os.path.basename(file_path))
-                shutil.move(file_path, dest)
-                logger.info("Video saved to roleplays/: %s", os.path.basename(file_path))
+                if os.path.abspath(file_path) != os.path.abspath(dest):
+                    shutil.move(file_path, dest)
+                    logger.info("Video saved to roleplays/: %s", os.path.basename(file_path))
+                else:
+                    logger.info("Video already in roleplays/: %s", os.path.basename(file_path))
             except OSError as e:
                 logger.warning("Could not move video file %s: %s", file_path, e)

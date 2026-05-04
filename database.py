@@ -99,16 +99,25 @@ class _Conn:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
-            self._raw.rollback()
+            try:
+                self._raw.rollback()
+            except Exception:
+                pass  # Connection may already be closed; don't mask the original error.
         else:
             self._raw.commit()
         if self._pool_ref:
             try:
                 self._pool_ref.putconn(self._raw)
             except Exception:
-                self._raw.close()
+                try:
+                    self._raw.close()
+                except Exception:
+                    pass
         else:
-            self._raw.close()
+            try:
+                self._raw.close()
+            except Exception:
+                pass
         return False
 
 
@@ -364,6 +373,7 @@ def _seed_vendors():
         ("Daniela Ruiz Diaz", "dulcerecreodulce@gmail.com"),
         ("Roxana Molina", "roxi_molina@yahoo.com"),
         ("Hugo Loncaric", "hugo.loncaric@vh.com"),
+        ("Lucia Magali Gomez", "luuciamgomez@gmail.com"),
     ]
     for name, email in _KPI_VENDORS:
         try:

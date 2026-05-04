@@ -159,8 +159,9 @@ def _lanzamiento_worker():
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me-in-production")
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024
-# Stream large uploads directly to disk — evita cargarlos en memoria RAM
-app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024  # solo 1 MB en RAM, el resto va a disco
+app.config["MAX_FORM_MEMORY_SIZE"] = 1 * 1024 * 1024
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
 
 
 def _gemini_text(prompt: str) -> str:
@@ -208,12 +209,13 @@ def inject_current_vendor():
 
 @app.after_request
 def add_no_cache(response):
-    # Skip no-cache for images so the browser can display them
-    if response.content_type and response.content_type.startswith("image/"):
-        return response
-    response.headers["Cache-Control"] = "no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    # Only apply no-cache to HTML/JSON. Binary streams (video, images, audio) must NOT
+    # get no-store — it breaks browser Range-request buffering for video playback.
+    ct = response.content_type or ""
+    if "text/html" in ct or "application/json" in ct or "text/plain" in ct:
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 
@@ -230,7 +232,7 @@ def health():
 def index():
     redir = _require_vendor()
     if redir: return redir
-    records = database.get_recent_records(limit=200)
+    records = database.get_recent_records(limit=2000)
     vendors = database.get_vendors()
     missing_configs = config.get_missing_configs()
     pending_count = database.count_pending()
@@ -272,18 +274,27 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     vendor_name = (request.form.get("vendor_name") or "").strip()
     if not vendor_name:
+        if is_xhr:
+            return jsonify({"ok": False, "error": "Seleccioná un vendedor."}), 400
         flash("Seleccioná un vendedor.", "danger")
         return redirect(url_for("index"))
 
     if "video" not in request.files or request.files["video"].filename == "":
+        if is_xhr:
+            return jsonify({"ok": False, "error": "Seleccioná un archivo de video."}), 400
         flash("Seleccioná un archivo de video.", "danger")
         return redirect(url_for("index"))
 
     file = request.files["video"]
     if not _allowed_file(file.filename):
-        flash(f"Formato no soportado. Usá: {', '.join(sorted(ALLOWED_EXTENSIONS))}", "danger")
+        msg = f"Formato no soportado. Usá: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        if is_xhr:
+            return jsonify({"ok": False, "error": msg}), 400
+        flash(msg, "danger")
         return redirect(url_for("index"))
 
     ext = file.filename.rsplit(".", 1)[1].lower()
@@ -303,6 +314,8 @@ def upload():
     except Exception as exc:
         if os.path.exists(file_path):
             os.unlink(file_path)
+        if is_xhr:
+            return jsonify({"ok": False, "error": f"Error al guardar el archivo: {exc}"}), 500
         flash(f"Error al guardar el archivo: {exc}", "danger")
         return redirect(url_for("index"))
 
@@ -314,7 +327,10 @@ def upload():
         "file_name": file.filename,
     })
 
-    flash(f"Video de {vendor_name} en cola. El feedback estará listo en unos minutos.", "success")
+    success_msg = f"Video de {vendor_name} en cola. El feedback estará listo en unos minutos."
+    if is_xhr:
+        return jsonify({"ok": True, "message": success_msg})
+    flash(success_msg, "success")
     return redirect(url_for("index"))
 
 
@@ -324,9 +340,11 @@ def _extract_drive_file_id(url: str):
     """Extract Google Drive file ID from various share URL formats."""
     import re
     patterns = [
-        r"/file/d/([a-zA-Z0-9_-]+)",
-        r"id=([a-zA-Z0-9_-]+)",
-        r"/open\?id=([a-zA-Z0-9_-]+)",
+        r"/file/d/([a-zA-Z0-9_-]{10,})",
+        r"[?&]id=([a-zA-Z0-9_-]{10,})",
+        r"/open\?id=([a-zA-Z0-9_-]{10,})",
+        r"drive\.google\.com/d/([a-zA-Z0-9_-]{10,})",
+        r"drive\.usercontent\.google\.com/[^?]*\?[^&]*id=([a-zA-Z0-9_-]{10,})",
     ]
     for pat in patterns:
         m = re.search(pat, url)
@@ -336,23 +354,52 @@ def _extract_drive_file_id(url: str):
 
 
 def _download_from_drive(file_id_drive: str, dest_path: str) -> str:
-    """Download a Google Drive file, handling large-file confirmation pages."""
+    """Download a Google Drive file using the usercontent endpoint (more reliable)."""
     import re
     import requests as _req
 
     sess = _req.Session()
-    sess.headers.update({"User-Agent": "Mozilla/5.0"})
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    })
 
-    base_url = "https://drive.google.com/uc"
-    params = {"export": "download", "id": file_id_drive}
+    # Newer usercontent endpoint (preferred — avoids the old confirmation flow)
+    new_url = f"https://drive.usercontent.google.com/download?id={file_id_drive}&export=download&authuser=0&confirm=t"
+    # Fallback to legacy endpoint
+    legacy_url = "https://drive.google.com/uc"
+    legacy_params = {"export": "download", "id": file_id_drive, "confirm": "t"}
 
-    resp = sess.get(base_url, params=params, stream=True, timeout=60)
+    def _stream_to_file(resp) -> int:
+        total = 0
+        with open(dest_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
+                    total += len(chunk)
+        return total
+
+    # --- Try usercontent first ---
+    try:
+        resp = sess.get(new_url, stream=True, timeout=120, allow_redirects=True)
+        resp.raise_for_status()
+        ctype = resp.headers.get("Content-Type", "")
+        if "text/html" not in ctype:
+            total = _stream_to_file(resp)
+            if total >= 2048:
+                return dest_path
+    except Exception:
+        pass
+
+    # --- Fallback: legacy uc endpoint with confirmation handling ---
+    if os.path.exists(dest_path):
+        os.unlink(dest_path)
+
+    resp = sess.get(legacy_url, params=legacy_params, stream=True, timeout=60)
     resp.raise_for_status()
 
     ctype = resp.headers.get("Content-Type", "")
     if "text/html" in ctype:
         html = resp.text
-        # Extract confirm token (old and new style)
         confirm = None
         m = re.search(r'name="confirm"\s+value="([^"]+)"', html)
         if m:
@@ -361,25 +408,14 @@ def _download_from_drive(file_id_drive: str, dest_path: str) -> str:
             m = re.search(r'confirm=([0-9A-Za-z_\-]+)', html)
             if m:
                 confirm = m.group(1)
-
-        if confirm:
-            params["confirm"] = confirm
-            m2 = re.search(r'name="uuid"\s+value="([^"]+)"', html)
-            if m2:
-                params["uuid"] = m2.group(1)
-        else:
-            params["confirm"] = "t"
-
-        resp = sess.get(base_url, params=params, stream=True, timeout=120)
+        legacy_params["confirm"] = confirm or "t"
+        m2 = re.search(r'name="uuid"\s+value="([^"]+)"', html)
+        if m2:
+            legacy_params["uuid"] = m2.group(1)
+        resp = sess.get(legacy_url, params=legacy_params, stream=True, timeout=120)
         resp.raise_for_status()
 
-    total = 0
-    with open(dest_path, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=65536):
-            if chunk:
-                f.write(chunk)
-                total += len(chunk)
-
+    total = _stream_to_file(resp)
     if total < 2048:
         raise RuntimeError(
             "El archivo descargado es demasiado pequeño. "
@@ -706,7 +742,15 @@ def _stream_video(filepath: str) -> Response:
         resp.headers["Content-Length"] = str(length)
         return resp
 
-    resp = Response(open(filepath, "rb").read(), 200, mimetype=mime)
+    def _generate():
+        with open(filepath, "rb") as _f:
+            while True:
+                _chunk = _f.read(65536)
+                if not _chunk:
+                    break
+                yield _chunk
+
+    resp = Response(_generate(), 200, mimetype=mime, direct_passthrough=True)
     resp.headers["Accept-Ranges"] = "bytes"
     resp.headers["Content-Length"] = str(file_size)
     return resp
@@ -2695,6 +2739,25 @@ def ventas():
         else:
             l5_neto_ars += neto
 
+    # Tipo pago breakdown for L5
+    l5_tipo_bd = defaultdict(lambda: {"count": 0, "usd": 0.0})
+    for r in l5_raw:
+        tp = r["tipo_pago"].strip()
+        l5_tipo_bd[tp]["count"] += 1
+        l5_tipo_bd[tp]["usd"] += r["usd_equiv"]
+    tipo_order = ["PAGO", "SEÑA", "CUOTA 1", "CUOTA 2", "CUOTA 3"]
+    l5_tipo_labels = [t for t in tipo_order if t in l5_tipo_bd] + [t for t in l5_tipo_bd if t not in tipo_order]
+    l5_tipo_counts = [l5_tipo_bd[t]["count"] for t in l5_tipo_labels]
+    l5_tipo_usd = [round(l5_tipo_bd[t]["usd"], 2) for t in l5_tipo_labels]
+
+    # Vendor neto USD for L5 (for charts)
+    l5_vendor_neto = {}
+    for r in l5_raw:
+        fee = FEE.get(r["metodo"].strip(), 0.0)
+        v = r["vendedor"]
+        l5_vendor_neto[v] = l5_vendor_neto.get(v, 0.0) + r["usd_equiv"] * (1 - fee)
+    l5_vendor_neto_vals = [round(l5_vendor_neto.get(v, 0), 2) for v, _ in l5_vendor_ranking]
+
     return render_template(
         "ventas.html",
         total_sales=total_sales,
@@ -2752,6 +2815,16 @@ def ventas():
         l5_vendor_ranking=l5_vendor_ranking,
         l5_vendor_sales=dict(l5_vendor_sales),
         l5_avg_cot=L5_AVG_COT,
+        l5_tipo_labels=json.dumps(l5_tipo_labels),
+        l5_tipo_counts=json.dumps(l5_tipo_counts),
+        l5_tipo_usd=json.dumps(l5_tipo_usd),
+        l5_vendor_labels=json.dumps([v for v, _ in l5_vendor_ranking]),
+        l5_vendor_usd_vals=json.dumps([round(u, 2) for _, u in l5_vendor_ranking]),
+        l5_vendor_neto_vals=json.dumps(l5_vendor_neto_vals),
+        l5_vendor_sales_vals=json.dumps([l5_vendor_sales.get(v, 0) for v, _ in l5_vendor_ranking]),
+        l5_daily_labels=json.dumps(l5_sorted_days),
+        l5_daily_count_vals=json.dumps([l5_daily[d]["count"] for d in l5_sorted_days]),
+        l5_daily_usd_vals=json.dumps([round(l5_daily[d]["usd"], 2) for d in l5_sorted_days]),
     )
 
 
@@ -2798,11 +2871,19 @@ def lanzamiento_kpi():
     vendors_list = database.get_kpi_vendors()
     today = datetime.now(TZ).date().isoformat()
 
+    is_producer = bool(flask_session.get("producer_auth"))
+    all_vendors = database.get_all_vendors() if is_producer else []
+    # Ranking acumulado para la tabla comparativa (visible a todos)
+    all_kpi_summary = database.kpi_get_all_vendors_summary()
+
     if not vendor_id:
         return render_template("lanzamiento_kpi.html",
                                vendors_list=vendors_list, vendor=None,
                                today=today, today_entry={},
-                               entries=[], totals={}, saved="")
+                               entries=[], totals={}, saved="",
+                               is_producer=is_producer,
+                               all_vendors=all_vendors,
+                               all_kpi_summary=all_kpi_summary)
 
     vendor = next((v for v in vendors_list if v["id"] == vendor_id), None)
     if not vendor:
@@ -2816,14 +2897,18 @@ def lanzamiento_kpi():
     all_labels = database.kpi_get_all_labels()
     entry_date_param = request.args.get("entry_date", today)
     saved_today = bool(saved) and entry_date_param == today
-    is_producer = bool(flask_session.get("producer_auth"))
+    all_kpi_summary = database.kpi_get_all_vendors_summary()
+    has_sale_today = saved_today and int(today_entry.get("venta_realizada", 0) or 0) >= 1
     return render_template("lanzamiento_kpi.html",
                            vendors_list=vendors_list, vendor=vendor,
                            today=today, today_entry=today_entry,
                            entries=entries, totals=totals, saved=saved,
                            saved_today=saved_today, goals=goals,
                            custom_labels=custom_labels, all_labels=all_labels,
-                           is_producer=is_producer)
+                           is_producer=is_producer,
+                           all_vendors=all_vendors if is_producer else [],
+                           all_kpi_summary=all_kpi_summary,
+                           has_sale_today=has_sale_today)
 
 
 @app.route("/lanzamiento/kpi/save", methods=["POST"])
@@ -2903,6 +2988,48 @@ def lanzamiento_kpi_labels_delete():
     if redir: return redir
     data = request.get_json()
     database.kpi_delete_label(int(data["id"]))
+    return jsonify({"ok": True})
+
+
+@app.route("/lanzamiento/kpi/vendor/add", methods=["POST"])
+def lanzamiento_kpi_vendor_add():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json() or {}
+    vendor_id = data.get("vendor_id")
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+
+    if vendor_id:
+        # Existing vendor — just enable kpi_vendor flag
+        with database.get_connection() as conn:
+            conn.execute("UPDATE vendors SET kpi_vendor=1 WHERE id=?", (int(vendor_id),))
+            conn.commit()
+        database._invalidate("vendors:")
+        vendor = database.get_vendor_by_id(int(vendor_id))
+        return jsonify({"ok": True, "id": vendor_id, "name": vendor["name"] if vendor else name})
+
+    if not name:
+        return jsonify({"ok": False, "error": "El nombre es obligatorio"}), 400
+    if not email:
+        email = f"{name.lower().replace(' ', '.')}@vh.com"
+    new_id = database.add_kpi_vendor(name, email)
+    return jsonify({"ok": True, "id": new_id, "name": name})
+
+
+@app.route("/lanzamiento/kpi/vendor/remove", methods=["POST"])
+def lanzamiento_kpi_vendor_remove():
+    redir = _require_producer()
+    if redir: return jsonify({"ok": False, "error": "No autorizado"}), 403
+    data = request.get_json() or {}
+    vendor_id = data.get("vendor_id")
+    if not vendor_id:
+        return jsonify({"ok": False, "error": "Falta vendor_id"}), 400
+    # Only remove KPI flag, don't delete the vendor entirely
+    with database.get_connection() as conn:
+        conn.execute("UPDATE vendors SET kpi_vendor=0 WHERE id=?", (int(vendor_id),))
+        conn.commit()
+    database._invalidate("vendors:")
     return jsonify({"ok": True})
 
 
@@ -3758,6 +3885,23 @@ def status():
     })
 
 
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    msg = f"El archivo supera el tamaño máximo permitido ({config.MAX_UPLOAD_MB} MB)."
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": False, "error": msg}), 413
+    flash(msg, "danger")
+    return redirect(url_for("index"))
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    logger.error("Internal server error: %s", e, exc_info=True)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": False, "error": "Error interno del servidor. Intentá de nuevo."}), 500
+    return str(e), 500
+
+
 # ── App factory ────────────────────────────────────────────────────────────────
 
 def _cleanup_on_startup():
@@ -3766,6 +3910,21 @@ def _cleanup_on_startup():
     reset_count = database.reset_stuck_processing()
     if reset_count:
         logger.warning("Reset %d stuck 'processing' records to 'error'.", reset_count)
+
+    # Eliminar archivos .part y otros temporales del uploads/ raíz
+    try:
+        part_deleted = 0
+        for fname in os.listdir(UPLOAD_FOLDER):
+            fpath = os.path.join(UPLOAD_FOLDER, fname)
+            if not os.path.isfile(fpath):
+                continue
+            if ".part" in fname or fname.endswith(".tmp"):
+                os.unlink(fpath)
+                part_deleted += 1
+        if part_deleted:
+            logger.info("Cleaned up %d temp (.part/.tmp) file(s) from uploads/.", part_deleted)
+    except Exception as e:
+        logger.warning("Error during temp file cleanup: %s", e)
 
     # Eliminar solo archivos temporales huérfanos (sin registro en DB) del uploads/ raíz
     try:
@@ -3855,12 +4014,6 @@ def _cleanup_on_startup():
             logger.info("Freed %.1f MB from done lanzamiento files.", freed_lanz / 1024 / 1024)
     except Exception as e:
         logger.warning("Error during lanzamiento file cleanup: %s", e)
-
-
-@app.errorhandler(413)
-def request_entity_too_large(e):
-    flash("El archivo es demasiado grande. Máximo 5 GB.", "danger")
-    return redirect(url_for("index"))
 
 
 @app.route("/admin/retry-errors", methods=["POST"])

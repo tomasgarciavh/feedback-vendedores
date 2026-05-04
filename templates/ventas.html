@@ -38,6 +38,7 @@
 {% block content %}
 
 <!-- Tab switcher -->
+<div style="font-size:10px;color:#aaa;margin-bottom:6px;">v20260504</div>
 <div class="lz-tabs">
   <button class="lz-tab active" onclick="showTab('l4')" id="tab-l4">📦 Lanzamiento 4</button>
   <button class="lz-tab" onclick="showTab('l5')" id="tab-l5">🚀 Lanzamiento 5 <span id="l5-badge" style="background:#c9a066;color:#1a0810;border-radius:20px;font-size:10px;padding:1px 7px;margin-left:4px;">{{ l5_ventas_unicas }} ventas</span></button>
@@ -555,39 +556,44 @@
   <div style="font-size:10px;color:#aaa;margin-top:5px;">Meta: {{ L5_META }} ventas únicas</div>
 </div>
 
-<!-- Rankings por vendedor L5 -->
-{% if l5_vendor_ranking %}
-<div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
-  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:12px;">Ranking vendedores</div>
-  {% for vendor, usd in l5_vendor_ranking %}
-  {% set v_sales = l5_vendor_sales.get(vendor, 0) %}
-  {% set max_usd = l5_vendor_ranking[0][1] if l5_vendor_ranking else 1 %}
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-    <div style="font-size:12px;font-weight:800;color:#1a0810;min-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ vendor }}</div>
-    <div style="flex:1;background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;">
-      <div style="height:100%;width:{{ ((usd / max_usd)*100)|round(0) }}%;background:linear-gradient(90deg,#1a7a4a,#c9a066);border-radius:4px;"></div>
+<!-- Gráficos L5 -->
+<div class="row g-3 mb-4">
+  <!-- Vendedores -->
+  <div class="col-12 col-lg-7">
+    <div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;height:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;">Vendedores — Facturación USD</div>
+        <div style="display:flex;gap:4px;">
+          <button class="l5-chart-toggle active" data-l5chart="l5VendorChart" data-l5mode="bruto" style="padding:3px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;background:#1a0810;color:#fff;">Bruto</button>
+          <button class="l5-chart-toggle" data-l5chart="l5VendorChart" data-l5mode="neto" style="padding:3px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#888;">Neto</button>
+        </div>
+      </div>
+      <canvas id="l5VendorChart" style="max-height:220px;"></canvas>
     </div>
-    <div style="font-size:11px;font-weight:700;color:#1a7a4a;min-width:80px;text-align:right;">U$D {{ "{:,.0f}".format(usd) }}</div>
-    <div style="font-size:11px;color:#888;min-width:50px;text-align:right;">{{ v_sales }} venta{{ 's' if v_sales != 1 }}</div>
   </div>
-  {% endfor %}
+  <!-- Tipo pago donut -->
+  <div class="col-12 col-lg-5">
+    <div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;height:100%;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:12px;">Tipo de pago</div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <canvas id="l5TipoChart" style="max-width:140px;max-height:140px;"></canvas>
+        <div id="l5TipoLegend" style="flex:1;font-size:11px;"></div>
+      </div>
+    </div>
+  </div>
 </div>
-{% endif %}
 
-<!-- Ventas diarias L5 -->
+<!-- Ventas diarias L5 chart -->
 {% if l5_sorted_days %}
 <div style="background:#fff;border:1px solid #e9ecef;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
-  <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:12px;">Ventas por día</div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;">
-    {% for d in l5_sorted_days %}
-    {% set dd = l5_daily[d] %}
-    <div style="background:#f8f8f8;border:1px solid #e9ecef;border-radius:8px;padding:8px 12px;text-align:center;min-width:80px;">
-      <div style="font-size:10px;color:#888;margin-bottom:3px;">{{ d }}</div>
-      <div style="font-size:18px;font-weight:900;color:#1a7a4a;">{{ dd.count }}</div>
-      <div style="font-size:10px;color:#888;">U$D {{ "{:,.0f}".format(dd.usd) }}</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#888;">Ventas por día</div>
+    <div style="display:flex;gap:4px;">
+      <button class="l5-chart-toggle active" data-l5chart="l5DailyChart" data-l5mode="count" style="padding:3px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;background:#1a0810;color:#fff;"># Ventas</button>
+      <button class="l5-chart-toggle" data-l5chart="l5DailyChart" data-l5mode="usd" style="padding:3px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#888;">USD</button>
     </div>
-    {% endfor %}
   </div>
+  <canvas id="l5DailyChart" style="max-height:180px;"></canvas>
 </div>
 {% endif %}
 
@@ -689,269 +695,303 @@
 
 </div>{# end panel-l5 #}
 
+{% endblock %}
+
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
+// ── Datos del servidor ────────────────────────────────────────────────────────
 const L5_AVG_COT = {{ l5_avg_cot }};
-const L5_FEE = {
-  'PESOS FINANCIERA':0.07,'DOLARES MULTID':0.21,'PESOS MULTI D':0.21,
-  'BINANCE':0.0,'Stripe':0.058,'PAYPAL':0.09,'TRANSFERENCIA':0.0
-};
+const VH_COLORS  = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
 
-function toggleCot() {
-  const moneda = document.getElementById('l5-moneda').value;
-  document.getElementById('l5-cot-wrap').style.display = moneda === 'ARS' ? '' : 'none';
-}
-toggleCot();
+const dailyLabels     = {{ daily_labels|safe }};
+const dailyCountVals  = {{ daily_count_vals|safe }};
+const dailyUsdVals    = {{ daily_usd_vals|safe }};
+const semanaLabels    = {{ semana_labels|safe }};
+const semanaCountVals = {{ semana_count_vals|safe }};
+const semanaUsdVals   = {{ semana_usd_vals|safe }};
+const vendorFullLabels= {{ vendor_full_labels|safe }};
+const vendorUsdVals   = {{ vendor_usd_vals|safe }};
+const vendorSalesVals = {{ vendor_sales_vals|safe }};
+const vendorNetoVals  = {{ vendor_neto_vals|safe }};
+const tipoLabels      = {{ tipo_labels|safe }};
+const tipoCounts      = {{ tipo_counts|safe }};
+const tipoUsd         = {{ tipo_usd|safe }};
 
-async function l5AddVenta() {
-  const fecha = document.getElementById('l5-fecha').value.trim();
-  const vendedor = document.getElementById('l5-vendedor').value.trim();
-  const tipo_pago = document.getElementById('l5-tipo').value;
-  const moneda = document.getElementById('l5-moneda').value;
-  const importe = parseFloat(document.getElementById('l5-importe').value);
-  const cotStr = document.getElementById('l5-cotizacion').value.trim();
-  const cotizacion = cotStr ? parseFloat(cotStr) : null;
-  const metodo = document.getElementById('l5-metodo').value;
-  const cliente_ref = document.getElementById('l5-cliente').value.trim();
-  const msg = document.getElementById('l5-msg');
+const l5VendorLabels  = {{ l5_vendor_labels|default('[]')|safe }};
+const l5VendorUsdVals = {{ l5_vendor_usd_vals|default('[]')|safe }};
+const l5VendorNetoVals= {{ l5_vendor_neto_vals|default('[]')|safe }};
+const l5VendorSalesV  = {{ l5_vendor_sales_vals|default('[]')|safe }};
+const l5DailyLabels   = {{ l5_daily_labels|default('[]')|safe }};
+const l5DailyCountV   = {{ l5_daily_count_vals|default('[]')|safe }};
+const l5DailyUsdV     = {{ l5_daily_usd_vals|default('[]')|safe }};
+const l5TipoLabels    = {{ l5_tipo_labels|default('[]')|safe }};
+const l5TipoCounts    = {{ l5_tipo_counts|default('[]')|safe }};
+const l5TipoUsd       = {{ l5_tipo_usd|default('[]')|safe }};
 
-  if (!fecha || !vendedor || !importe) {
-    msg.style.display='block'; msg.style.color='#e74c3c';
-    msg.textContent='Completá fecha, vendedor e importe.'; return;
-  }
+// ── 1. Tab switching — definido PRIMERO, antes que cualquier chart ────────────
+let _l5ChartsInited = false;
 
-  const resp = await fetch('/ventas/l5/add', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ tipo_pago, importe, moneda, vendedor, fecha, cotizacion, metodo, cliente_ref })
-  });
-  const data = await resp.json();
-  if (data.ok) {
-    msg.style.display='block'; msg.style.color='#1a7a4a';
-    msg.textContent='✓ Guardado. Recargando...';
-    setTimeout(() => { location.reload(); }, 800);
-  } else {
-    msg.style.display='block'; msg.style.color='#e74c3c';
-    msg.textContent='Error: ' + (data.error || 'Intentá de nuevo.');
-  }
-}
-
-async function l5Delete(id) {
-  if (!confirm('¿Eliminar esta transacción?')) return;
-  const resp = await fetch(`/ventas/l5/delete/${id}`, { method:'POST' });
-  const data = await resp.json();
-  if (data.ok) {
-    const row = document.getElementById(`l5-row-${id}`);
-    if (row) { row.style.opacity='0'; row.style.transition='opacity .3s'; setTimeout(() => { row.remove(); }, 300); }
-  }
-}
-
-const VH_COLORS = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
-const VH_LABELS_FULL = {
-  'PAGO':   'Pago completo',
-  'SEÑA':   'Seña / anticipo',
-  'CUOTA 1':'Cuota 1',
-  'CUOTA 2':'Cuota 2',
-};
-
-
-const VH_COLORS = ['#c9a066','#3d0f1e','#1a7a4a','#1a4a7a','#7a4a1a','#6b1a6b','#1a6b6b','#f0b90b'];
-const VH_LABELS_FULL = {
-  'PAGO':   'Pago completo',
-  'SEÑA':   'Seña / anticipo',
-  'CUOTA 1':'Cuota 1',
-  'CUOTA 2':'Cuota 2',
-};
-
-const dailyLabels    = {{ daily_labels|safe }};
-const dailyCountVals = {{ daily_count_vals|safe }};
-const dailyUsdVals   = {{ daily_usd_vals|safe }};
-const semanaLabels   = {{ semana_labels|safe }};
-const semanaCountVals= {{ semana_count_vals|safe }};
-const semanaUsdVals  = {{ semana_usd_vals|safe }};
-const vendorFullLabels = {{ vendor_full_labels|safe }};
-const vendorUsdVals  = {{ vendor_usd_vals|safe }};
-const vendorSalesVals= {{ vendor_sales_vals|safe }};
-const vendorNetoVals = {{ vendor_neto_vals|safe }};
-const tipoLabels     = {{ tipo_labels|safe }};
-const tipoCounts     = {{ tipo_counts|safe }};
-const tipoUsd        = {{ tipo_usd|safe }};
-
-function dailyColor(label) {
-  if (!label.includes('/1/2026')) return '#d0c4b8';
-  const day = parseInt(label.split('/')[0]);
-  if (day >= 25) return '#c9a066';
-  if (day >= 18) return '#8b5a2b';
-  if (day >= 11) return '#5a2b0f';
-  return '#d0c4b8';
-}
-
-// Daily chart
-const dailyChart = new Chart(document.getElementById('dailyChart'), {
-  type: 'bar',
-  data: { labels: dailyLabels, datasets: [{ label:'# Ventas', data: dailyCountVals,
-    backgroundColor: dailyLabels.map(dailyColor), borderRadius:4, borderSkipped:false }] },
-  options: { responsive:true, plugins:{ legend:{display:false},
-    tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} ventas`}}},
-    scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}},
-             y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:1}}}}
-});
-
-// Semana chart
-const semanaChart = new Chart(document.getElementById('semanaChart'), {
-  type: 'bar',
-  data: { labels: semanaLabels, datasets:[{ label:'# Ventas', data:semanaCountVals,
-    backgroundColor:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8'], borderRadius:6, borderSkipped:false }]},
-  options:{ responsive:true, plugins:{legend:{display:false}},
-    scales:{ x:{grid:{display:false},ticks:{font:{size:10}}},
-             y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:2}}}}
-});
-
-// Vendor chart — bruto vs neto toggleable
-let vendorMode = 'bruto';
-const vendorChart = new Chart(document.getElementById('vendorChart'), {
-  type:'bar',
-  data:{
-    labels: vendorFullLabels,
-    datasets:[
-      { label:'Bruto', data:vendorUsdVals, backgroundColor:'rgba(61,15,30,0.85)', borderRadius:4, borderSkipped:false },
-      { label:'Neto real', data:vendorNetoVals, backgroundColor:'rgba(45,106,79,0.85)', borderRadius:4, borderSkipped:false }
-    ]
-  },
-  options:{
-    indexAxis:'y', responsive:true,
-    plugins:{
-      legend:{display:true, labels:{font:{size:11}, boxWidth:12, padding:12}},
-      tooltip:{callbacks:{
-        label: ctx => {
-          const val = ctx.parsed.x;
-          const suffix = ctx.datasetIndex === 1 ? ' (neto, sin fees)' : ' (bruto)';
-          return ` U$D ${val.toLocaleString('es-AR', {maximumFractionDigits:0})}${suffix}`;
-        },
-        afterBody: ctx => [`${vendorSalesVals[ctx[0].dataIndex]} ventas cerradas`]
-      }}
-    },
-    scales:{
-      x:{grid:{color:'#f0e8dc'}, ticks:{font:{size:10}, callback: v=>`$${(v/1000).toFixed(0)}k`}},
-      y:{grid:{display:false}, ticks:{font:{size:12,weight:'600'}}}
-    }
-  }
-});
-
-function setVendorMode(mode) {
-  vendorMode = mode;
-  const brutoBtn = document.getElementById('vBtn-bruto');
-  const netoBtn  = document.getElementById('vBtn-neto');
-  if(mode === 'bruto') {
-    vendorChart.data.datasets[0].hidden = false;
-    vendorChart.data.datasets[1].hidden = true;
-    brutoBtn.style.background='#3d0f1e'; brutoBtn.style.color='#fff';
-    netoBtn.style.background='#f0e8e0'; netoBtn.style.color='#555';
-  } else if(mode === 'neto') {
-    vendorChart.data.datasets[0].hidden = true;
-    vendorChart.data.datasets[1].hidden = false;
-    brutoBtn.style.background='#f0e8e0'; brutoBtn.style.color='#555';
-    netoBtn.style.background='#2d6a4f'; netoBtn.style.color='#fff';
-  }
-  vendorChart.update();
-  // Update legend
-  if(mode === 'neto') {
-    const maxNeto = Math.max(...vendorNetoVals);
-    const maxIdx = vendorNetoVals.indexOf(maxNeto);
-    document.getElementById('vendorLegend').textContent =
-      `Líder en cash real: ${vendorFullLabels[maxIdx]} — U$D ${maxNeto.toLocaleString('es-AR',{maximumFractionDigits:0})} neto`;
-  } else {
-    document.getElementById('vendorLegend').textContent = '';
-  }
-}
-// Start with both visible
-vendorChart.data.datasets[1].hidden = true;
-vendorChart.update();
-
-// Tipo pago donut — con leyenda custom detallada
-const TIPO_DESCRIP = {
-  'PAGO':   'Pago único completo',
-  'SEÑA':   'Anticipo / seña inicial',
-  'CUOTA 1':'Primera cuota',
-  'CUOTA 2':'Segunda cuota',
-};
-const tipoChart = new Chart(document.getElementById('tipoChart'), {
-  type:'doughnut',
-  data:{ labels: tipoLabels.map(l => TIPO_DESCRIP[l] || l),
-    datasets:[{ data:tipoCounts, backgroundColor:VH_COLORS, borderWidth:3, borderColor:'#fff',
-      hoverOffset:6 }]},
-  options:{ responsive:true, cutout:'62%',
-    plugins:{ legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>{
-        const usd = tipoUsd[ctx.dataIndex];
-        return [` ${ctx.parsed} transacciones`, ` U$D ${usd.toLocaleString()} equiv.`];
-      }}}}},
-});
-
-// Leyenda custom para tipo pago
-function renderTipoLegend(mode) {
-  const container = document.getElementById('tipoLegend');
-  container.innerHTML = '';
-  tipoLabels.forEach((lbl, i) => {
-    const name = TIPO_DESCRIP[lbl] || lbl;
-    const val  = mode === 'usd' ? `U$D ${tipoUsd[i].toLocaleString()}` : `${tipoCounts[i]} transacc.`;
-    container.innerHTML += `
-      <div class="d-flex align-items-center mb-2" style="gap:8px;">
-        <div style="width:12px;height:12px;border-radius:3px;background:${VH_COLORS[i]};flex-shrink:0;"></div>
-        <div style="font-size:11px;line-height:1.3;">
-          <div style="font-weight:600;color:#1a0810;">${name}</div>
-          <div style="color:#888;">${val}</div>
-        </div>
-      </div>`;
-  });
-}
-renderTipoLegend('count');
-
-// Toggle logic
-const chartMap = { dailyChart, semanaChart };
-const chartDataMap = {
-  dailyChart: {
-    count:{ data:dailyCountVals, label:'# Ventas',   colors:dailyLabels.map(dailyColor) },
-    usd:  { data:dailyUsdVals,   label:'USD equiv.',  colors:dailyLabels.map(()=>'#1a7a4a') }
-  },
-  semanaChart: {
-    count:{ data:semanaCountVals, label:'# Ventas',   colors:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8'] },
-    usd:  { data:semanaUsdVals,   label:'USD equiv.',  colors:['#a8d0c0','#1a7a4a','#1a9a5a','#22b570','#a8c0d0'] }
-  }
-};
-const tipoChartData = {
-  count:{ data:tipoCounts },
-  usd:  { data:tipoUsd }
-};
-
-// ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
   document.getElementById('panel-l4').style.display = tab === 'l4' ? '' : 'none';
   document.getElementById('panel-l5').style.display = tab === 'l5' ? '' : 'none';
   document.getElementById('tab-l4').classList.toggle('active', tab === 'l4');
   document.getElementById('tab-l5').classList.toggle('active', tab === 'l5');
+  if (tab === 'l5' && !_l5ChartsInited) {
+    _l5ChartsInited = true;
+    _initL5Charts();
+  }
 }
 
+// ── 2. Formulario L5 ─────────────────────────────────────────────────────────
+function toggleCot() {
+  const el = document.getElementById('l5-moneda');
+  if (el) document.getElementById('l5-cot-wrap').style.display = el.value === 'ARS' ? '' : 'none';
+}
+toggleCot();
+
+async function l5AddVenta() {
+  const fecha      = document.getElementById('l5-fecha').value.trim();
+  const vendedor   = document.getElementById('l5-vendedor').value.trim();
+  const tipo_pago  = document.getElementById('l5-tipo').value;
+  const moneda     = document.getElementById('l5-moneda').value;
+  const importe    = parseFloat(document.getElementById('l5-importe').value);
+  const cotStr     = document.getElementById('l5-cotizacion').value.trim();
+  const cotizacion = cotStr ? parseFloat(cotStr) : null;
+  const metodo     = document.getElementById('l5-metodo').value;
+  const cliente_ref= document.getElementById('l5-cliente').value.trim();
+  const msg        = document.getElementById('l5-msg');
+  if (!fecha || !vendedor || !importe) {
+    msg.style.display='block'; msg.style.color='#e74c3c';
+    msg.textContent='Completá fecha, vendedor e importe.'; return;
+  }
+  try {
+    const r = await fetch('/ventas/l5/add', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ tipo_pago, importe, moneda, vendedor, fecha, cotizacion, metodo, cliente_ref })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      msg.style.display='block'; msg.style.color='#1a7a4a';
+      msg.textContent='✓ Guardado. Recargando...';
+      setTimeout(() => location.reload(), 800);
+    } else {
+      msg.style.display='block'; msg.style.color='#e74c3c';
+      msg.textContent='Error: ' + (d.error || 'Intentá de nuevo.');
+    }
+  } catch(e) {
+    msg.style.display='block'; msg.style.color='#e74c3c';
+    msg.textContent='Error de red. Intentá de nuevo.';
+  }
+}
+
+async function l5Delete(id) {
+  if (!confirm('¿Eliminar esta transacción?')) return;
+  const r = await fetch(`/ventas/l5/delete/${id}`, { method:'POST' });
+  const d = await r.json();
+  if (d.ok) {
+    const row = document.getElementById('l5-row-' + id);
+    if (row) { row.style.opacity='0'; row.style.transition='opacity .3s'; setTimeout(()=>row.remove(), 300); }
+  }
+}
+
+// ── 3. Gráficos L4 (panel visible al cargar) ──────────────────────────────────
+const TIPO_DESCRIP = {
+  'PAGO':'Pago único completo','SEÑA':'Anticipo / seña inicial',
+  'CUOTA 1':'Primera cuota','CUOTA 2':'Segunda cuota',
+};
+
+function dailyColor(label) {
+  if (!label.includes('/1/2026')) return '#d0c4b8';
+  const d = parseInt(label.split('/')[0]);
+  if (d >= 25) return '#c9a066';
+  if (d >= 18) return '#8b5a2b';
+  if (d >= 11) return '#5a2b0f';
+  return '#d0c4b8';
+}
+
+let dailyChart, semanaChart, vendorChart, tipoChart;
+
+try {
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type:'bar',
+    data:{ labels:dailyLabels, datasets:[{ label:'# Ventas', data:dailyCountVals,
+      backgroundColor:dailyLabels.map(dailyColor), borderRadius:4, borderSkipped:false }] },
+    options:{ responsive:true, plugins:{ legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} ventas`}}},
+      scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}},
+               y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:1}}}}
+  });
+} catch(e) { console.error('dailyChart:', e); }
+
+try {
+  semanaChart = new Chart(document.getElementById('semanaChart'), {
+    type:'bar',
+    data:{ labels:semanaLabels, datasets:[{ label:'# Ventas', data:semanaCountVals,
+      backgroundColor:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8'], borderRadius:6, borderSkipped:false }]},
+    options:{ responsive:true, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{display:false},ticks:{font:{size:10}}},
+               y:{grid:{color:'#f0e8dc'},ticks:{font:{size:11},stepSize:2}}}}
+  });
+} catch(e) { console.error('semanaChart:', e); }
+
+try {
+  vendorChart = new Chart(document.getElementById('vendorChart'), {
+    type:'bar',
+    data:{ labels:vendorFullLabels, datasets:[
+      { label:'Bruto',    data:vendorUsdVals,  backgroundColor:'rgba(61,15,30,0.85)', borderRadius:4, borderSkipped:false },
+      { label:'Neto real',data:vendorNetoVals, backgroundColor:'rgba(45,106,79,0.85)', borderRadius:4, borderSkipped:false, hidden:true }
+    ]},
+    options:{ indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:true, labels:{font:{size:11},boxWidth:12,padding:12}},
+        tooltip:{callbacks:{
+          label: ctx => ` U$D ${ctx.parsed.x.toLocaleString('es-AR',{maximumFractionDigits:0})}${ctx.datasetIndex===1?' (neto)':' (bruto)'}`,
+          afterBody: ctx => [vendorSalesVals[ctx[0].dataIndex] + ' ventas cerradas']
+        }}},
+      scales:{ x:{grid:{color:'#f0e8dc'},ticks:{font:{size:10},callback:v=>`$${(v/1000).toFixed(0)}k`}},
+               y:{grid:{display:false},ticks:{font:{size:12,weight:'600'}}}}}
+  });
+} catch(e) { console.error('vendorChart:', e); }
+
+function setVendorMode(mode) {
+  if (!vendorChart) return;
+  const bB = document.getElementById('vBtn-bruto'), nB = document.getElementById('vBtn-neto');
+  if (mode === 'bruto') {
+    vendorChart.data.datasets[0].hidden = false; vendorChart.data.datasets[1].hidden = true;
+    if(bB){bB.style.background='#3d0f1e';bB.style.color='#fff';} if(nB){nB.style.background='#f0e8e0';nB.style.color='#555';}
+  } else {
+    vendorChart.data.datasets[0].hidden = true;  vendorChart.data.datasets[1].hidden = false;
+    if(bB){bB.style.background='#f0e8e0';bB.style.color='#555';} if(nB){nB.style.background='#2d6a4f';nB.style.color='#fff';}
+  }
+  vendorChart.update();
+  const leg = document.getElementById('vendorLegend');
+  if (leg && mode === 'neto') {
+    const mx = Math.max(...vendorNetoVals), mi = vendorNetoVals.indexOf(mx);
+    leg.textContent = `Líder en cash real: ${vendorFullLabels[mi]} — U$D ${mx.toLocaleString('es-AR',{maximumFractionDigits:0})} neto`;
+  } else if (leg) { leg.textContent = ''; }
+}
+
+try {
+  tipoChart = new Chart(document.getElementById('tipoChart'), {
+    type:'doughnut',
+    data:{ labels:tipoLabels.map(l=>TIPO_DESCRIP[l]||l),
+      datasets:[{ data:tipoCounts, backgroundColor:VH_COLORS, borderWidth:3, borderColor:'#fff', hoverOffset:6 }]},
+    options:{ responsive:true, cutout:'62%',
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>[` ${ctx.parsed} transacciones`,` U$D ${tipoUsd[ctx.dataIndex].toLocaleString()} equiv.`]}}}}
+  });
+} catch(e) { console.error('tipoChart:', e); }
+
+function renderTipoLegend(mode) {
+  const c = document.getElementById('tipoLegend'); if(!c) return;
+  c.innerHTML = tipoLabels.map((lbl,i) => {
+    const nm = TIPO_DESCRIP[lbl]||lbl;
+    const vl = mode==='usd' ? `U$D ${tipoUsd[i].toLocaleString()}` : `${tipoCounts[i]} transacc.`;
+    return `<div class="d-flex align-items-center mb-2" style="gap:8px;">
+      <div style="width:12px;height:12px;border-radius:3px;background:${VH_COLORS[i]};flex-shrink:0;"></div>
+      <div style="font-size:11px;line-height:1.3;"><div style="font-weight:600;color:#1a0810;">${nm}</div><div style="color:#888;">${vl}</div></div>
+    </div>`;
+  }).join('');
+}
+renderTipoLegend('count');
+
+// Toggle L4 charts (count/usd)
 document.querySelectorAll('.chart-toggle').forEach(btn => {
   btn.addEventListener('click', () => {
-    const chartId = btn.dataset.chart;
-    const mode = btn.dataset.mode;
-
-    if (chartId === 'tipoChart') {
-      tipoChart.data.datasets[0].data = tipoChartData[mode].data;
-      tipoChart.update();
-      renderTipoLegend(mode);
+    const chartId = btn.dataset.chart, mode = btn.dataset.mode;
+    if (chartId === 'tipoChart' && tipoChart) {
+      tipoChart.data.datasets[0].data = mode==='usd' ? tipoUsd : tipoCounts;
+      tipoChart.update(); renderTipoLegend(mode);
     } else {
-      const chart = chartMap[chartId];
-      const d = chartDataMap[chartId][mode];
-      chart.data.datasets[0].data = d.data;
-      chart.data.datasets[0].label = d.label;
-      chart.data.datasets[0].backgroundColor = d.colors;
-      chart.update();
+      const chartMap = { dailyChart, semanaChart };
+      const dataMap = {
+        dailyChart:  { count:{data:dailyCountVals,label:'# Ventas',colors:dailyLabels.map(dailyColor)}, usd:{data:dailyUsdVals,label:'USD equiv.',colors:dailyLabels.map(()=>'#1a7a4a')} },
+        semanaChart: { count:{data:semanaCountVals,label:'# Ventas',colors:['#d0c4b8','#5a2b0f','#8b5a2b','#c9a066','#b8b0a8']}, usd:{data:semanaUsdVals,label:'USD equiv.',colors:['#a8d0c0','#1a7a4a','#1a9a5a','#22b570','#a8c0d0']} }
+      };
+      const ch = chartMap[chartId]; const dd = dataMap[chartId]?.[mode];
+      if (ch && dd) { ch.data.datasets[0].data=dd.data; ch.data.datasets[0].label=dd.label; ch.data.datasets[0].backgroundColor=dd.colors; ch.update(); }
     }
-    document.querySelectorAll(`.chart-toggle[data-chart="${chartId}"]`).forEach(b => {
-      b.style.background='transparent'; b.style.color='#888'; b.classList.remove('active');
-    });
-    btn.style.background='#f0e8dc'; btn.style.color='#6b3a1e'; btn.classList.add('active');
+    document.querySelectorAll(`.chart-toggle[data-chart="${chartId}"]`).forEach(b=>{b.style.background='transparent';b.style.color='#888';});
+    btn.style.background='#f0e8dc'; btn.style.color='#6b3a1e';
+  });
+});
+
+// ── 4. Gráficos L5 — inicialización LAZY (cuando se abre el tab) ──────────────
+const TIPO_D_L5 = {'PAGO':'Pago completo','SEÑA':'Seña / anticipo','CUOTA 1':'Cuota 1','CUOTA 2':'Cuota 2','CUOTA 3':'Cuota 3'};
+let l5VendorChart = null, l5DailyChart = null, l5TipoChart = null;
+
+function _initL5Charts() {
+  try {
+    const vcv = document.getElementById('l5VendorChart');
+    if (vcv && l5VendorLabels.length) {
+      l5VendorChart = new Chart(vcv, {
+        type:'bar',
+        data:{ labels:l5VendorLabels, datasets:[
+          {label:'Bruto', data:l5VendorUsdVals,  backgroundColor:'rgba(61,15,30,0.85)', borderRadius:4, borderSkipped:false},
+          {label:'Neto',  data:l5VendorNetoVals, backgroundColor:'rgba(26,122,74,0.85)', borderRadius:4, borderSkipped:false, hidden:true}
+        ]},
+        options:{ indexAxis:'y', responsive:true,
+          plugins:{ legend:{display:true,labels:{font:{size:11},boxWidth:12,padding:10}},
+            tooltip:{callbacks:{
+              label:ctx=>` U$D ${ctx.parsed.x.toLocaleString('es-AR',{maximumFractionDigits:0})}${ctx.datasetIndex===1?' (neto)':' (bruto)'}`,
+              afterBody:ctx=>[l5VendorSalesV[ctx[0].dataIndex]+' ventas']
+            }}},
+          scales:{ x:{grid:{color:'#f0f0f0'},ticks:{font:{size:10},callback:v=>`$${(v/1000).toFixed(0)}k`}},
+                   y:{grid:{display:false},ticks:{font:{size:12,weight:'600'}}}}}
+      });
+    }
+  } catch(e) { console.error('l5VendorChart:', e); }
+
+  try {
+    const dcv = document.getElementById('l5DailyChart');
+    if (dcv && l5DailyLabels.length) {
+      l5DailyChart = new Chart(dcv, {
+        type:'bar',
+        data:{ labels:l5DailyLabels, datasets:[{label:'# Ventas',data:l5DailyCountV,backgroundColor:'#1a7a4a',borderRadius:4,borderSkipped:false}]},
+        options:{ responsive:true,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} ventas`}}},
+          scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},stepSize:1}}}}
+      });
+    }
+  } catch(e) { console.error('l5DailyChart:', e); }
+
+  try {
+    const tcv = document.getElementById('l5TipoChart');
+    if (tcv && l5TipoLabels.length) {
+      l5TipoChart = new Chart(tcv, {
+        type:'doughnut',
+        data:{ labels:l5TipoLabels.map(l=>TIPO_D_L5[l]||l),
+          datasets:[{data:l5TipoCounts,backgroundColor:VH_COLORS,borderWidth:3,borderColor:'#fff',hoverOffset:6}]},
+        options:{ responsive:true, cutout:'60%',
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[` ${ctx.parsed} transacc.`,` U$D ${l5TipoUsd[ctx.dataIndex].toLocaleString()}`]}}}}
+      });
+      const leg = document.getElementById('l5TipoLegend');
+      if (leg) leg.innerHTML = l5TipoLabels.map((lbl,i)=>
+        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <div style="width:10px;height:10px;border-radius:2px;background:${VH_COLORS[i]};flex-shrink:0;"></div>
+          <div style="font-size:11px;"><div style="font-weight:700;color:#1a0810;">${TIPO_D_L5[lbl]||lbl}</div>
+          <div style="color:#888;">${l5TipoCounts[i]} · U$D ${l5TipoUsd[i].toLocaleString('es-AR',{maximumFractionDigits:0})}</div></div>
+        </div>`).join('');
+    }
+  } catch(e) { console.error('l5TipoChart:', e); }
+}
+
+// Toggle L5 charts
+document.querySelectorAll('.l5-chart-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const chartId = btn.dataset.l5chart, mode = btn.dataset.l5mode;
+    if (chartId === 'l5VendorChart' && l5VendorChart) {
+      l5VendorChart.data.datasets[0].hidden = (mode !== 'bruto');
+      l5VendorChart.data.datasets[1].hidden = (mode !== 'neto');
+      l5VendorChart.update();
+    } else if (chartId === 'l5DailyChart' && l5DailyChart) {
+      l5DailyChart.data.datasets[0].data  = mode==='usd' ? l5DailyUsdV : l5DailyCountV;
+      l5DailyChart.data.datasets[0].label = mode==='usd' ? 'USD equiv.' : '# Ventas';
+      l5DailyChart.data.datasets[0].backgroundColor = mode==='usd' ? '#1a4a7a' : '#1a7a4a';
+      l5DailyChart.update();
+    }
+    document.querySelectorAll(`.l5-chart-toggle[data-l5chart="${chartId}"]`).forEach(b=>{b.style.background='#fff';b.style.color='#888';});
+    btn.style.background='#1a0810'; btn.style.color='#fff';
   });
 });
 </script>

@@ -523,11 +523,17 @@ async function startAsistente() {
   const leadName = document.getElementById('asLeadName').value.trim() || 'el lead';
   const leadContext = document.getElementById('asLeadContext').value.trim();
 
-  const res = await fetch('/chat/lanzamiento/session/start', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ mode:'asistente', phase:asPhase, lead_name:leadName, lead_context:leadContext })
-  });
-  const data = await res.json();
+  let data;
+  try {
+    const res = await fetch('/chat/lanzamiento/session/start', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mode:'asistente', phase:asPhase, lead_name:leadName, lead_context:leadContext })
+    });
+    data = await res.json();
+  } catch(e) {
+    alert('Error de red al iniciar la sesión: ' + e.message);
+    return;
+  }
   if (!data.ok) { alert('Error: ' + data.error); return; }
 
   asSessionId = data.session_id;
@@ -607,27 +613,36 @@ async function sendAsistente() {
     : 'Analizando...';
   addLoadingBubble('asMessages', 'system');
 
-  let res;
-  if (fileToSend) {
-    const fd = new FormData();
-    if (textToSend) fd.append('text', textToSend);
-    fd.append('file', fileToSend);
-    res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
-      method: 'POST',
-      body: fd,
-    });
-  } else {
-    res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: textToSend }),
-    });
+  let data;
+  try {
+    let res;
+    if (fileToSend) {
+      const fd = new FormData();
+      if (textToSend) fd.append('text', textToSend);
+      fd.append('file', fileToSend);
+      res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
+        method: 'POST',
+        body: fd,
+      });
+    } else {
+      res = await fetch('/chat/lanzamiento/session/' + asSessionId + '/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToSend }),
+      });
+    }
+    data = await res.json();
+  } catch(e) {
+    removeLoading();
+    document.getElementById('asSendBtn').disabled = false;
+    appendBubble('asMessages', 'system', '⚠️ Error de red: ' + e.message);
+    input.focus();
+    return;
   }
 
   removeLoading();
   document.getElementById('asSendBtn').disabled = false;
 
-  const data = await res.json();
   if (data.ok) {
     appendCoachCard('asMessages', renderCoachText(data.suggestion));
   } else {

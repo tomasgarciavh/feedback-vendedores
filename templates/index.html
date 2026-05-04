@@ -559,15 +559,35 @@
           if (pct === 100) progressLabel.textContent = 'Procesando con Gemini... (puede tardar varios minutos)';
         }
       });
-      xhr.addEventListener('load', () => { window.location.href = '/'; });
-      xhr.addEventListener('error', () => {
+      function _resetBtn() {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-send me-2"></i>Analizar y generar feedback';
         progressDiv.style.display = 'none';
-        showToast('Error de red. Intentá de nuevo.', 'danger');
+        progressBar.style.width = '0%';
+        progressPct.textContent = '0%';
+        progressLabel.textContent = 'Subiendo archivo...';
+      }
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 400) {
+          // Funciona tanto con respuesta JSON {"ok":true} como con redirect HTML
+          let ok = true;
+          try { const d = JSON.parse(xhr.responseText); if (d.ok === false) { ok = false; showToast(d.error||'Error.','danger'); } } catch(_){}
+          if (ok) window.location.href = '/';
+          else _resetBtn();
+        } else {
+          _resetBtn();
+          let msg = 'Error al subir (' + xhr.status + ').';
+          if (xhr.status === 413) msg = 'El archivo supera el tamaño máximo permitido.';
+          else if (xhr.status === 500) msg = 'Error del servidor. Intentá de nuevo.';
+          try { const er = JSON.parse(xhr.responseText); if (er.error) msg = er.error; } catch(_){}
+          showToast(msg, 'danger');
+        }
       });
+      xhr.addEventListener('error', () => { _resetBtn(); showToast('Error de red. Verificá tu conexión.', 'danger'); });
+      xhr.addEventListener('abort', () => { _resetBtn(); showToast('Subida cancelada.', 'warning'); });
       xhr.timeout = 0;
       xhr.open('POST', '/upload');
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       xhr.send(formData);
     });
   }
@@ -579,12 +599,22 @@
   function playVideo(fileId, vendorName, fileName) {
     document.getElementById('videoModalVendor').textContent = vendorName;
     document.getElementById('videoModalFile').textContent = fileName;
-    _videoPlayer.load();
     _videoPlayer.src = '/uploads/video/' + fileId;
     _videoPlayer.load();
     _videoModal.show();
     _videoPlayer.play().catch(() => {});
   }
+
+  _videoPlayer.addEventListener('error', () => {
+    const err = _videoPlayer.error;
+    let msg = 'No se pudo cargar el video.';
+    if (err) {
+      if (err.code === 2) msg = 'Error de red al cargar el video. Verificá tu conexión.';
+      else if (err.code === 3) msg = 'Error al decodificar el video. El archivo puede estar corrupto.';
+      else msg = 'El video no está disponible (puede haber sido eliminado del servidor para liberar espacio) o el formato no es compatible con tu navegador.';
+    }
+    showToast(msg, 'warning');
+  });
 
   document.getElementById('videoModal').addEventListener('hidden.bs.modal', () => {
     _videoPlayer.pause();

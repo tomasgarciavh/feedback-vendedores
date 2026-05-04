@@ -57,6 +57,13 @@
 
 /* ── Reward banner ───────────────────────────────────────────────── */
 @keyframes popIn { 0%{transform:scale(.8);opacity:0} 70%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
+@keyframes pulseGold { 0%,100%{box-shadow:0 0 0 0 rgba(201,160,102,.5)} 50%{box-shadow:0 0 0 18px rgba(201,160,102,0)} }
+@keyframes floatUp { 0%{transform:translateY(0) scale(1);opacity:1} 100%{transform:translateY(-80px) scale(1.4);opacity:0} }
+@keyframes shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
+@keyframes bounceIn { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.15)} 80%{transform:scale(.95)} 100%{transform:scale(1);opacity:1} }
+@keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+@keyframes confettiFall { 0%{transform:translateY(-10px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+
 .reward-banner {
   background:linear-gradient(135deg,#1a0810,#3d0f1e);
   border-radius:16px; padding:20px 24px; margin-bottom:20px;
@@ -68,6 +75,58 @@
 .reward-text { flex:1; }
 .reward-text .rt-title { font-size:16px; font-weight:900; color:#c9a066; margin-bottom:4px; }
 .reward-text .rt-frase { font-size:13px; color:rgba(255,255,255,.85); line-height:1.55; }
+
+/* ── SALE CELEBRATION ─────────────────────────────────────────────── */
+.sale-celebration {
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg,#0d1f0d 0%,#0f2a1a 40%,#1a3a10 100%);
+  border:2px solid #22c55e;
+  border-radius:20px; padding:28px 24px; margin-bottom:20px;
+  animation: popIn .5s cubic-bezier(.175,.885,.32,1.275) both, pulseGold 2s 1s infinite;
+  box-shadow:0 0 40px rgba(34,197,94,.3), 0 8px 32px rgba(0,0,0,.4);
+  text-align:center;
+}
+.sale-trophy {
+  font-size:72px; display:block; margin-bottom:12px;
+  animation: bounceIn .6s .2s both;
+  filter:drop-shadow(0 0 20px rgba(34,197,94,.8));
+}
+.sale-title {
+  font-size:clamp(22px,5vw,32px); font-weight:900; letter-spacing:1px;
+  background:linear-gradient(90deg,#22c55e,#c9a066,#22c55e);
+  background-size:200% auto;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  animation:shimmer 2s linear infinite;
+  margin-bottom:6px;
+}
+.sale-name {
+  font-size:clamp(18px,4vw,24px); font-weight:900; color:#fff;
+  margin-bottom:16px; text-shadow:0 0 20px rgba(34,197,94,.6);
+}
+.sale-msg {
+  font-size:15px; color:rgba(255,255,255,.9); line-height:1.65;
+  max-width:560px; margin:0 auto 20px;
+  text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.sale-badges {
+  display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-bottom:20px;
+}
+.sale-badge {
+  background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.5);
+  border-radius:20px; padding:6px 14px; font-size:12px; font-weight:800;
+  color:#86efac; letter-spacing:.3px;
+}
+.sale-dismiss {
+  background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.25);
+  border-radius:10px; padding:8px 20px; font-size:13px; font-weight:700;
+  cursor:pointer; transition:background .15s;
+}
+.sale-dismiss:hover { background:rgba(255,255,255,.2); }
+.confetti-piece {
+  position:absolute; width:8px; height:14px; border-radius:2px;
+  animation:confettiFall linear forwards;
+  top:-20px;
+}
 
 /* ── Goals section ───────────────────────────────────────────────── */
 .goals-card { background:#fff; border:1px solid #e9ecef; border-radius:14px; overflow:hidden; margin-bottom:14px; }
@@ -111,12 +170,73 @@
 
 {% if not vendor %}
 <!-- ═══════════════════ VENDOR SELECTOR ═══════════════════════ -->
-<div class="mb-4">
-  <h5 class="fw-bold mb-1">¿Quién sos?</h5>
-  <p style="color:#888;font-size:13px;margin:0;">Elegí tu nombre para cargar los KPI del día</p>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <h5 class="fw-bold mb-0">¿Quién sos?</h5>
+    <p style="color:#888;font-size:13px;margin:0;">Elegí tu nombre para cargar los KPI del día</p>
+  </div>
+  {% if is_producer %}
+  <button onclick="document.getElementById('kpi-vendor-mgr').classList.toggle('d-none')"
+    style="background:linear-gradient(135deg,#1a0810,#3d0f1e);color:#c9a066;border:none;border-radius:9px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">
+    <i class="bi bi-gear-fill me-1"></i>Gestionar vendedores
+  </button>
+  {% endif %}
 </div>
 
-<div class="vendor-grid">
+{% if is_producer %}
+<!-- Panel de gestión (visible solo a productores) -->
+<div id="kpi-vendor-mgr" class="d-none mb-4" style="background:#fff;border:1px solid #e9ecef;border-radius:14px;padding:18px 20px;">
+  <div style="font-size:13px;font-weight:800;color:#1a0810;margin-bottom:14px;">
+    <i class="bi bi-people-fill me-2" style="color:#c9a066;"></i>Gestión de vendedores KPI
+  </div>
+  <div class="row g-3">
+    <!-- Agregar vendedor -->
+    <div class="col-12 col-md-6">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Agregar vendedor al KPI</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="kpi-add-select" style="flex:1;min-width:180px;border:1.5px solid #e9ecef;border-radius:8px;padding:7px 10px;font-size:13px;color:#1a0810;">
+          <option value="">— Elegir de la lista —</option>
+          {% for v in all_vendors %}
+          {% if v not in vendors_list|map(attribute='id')|list and v.id not in vendors_list|map(attribute='id')|list %}
+          <option value="{{ v.id }}" data-name="{{ v.name }}">{{ v.name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <button onclick="kpiVendorAdd()" style="background:#1a7a4a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+          <i class="bi bi-plus-lg me-1"></i>Agregar
+        </button>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#888;">O escribí un nombre nuevo:</div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <input type="text" id="kpi-add-name" placeholder="Nombre completo" style="flex:1;border:1.5px solid #e9ecef;border-radius:8px;padding:7px 10px;font-size:13px;">
+        <input type="email" id="kpi-add-email" placeholder="email@ejemplo.com" style="flex:1;border:1.5px solid #e9ecef;border-radius:8px;padding:7px 10px;font-size:13px;">
+        <button onclick="kpiVendorAddNew()" style="background:#1a4a7a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+          <i class="bi bi-plus-lg me-1"></i>Crear
+        </button>
+      </div>
+    </div>
+    <!-- Eliminar vendedor -->
+    <div class="col-12 col-md-6">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Quitar vendedor del KPI</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="kpi-remove-select" style="flex:1;min-width:180px;border:1.5px solid #e9ecef;border-radius:8px;padding:7px 10px;font-size:13px;color:#1a0810;">
+          <option value="">— Elegir vendedor —</option>
+          {% for v in vendors_list %}
+          <option value="{{ v.id }}">{{ v.name }}</option>
+          {% endfor %}
+        </select>
+        <button onclick="kpiVendorRemove()" style="background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+          <i class="bi bi-dash-lg me-1"></i>Quitar
+        </button>
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:6px;">Solo quita al vendedor del KPI, no borra sus datos.</div>
+    </div>
+  </div>
+  <div id="kpi-mgr-msg" style="font-size:12px;margin-top:10px;display:none;"></div>
+</div>
+{% endif %}
+
+<div class="vendor-grid mb-4">
   {% for v in vendors_list %}
   <a href="{{ url_for('lanzamiento_kpi', vendor_id=v.id) }}" class="vendor-tile">
     <div class="vendor-avatar">
@@ -130,6 +250,143 @@
   </a>
   {% endfor %}
 </div>
+
+<!-- ═══════════════════ TABLA RANKING ACUMULADO ═══════════════════════ -->
+{% if all_kpi_summary %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:14px;overflow:hidden;margin-bottom:20px;">
+  <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);padding:14px 20px;display:flex;align-items:center;gap:10px;">
+    <i class="bi bi-bar-chart-fill" style="color:#c9a066;font-size:18px;"></i>
+    <div>
+      <div style="font-weight:800;font-size:14px;color:#fff;">Ranking acumulado del lanzamiento</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.55);">Datos acumulados de todos los vendedores · se actualiza con cada carga</div>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead>
+      <tr style="background:#faf8f5;">
+        <th style="padding:10px 14px;text-align:left;font-weight:800;color:#555;border-bottom:2px solid #e9ecef;">Vendedor</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#6b7280;border-bottom:2px solid #e9ecef;" title="No respondido">NR</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#3b82f6;border-bottom:2px solid #e9ecef;" title="Interacción leve">IL</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#22c55e;border-bottom:2px solid #e9ecef;" title="Conversación fluida">CF</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#f59e0b;border-bottom:2px solid #e9ecef;" title="Potencial compra">PC</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#8b5cf6;border-bottom:2px solid #e9ecef;" title="Venta realizada">VR</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#1a0810;border-bottom:2px solid #e9ecef;">% Conv.</th>
+        <th style="padding:10px 8px;text-align:center;font-weight:800;color:#888;border-bottom:2px solid #e9ecef;">Entradas</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% set max_vr = all_kpi_summary|map(attribute='venta_realizada')|max if all_kpi_summary else 1 %}
+    {% for s in all_kpi_summary|sort(attribute='venta_realizada', reverse=True) %}
+    {% set total_leads = s.no_respondido + s.interaccion_leve + s.conversacion_fluida + s.potencial_compra + s.venta_realizada %}
+    {% set conv_pct = ((s.venta_realizada / total_leads * 100)|round(1)) if total_leads > 0 else 0 %}
+    <tr style="border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#faf8f5'" onmouseout="this.style.background=''">
+      <td style="padding:10px 14px;">
+        <div style="font-weight:800;font-size:13px;color:#1a0810;">{{ s.vendor_name }}</div>
+        {% if s.venta_realizada > 0 %}
+        <div style="margin-top:3px;background:#f0f0f0;border-radius:3px;height:4px;overflow:hidden;width:120px;">
+          <div style="height:100%;background:linear-gradient(90deg,#8b5cf6,#c9a066);border-radius:3px;width:{{ ([((s.venta_realizada / (max_vr or 1)) * 100)|round(0), 100]|min)|int }}%;"></div>
+        </div>
+        {% endif %}
+      </td>
+      <td style="padding:10px 8px;text-align:center;color:#6b7280;font-weight:700;">{{ s.no_respondido }}</td>
+      <td style="padding:10px 8px;text-align:center;color:#3b82f6;font-weight:700;">{{ s.interaccion_leve }}</td>
+      <td style="padding:10px 8px;text-align:center;color:#22c55e;font-weight:700;">{{ s.conversacion_fluida }}</td>
+      <td style="padding:10px 8px;text-align:center;color:#f59e0b;font-weight:700;">{{ s.potencial_compra }}</td>
+      <td style="padding:10px 8px;text-align:center;">
+        <span style="background:{% if s.venta_realizada >= 5 %}#f3e8ff;color:#7c3aed{% elif s.venta_realizada >= 2 %}#ede9fe;color:#8b5cf6{% elif s.venta_realizada >= 1 %}#f5f3ff;color:#a78bfa{% else %}#f0f0f0;color:#999{% endif %};border-radius:20px;padding:2px 10px;font-weight:900;font-size:13px;">
+          {{ s.venta_realizada }}
+        </span>
+      </td>
+      <td style="padding:10px 8px;text-align:center;font-weight:700;color:{% if conv_pct >= 2 %}#1a7a4a{% elif conv_pct >= 1 %}#c9a066{% else %}#9ca3af{% endif %};">
+        {{ conv_pct }}%
+      </td>
+      <td style="padding:10px 8px;text-align:center;color:#9ca3af;font-size:11px;">{{ s.entry_count }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      {% set tot = namespace(nr=0,il=0,cf=0,pc=0,vr=0) %}
+      {% for s in all_kpi_summary %}
+        {% set tot.nr = tot.nr + s.no_respondido %}
+        {% set tot.il = tot.il + s.interaccion_leve %}
+        {% set tot.cf = tot.cf + s.conversacion_fluida %}
+        {% set tot.pc = tot.pc + s.potencial_compra %}
+        {% set tot.vr = tot.vr + s.venta_realizada %}
+      {% endfor %}
+      {% set tot_leads = tot.nr + tot.il + tot.cf + tot.pc + tot.vr %}
+      <tr style="background:#faf8f5;border-top:2px solid #e9ecef;">
+        <td style="padding:10px 14px;font-weight:900;color:#1a0810;font-size:13px;">TOTAL EQUIPO</td>
+        <td style="padding:10px 8px;text-align:center;font-weight:900;color:#6b7280;">{{ tot.nr }}</td>
+        <td style="padding:10px 8px;text-align:center;font-weight:900;color:#3b82f6;">{{ tot.il }}</td>
+        <td style="padding:10px 8px;text-align:center;font-weight:900;color:#22c55e;">{{ tot.cf }}</td>
+        <td style="padding:10px 8px;text-align:center;font-weight:900;color:#f59e0b;">{{ tot.pc }}</td>
+        <td style="padding:10px 8px;text-align:center;"><span style="background:#1a0810;color:#c9a066;border-radius:20px;padding:2px 10px;font-weight:900;font-size:13px;">{{ tot.vr }}</span></td>
+        <td style="padding:10px 8px;text-align:center;font-weight:900;color:#1a0810;">{{ ((tot.vr / tot_leads * 100)|round(1)) if tot_leads > 0 else 0 }}%</td>
+        <td style="padding:10px 8px;text-align:center;color:#9ca3af;font-size:11px;">—</td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+  <div style="padding:10px 16px;font-size:10px;color:#aaa;border-top:1px solid #f0f0f0;">
+    NR = No respondido · IL = Interacción leve · CF = Conversación fluida · PC = Potencial de compra · VR = Venta realizada · % Conv. = VR/total leads
+  </div>
+</div>
+{% endif %}
+
+{% if is_producer %}
+<script>
+async function kpiVendorAdd() {
+  const sel = document.getElementById('kpi-add-select');
+  const vid = sel.value;
+  const name = sel.options[sel.selectedIndex]?.dataset.name || '';
+  if (!vid) { _kpiMsg('Elegí un vendedor de la lista.', 'danger'); return; }
+  const r = await fetch('/lanzamiento/kpi/vendor/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor_id: parseInt(vid), name})
+  });
+  const d = await r.json();
+  if (d.ok) { _kpiMsg('✓ ' + d.name + ' agregado al KPI.', 'success'); setTimeout(()=>location.reload(), 900); }
+  else _kpiMsg('Error: ' + (d.error||'Intentá de nuevo.'), 'danger');
+}
+
+async function kpiVendorAddNew() {
+  const name = document.getElementById('kpi-add-name').value.trim();
+  const email = document.getElementById('kpi-add-email').value.trim();
+  if (!name) { _kpiMsg('El nombre es obligatorio.', 'danger'); return; }
+  const r = await fetch('/lanzamiento/kpi/vendor/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, email})
+  });
+  const d = await r.json();
+  if (d.ok) { _kpiMsg('✓ ' + d.name + ' creado y agregado.', 'success'); setTimeout(()=>location.reload(), 900); }
+  else _kpiMsg('Error: ' + (d.error||'Intentá de nuevo.'), 'danger');
+}
+
+async function kpiVendorRemove() {
+  const sel = document.getElementById('kpi-remove-select');
+  const vid = sel.value;
+  const name = sel.options[sel.selectedIndex]?.text || '';
+  if (!vid) { _kpiMsg('Elegí un vendedor para quitar.', 'danger'); return; }
+  if (!confirm(`¿Quitar a ${name} del KPI? Sus datos históricos se conservan.`)) return;
+  const r = await fetch('/lanzamiento/kpi/vendor/remove', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor_id: parseInt(vid)})
+  });
+  const d = await r.json();
+  if (d.ok) { _kpiMsg('✓ ' + name + ' quitado del KPI.', 'success'); setTimeout(()=>location.reload(), 900); }
+  else _kpiMsg('Error: ' + (d.error||'Intentá de nuevo.'), 'danger');
+}
+
+function _kpiMsg(msg, type) {
+  const el = document.getElementById('kpi-mgr-msg');
+  el.style.display = 'block';
+  el.style.color = type === 'success' ? '#1a7a4a' : '#e74c3c';
+  el.style.fontWeight = '700';
+  el.textContent = msg;
+}
+</script>
+{% endif %}
 
 {% else %}
 <!-- ═══════════════════ ENTRY FORM ═══════════════════════════ -->
@@ -151,6 +408,25 @@
     </div>
   </div>
 </div>
+
+<!-- ══ SALE CELEBRATION (venta registrada hoy) ══ -->
+{% if has_sale_today %}
+<div class="sale-celebration" id="saleCelebration">
+  <span class="sale-trophy" id="saleTrophy">🏆</span>
+  <div class="sale-title" id="saleTitle">¡VENDISTE HOY!</div>
+  <div class="sale-name">{{ vendor.name.split()[0] }}, ¡sos imparable!</div>
+  <div class="sale-msg" id="saleMsg">Cargando tu mensaje especial...</div>
+  <div class="sale-badges">
+    <span class="sale-badge">🔥 Venta confirmada</span>
+    <span class="sale-badge">💰 Resultado real</span>
+    <span class="sale-badge" id="saleVentaCount">{{ today_entry.get('venta_realizada', 1) }} venta{{ 's' if today_entry.get('venta_realizada', 1) > 1 }}</span>
+    <span class="sale-badge">⚡ Top performer</span>
+  </div>
+  <button class="sale-dismiss" onclick="document.getElementById('saleCelebration').style.display='none'">
+    Cerrar celebración
+  </button>
+</div>
+{% endif %}
 
 <!-- ══ REWARD BANNER (solo cuando guardaron el KPI de hoy) ══ -->
 {% if saved_today %}
@@ -805,6 +1081,65 @@ const start = new Date(now.getFullYear(), 0, 0);
 const dayOfYear = Math.floor((now - start) / 86400000);
 const dayIdx = dayOfYear % FRASES.length;
 document.getElementById('rewardFrase').textContent = FRASES[dayIdx];
+
+{% if has_sale_today %}
+// ── SALE CELEBRATION ─────────────────────────────────────────────────────────
+const SALE_MSGS = [
+  "Hay vendedores que hablan de cerrar y hay vendedores que cierran. Hoy quedó clarísimo en cuál grupo estás vos. Ese cliente eligió confiarle su plata a vos — no a otro. Eso no se improvisa. Se construye con cada conversación, con cada detalle, con la forma en que tratás a las personas. Y hoy lo demostraste.",
+  "Una venta no es solo plata. Es alguien que te escuchó, te creyó y decidió que sí. Esa confianza se ganó con tu energía, tu presencia y tu capacidad de ver qué necesitaba ese lead. Eso no lo hace cualquiera. Hoy lo hiciste vos.",
+  "¿Sabés lo que acaba de pasar? Tu cerebro acaba de confirmar que vendés. No en teoría, no 'cuando estoy en forma'. Ahora. Hoy. Esto se acumula en tu identidad como vendedor y cambia la forma en que vas a encarar la próxima conversación.",
+  "El mejor momento para creer en tu potencial es justo después de un cierre. Porque ya no es fe — es evidencia. Hoy sumaste una prueba más de que tenés lo que hace falta. Guardala. Úsala la próxima vez que el miedo quiera hablar más fuerte que vos.",
+  "No existe suerte en una venta. Existe una persona que escuchó bien, conectó de verdad, y guió la conversación hacia un sí. Esa persona hoy sos vos. Y ese proceso que usaste hoy es tuyo para siempre.",
+  "Hay un momento en el proceso de ventas que nadie te lo puede quitar: el instante en que escuchás el sí. Hoy tuviste ese momento. Guardalo en algún lugar de tu pecho y volvé a él cuando una conversación se ponga difícil. Es tuyo.",
+  "Cada venta que cerrás le dice algo a tu cerebro: 'puedo hacerlo'. Y la próxima conversación la empezás desde un lugar diferente — con más certeza, más calma, más poder. Lo que hiciste hoy te hace mejor para mañana.",
+  "Hoy alguien te eligió. Entre todas las opciones que tenía, entre todos los vendedores que pudo escuchar, te eligió a vos. Eso no es casualidad. Es el resultado de cómo llevaste esa conversación. Sentílo.",
+  "El 80% de las ventas se pierden por falta de seguimiento. Vos no fuiste de ese 80%. Vos fuiste a buscar ese resultado. Y el resultado llegó. Eso se llama mentalidad ganadora. Hoy la tuvo.",
+  "Una venta es la prueba de que todo lo que aprendiste tiene sentido. Las técnicas, las conversaciones, el proceso — todo eso funcionó hoy. No porque hayas tenido suerte. Porque lo hiciste bien.",
+  "¿Sabés lo que distingue a los mejores vendedores del mundo? No son los más inteligentes ni los más carismáticos. Son los que cierran incluso cuando el día no arrancó bien, incluso cuando tienen presión, incluso cuando el lead puso resistencia. Hoy esa persona sos vos.",
+  "Una venta cambia algo permanentemente: tu creencia sobre lo que sos capaz de lograr. Cada cierre amplía esa creencia. La de hoy te va a acompañar en cada conversación futura. Sin que te des cuenta, vas a ir con más certeza, más presencia, más poder.",
+  "Tomás va a ver este número y va a saber que estuviste. No como anécdota — como evidencia de que cuando las cosas se ponen en serio, vos aparecés. Eso construye confianza y te abre puertas que otros no van a tener.",
+  "Cada número de venta que sumás no es solo plata para la empresa. Es una persona cuya vida va a cambiar por el programa. Vos fuiste el puente entre ese lead y esa transformación. Eso tiene un valor que va mucho más allá de la comisión.",
+  "Cuando el lanzamiento termine y te pregunten cómo fue, vas a acordarte de los días como hoy. Los días en que pusiste todo y el resultado llegó. No te olvidés de este momento — es parte de la historia que estás escribiendo.",
+];
+const saleIdx = dayOfYear % SALE_MSGS.length;
+document.getElementById('saleMsg').textContent = SALE_MSGS[saleIdx];
+
+// Confetti
+const colors = ['#22c55e','#c9a066','#fbbf24','#86efac','#fff','#a78bfa','#fb923c'];
+const saleCel = document.getElementById('saleCelebration');
+for (let i = 0; i < 55; i++) {
+  const el = document.createElement('div');
+  el.className = 'confetti-piece';
+  el.style.cssText = `
+    left:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*colors.length)]};
+    width:${6+Math.random()*8}px;
+    height:${10+Math.random()*10}px;
+    opacity:${0.7+Math.random()*.3};
+    animation-duration:${2.5+Math.random()*3}s;
+    animation-delay:${Math.random()*1.5}s;
+    transform:rotate(${Math.random()*360}deg);
+  `;
+  saleCel.appendChild(el);
+}
+
+// Trophy rotation
+const trophies = ['🏆','🎉','⭐','🔥','💎','🥇','✨','🎊'];
+let ti = 0;
+setInterval(() => {
+  document.getElementById('saleTrophy').textContent = trophies[ti % trophies.length];
+  ti++;
+}, 700);
+
+// Titles rotation
+const titles = ['¡VENDISTE HOY!','¡CERRASTE!','¡LO LOGRASTE!','¡IMPARABLE!','¡ESO ES!'];
+let ttl = 0;
+setInterval(() => {
+  const el = document.getElementById('saleTitle');
+  el.style.opacity = '0';
+  setTimeout(() => { el.textContent = titles[ttl % titles.length]; el.style.opacity = '1'; ttl++; }, 200);
+}, 2500);
+{% endif %}
 
 const TIPS = [
   "Tomá agua apenas te levantás mañana — antes del café. Tu cuerpo lleva 8 hs sin hidratarse y eso afecta tu foco, tu humor y tu energía desde el primer mensaje del día.",

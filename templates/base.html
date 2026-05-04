@@ -618,19 +618,31 @@ function vuSubmitLocal() {
       if (p === 100) label.textContent = 'Procesando con Gemini...';
     }
   });
+  function _resetVuBtn() {
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-2"></i>Analizar y generar feedback';
+    btn.style.opacity = '1'; prog.style.display = 'none';
+    bar.style.width = '0%'; pct.textContent = '0%'; label.textContent = 'Subiendo...';
+  }
   xhr.addEventListener('load', () => {
-    showToast('Video subido. El feedback estará listo en unos minutos.', 'success');
-    closeVendorUploadModal();
-    _vuFileSelected = false;
+    if (xhr.status >= 200 && xhr.status < 400) {
+      let ok = true;
+      try { const d = JSON.parse(xhr.responseText); if (d.ok===false) { ok=false; showToast(d.error||'Error.','danger'); } } catch(_){}
+      if (ok) { showToast('Video subido. El feedback estará listo en unos minutos.','success'); closeVendorUploadModal(); _vuFileSelected=false; }
+      else _resetVuBtn();
+    } else {
+      _resetVuBtn();
+      let msg = 'Error al subir (' + xhr.status + ').';
+      if (xhr.status===413) msg='El archivo supera el tamaño máximo.';
+      else if (xhr.status===500) msg='Error del servidor. Intentá de nuevo.';
+      try { const er=JSON.parse(xhr.responseText); if(er.error) msg=er.error; } catch(_){}
+      showToast(msg,'danger');
+    }
   });
-  xhr.addEventListener('error', () => {
-    showToast('Error de red. Intentá de nuevo.', 'danger');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-send me-2"></i>Analizar y generar feedback';
-    prog.style.display = 'none';
-  });
+  xhr.addEventListener('error', ()=>{ _resetVuBtn(); showToast('Error de red.','danger'); });
+  xhr.addEventListener('abort', ()=>{ _resetVuBtn(); showToast('Subida cancelada.','warning'); });
   xhr.timeout = 0;
   xhr.open('POST', '/upload');
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
   xhr.send(fd);
 }
 

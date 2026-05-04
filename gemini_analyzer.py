@@ -85,7 +85,37 @@ def analyze_video(file_path: str, vendor_name: str, criteria: str) -> str:
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
-    # Transcode to H.264/mp4 if needed so Gemini accepts any input format/codec
+    _MIME_MAP = {
+        "mp4": "video/mp4", "m4v": "video/mp4", "mov": "video/quicktime",
+        "avi": "video/x-msvideo", "mkv": "video/x-matroska", "webm": "video/webm",
+        "wmv": "video/x-ms-wmv", "flv": "video/x-flv", "3gp": "video/3gpp",
+    }
+
+    def _upload_and_wait(path: str, attempt_label: str):
+        """Upload a video file to Gemini and wait for it to be ready. Returns the uploaded file object."""
+        ext = os.path.splitext(path)[1].lower().lstrip(".")
+        mime_type = _MIME_MAP.get(ext, "video/mp4")
+        logger.info("Uploading video to Gemini Files API (%s): %s [%s]", attempt_label, path, mime_type)
+        from google.genai import types as genai_types
+        try:
+            uf = client.files.upload(
+                file=path,
+                config=genai_types.UploadFileConfig(mime_type=mime_type),
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Error uploading file to Gemini: {exc}") from exc
+
+        wait_seconds = 0
+        while uf.state.name == "PROCESSING":
+            if wait_seconds > 600:
+                raise RuntimeError("Gemini file processing timed out after 10 minutes.")
+            logger.info("Waiting for Gemini to process video... (%ds)", wait_seconds)
+            time.sleep(10)
+            wait_seconds += 10
+            uf = client.files.get(name=uf.name)
+        return uf
+
+    # ── Attempt 1: transcode only if probe says it's needed ──────────────────
     transcoded_path = None
     upload_path = file_path
     try:
@@ -96,37 +126,54 @@ def analyze_video(file_path: str, vendor_name: str, criteria: str) -> str:
         logger.warning("Transcode failed, uploading original: %s", exc)
         upload_path = file_path
 
-    # Upload file
-    logger.info("Uploading video to Gemini Files API: %s", upload_path)
-    try:
-        from google.genai import types as genai_types
-        uploaded_file = client.files.upload(
-            file=upload_path,
-            config=genai_types.UploadFileConfig(mime_type="video/mp4"),
+    uploaded_file = _upload_and_wait(upload_path, "attempt 1")
+
+    # ── Attempt 2: if Gemini failed, force-transcode and retry ───────────────
+    if uploaded_file.state.name == "FAILED":
+        logger.warning(
+            "Gemini FAILED on first attempt (%s). Retrying with forced H.264 transcode...",
+            upload_path,
         )
-    except Exception as exc:
-        raise RuntimeError(f"Error uploading file to Gemini: {exc}") from exc
-    finally:
+        try:
+            client.files.delete(name=uploaded_file.name)
+        except Exception:
+            pass
+
+        # Clean up previous transcode if any
         if transcoded_path and os.path.exists(transcoded_path):
             try:
                 os.unlink(transcoded_path)
             except Exception:
                 pass
 
-    # Wait for Gemini to finish processing the video
-    wait_seconds = 0
-    while uploaded_file.state.name == "PROCESSING":
-        if wait_seconds > 600:
-            raise RuntimeError("Gemini file processing timed out after 10 minutes.")
-        logger.info("Waiting for Gemini to process video... (%ds)", wait_seconds)
-        time.sleep(10)
-        wait_seconds += 10
-        uploaded_file = client.files.get(name=uploaded_file.name)
+        # Force transcode from original, regardless of probe result
+        try:
+            transcoded_path = _transcode_to_h264(file_path)
+            uploaded_file = _upload_and_wait(transcoded_path, "attempt 2 — force transcode")
+        except Exception as exc:
+            raise RuntimeError(
+                f"Gemini no pudo procesar el video incluso tras transcodificar. "
+                f"El archivo puede estar corrupto o en un formato no soportado. Detalle: {exc}"
+            ) from exc
+        finally:
+            if transcoded_path and os.path.exists(transcoded_path):
+                try:
+                    os.unlink(transcoded_path)
+                except Exception:
+                    pass
+        transcoded_path = None  # already cleaned up above
+
+    # Final cleanup of first-attempt transcode (if attempt 2 wasn't needed)
+    if transcoded_path and os.path.exists(transcoded_path):
+        try:
+            os.unlink(transcoded_path)
+        except Exception:
+            pass
 
     if uploaded_file.state.name == "FAILED":
         raise RuntimeError(
-            "Gemini failed to process the video file. "
-            "Verificá que el formato sea soportado (mp4, mov, avi, mkv, webm)."
+            "Gemini no pudo procesar el video (estado FAILED en ambos intentos). "
+            "El archivo puede estar corrupto, ser demasiado largo, o en un formato incompatible."
         )
 
     logger.info("Video ready. Generating feedback for %s...", vendor_name)
