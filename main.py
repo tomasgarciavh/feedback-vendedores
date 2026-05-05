@@ -641,6 +641,10 @@ def vendor_profile(vendor_id: int):
             last_feedback = r["feedback_text"]
             break
 
+    logged_vendor = _vendor_session()
+    is_producer = bool(flask_session.get("producer_auth"))
+    can_edit = is_producer or (logged_vendor is not None and logged_vendor["id"] == vendor_id)
+
     return render_template(
         "vendor_profile.html",
         vendor=vendor,
@@ -656,11 +660,16 @@ def vendor_profile(vendor_id: int):
         valid_scores=valid_scores,
         trend=trend,
         last_feedback=last_feedback,
+        can_edit=can_edit,
     )
 
 
 @app.route("/vendors/<int:vendor_id>/info", methods=["POST"])
 def update_vendor_info(vendor_id: int):
+    logged_vendor = _vendor_session()
+    is_producer = bool(flask_session.get("producer_auth"))
+    if not is_producer and (not logged_vendor or logged_vendor["id"] != vendor_id):
+        return jsonify({"ok": False, "error": "Solo podés editar tu propio perfil."}), 403
     try:
         data = request.get_json()
         import json as _json
@@ -678,6 +687,7 @@ def update_vendor_info(vendor_id: int):
             joined_program=data.get("joined_program", ""),
             metrics=_json.dumps(metrics_raw) if metrics_raw else None,
         )
+        database._invalidate("vendors:")
         return jsonify({"ok": True})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -685,6 +695,11 @@ def update_vendor_info(vendor_id: int):
 
 @app.route("/vendors/<int:vendor_id>/photo", methods=["POST"])
 def upload_photo(vendor_id: int):
+    logged_vendor = _vendor_session()
+    is_producer = bool(flask_session.get("producer_auth"))
+    if not is_producer and (not logged_vendor or logged_vendor["id"] != vendor_id):
+        return jsonify({"ok": False, "error": "Solo podés cargar tu propia foto."}), 403
+
     vendor = database.get_vendor_by_id(vendor_id)
     if not vendor:
         return jsonify({"ok": False, "error": "Vendedor no encontrado"}), 404
@@ -696,12 +711,28 @@ def upload_photo(vendor_id: int):
     if not _allowed_photo(file.filename):
         return jsonify({"ok": False, "error": "Formato no soportado. Usá JPG, PNG o WEBP"}), 400
 
+    import base64 as _b64
     ext = file.filename.rsplit(".", 1)[1].lower()
     filename = f"vendor_{vendor_id}.{ext}"
-    file_path = os.path.join(PHOTO_FOLDER, filename)
-    file.save(file_path)
 
-    database.update_vendor_photo(vendor_id, filename)
+    # Read bytes once
+    file_bytes = file.read()
+
+    # Save to disk (ephemeral, but fast for current session)
+    file_path = os.path.join(PHOTO_FOLDER, filename)
+    try:
+        with open(file_path, "wb") as fh:
+            fh.write(file_bytes)
+    except OSError as exc:
+        logger.warning("Could not save photo to disk: %s", exc)
+
+    # Store base64 in PostgreSQL so the photo survives server restarts / redeployments
+    mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                "webp": "image/webp", "gif": "image/gif"}
+    mime = mime_map.get(ext, "image/jpeg")
+    photo_b64 = f"data:{mime};base64,{_b64.b64encode(file_bytes).decode()}"
+
+    database.update_vendor_photo(vendor_id, filename, photo_b64)
     return jsonify({"ok": True, "filename": filename})
 
 
@@ -709,10 +740,29 @@ def upload_photo(vendor_id: int):
 @app.route("/uploads/photos/<filename>")
 def vendor_photo(filename: str):
     filepath = os.path.join(PHOTO_FOLDER, filename)
-    if not os.path.isfile(filepath):
-        from flask import abort
-        abort(404)
-    return send_from_directory(PHOTO_FOLDER, filename)
+    if os.path.isfile(filepath):
+        return send_from_directory(PHOTO_FOLDER, filename)
+
+    # File missing (ephemeral filesystem wiped on redeploy) — restore from database.
+    import re as _re, base64 as _b64
+    m = _re.match(r"vendor_(\d+)\.", filename)
+    if m:
+        vendor_id = int(m.group(1))
+        _, photo_b64 = database.get_vendor_photo_base64(vendor_id)
+        if photo_b64 and "," in photo_b64:
+            header, data = photo_b64.split(",", 1)
+            mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
+            img_bytes = _b64.b64decode(data)
+            # Re-save to disk so future requests don't hit the database
+            try:
+                with open(filepath, "wb") as fh:
+                    fh.write(img_bytes)
+            except OSError:
+                pass
+            return Response(img_bytes, mimetype=mime)
+
+    from flask import abort
+    abort(404)
 
 
 def _stream_video(filepath: str) -> Response:

@@ -203,7 +203,11 @@
 <div class="profile-hero mb-4">
   <div class="d-flex align-items-center gap-4 flex-wrap">
 
+    {% if can_edit %}
     <label class="avatar-wrap" for="photo-input" title="Cambiar foto">
+    {% else %}
+    <div class="avatar-wrap" style="cursor:default;">
+    {% endif %}
       {% if vendor.photo_path %}
         <img src="{{ url_for('vendor_photo', filename=vendor.photo_path) }}"
              class="avatar-img" id="avatar-img" alt="{{ vendor.name }}"
@@ -211,9 +215,11 @@
       {% else %}
         <div class="avatar-initials" id="avatar-initials">{{ vendor.name[0].upper() }}</div>
       {% endif %}
-      <div class="avatar-overlay"><i class="bi bi-camera-fill"></i></div>
-    </label>
+      {% if can_edit %}<div class="avatar-overlay"><i class="bi bi-camera-fill"></i></div>{% endif %}
+    {% if can_edit %}</label>{% else %}</div>{% endif %}
+    {% if can_edit %}
     <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
+    {% endif %}
 
     <div class="flex-grow-1">
       <h2 style="font-size:24px;font-weight:800;margin:0 0 6px;">{{ vendor.name }}</h2>
@@ -269,11 +275,13 @@
         <div class="kpi-value" style="color:#fbbf24;">{{ best_score if best_score else '—' }}</div>
         <div class="kpi-label">Mejor</div>
       </div>
+      {% if can_edit %}
       <button onclick="openEditModal()"
               style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);
                      border-radius:10px;color:#fff;padding:10px 14px;cursor:pointer;font-size:16px;">
         <i class="bi bi-pencil-fill"></i>
       </button>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -282,9 +290,11 @@
 <div class="section-card">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="section-title mb-0"><i class="bi bi-person-vcard me-2" style="color:#667eea;"></i>Información del vendedor</div>
+    {% if can_edit %}
     <button class="btn btn-sm btn-outline-primary" onclick="openEditModal()" style="font-size:12px;">
       <i class="bi bi-pencil me-1"></i>Editar perfil
     </button>
+    {% endif %}
   </div>
   <div class="row g-3">
     <div class="col-sm-6 col-lg-3">
@@ -394,9 +404,11 @@
     <div class="section-title mb-0" style="color:#a78bfa;">
       <i class="bi bi-lightning-charge-fill me-2"></i>Métricas de desempeño
     </div>
+    {% if can_edit %}
     <button onclick="openEditModal()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);border-radius:8px;color:#a78bfa;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
       <i class="bi bi-pencil me-1"></i>Editar métricas
     </button>
+    {% endif %}
   </div>
 
   <div class="row g-3">
@@ -541,9 +553,11 @@
     <div class="section-title mb-0" style="color:#92400e;">
       <i class="bi bi-trophy-fill me-2" style="color:#f59e0b;"></i>Logros destacados
     </div>
+    {% if can_edit %}
     <button onclick="openEditModal()" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:8px;color:#d97706;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
       <i class="bi bi-pencil me-1"></i>Editar
     </button>
+    {% endif %}
   </div>
   {% if vendor.achievements %}
     <div id="achievements-list"></div>
@@ -569,9 +583,11 @@
     <div class="section-title mb-0" style="color:#3730a3;">
       <i class="bi bi-briefcase-fill me-2" style="color:#667eea;"></i>Experiencia & trabajos realizados
     </div>
+    {% if can_edit %}
     <button onclick="openEditModal()" style="background:rgba(102,126,234,0.15);border:1px solid rgba(102,126,234,0.4);border-radius:8px;color:#667eea;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">
       <i class="bi bi-pencil me-1"></i>Editar
     </button>
+    {% endif %}
   </div>
   {% if vendor.experience %}
     <div id="experience-list"></div>

@@ -353,6 +353,8 @@ def init_db():
         conn.execute("""
             ALTER TABLE lanzamiento_estrategias ADD COLUMN IF NOT EXISTS audio_file_name TEXT DEFAULT ''
         """)
+        # Store vendor photos in DB so they survive ephemeral filesystem resets
+        conn.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS photo_base64 TEXT")
         conn.commit()
     logger.info("Database schema ready.")
     _seed_vendors()
@@ -1086,13 +1088,30 @@ def update_vendor_testimonial(vendor_id: int, filename: str):
         conn.commit()
 
 
-def update_vendor_photo(vendor_id: int, photo_path: str):
+def update_vendor_photo(vendor_id: int, photo_path: str, photo_base64: str = None):
     with get_connection() as conn:
-        conn.execute(
-            "UPDATE vendors SET photo_path = ? WHERE id = ?",
-            (photo_path, vendor_id),
-        )
+        if photo_base64:
+            conn.execute(
+                "UPDATE vendors SET photo_path=?, photo_base64=? WHERE id=?",
+                (photo_path, photo_base64, vendor_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE vendors SET photo_path=? WHERE id=?",
+                (photo_path, vendor_id),
+            )
         conn.commit()
+    _invalidate("vendors:")
+
+
+def get_vendor_photo_base64(vendor_id: int):
+    """Returns (photo_path, photo_base64) for a vendor, used when disk file is missing."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT photo_path, photo_base64 FROM vendors WHERE id=?",
+            (vendor_id,)
+        ).fetchone()
+    return (row["photo_path"], row["photo_base64"]) if row else (None, None)
 
 
 def delete_vendor(vendor_id: int):
