@@ -2728,85 +2728,117 @@ def ventas():
     for r in table_rows:
         del r["fecha_obj"]
 
-    # ── Lanzamiento 5 data ──────────────────────────────────────────────────
-    L5_AVG_COT = 1150  # cotización promedio estimada; actualizable
+    # ── Lanzamiento 5 — datos del sheet (Mayo 2026) ──────────────────────────
+    L5_COT_AVG = 1400
+
+    L5_STUDENTS = [
+        # (nombre, plan_usd, vendedor, fecha_str)
+        ("Agostina Santangelo",       1000, "Sofia Moyano",       "4/5"),
+        ("Alfonsina Gorostiaga",        750, "Rocio Lopez",        "4/5"),
+        ("Mariela Jacinta Peña",        750, "Daniela Ruiz Diaz",  "4/5"),
+        ("Maria Soledad Calvo",         750, "Hugo Loncaric",      "4/5"),
+        ("Matias Nicolas Beltran",      750, "Hugo Loncaric",      "4/5"),
+        ("Camila Gisel More",          1000, "Hugo Loncaric",      "4/5"),
+        ("Estefania Guari",            1000, "Hugo Loncaric",      "4/5"),
+        ("Estefania Acevedo",          1000, "Daniela Ruiz Diaz",  "5/5"),
+        ("Fabián Liendo",              1000, "Rocio Lopez",        "5/5"),
+        ("Paola Romo",                  750, "Nestor Cardozo",     "5/5"),
+        ("Tomas Civalero",             1000, "Leila Vargas",       "6/5"),
+        ("Santiago Quaglia",            750, "Rocio Lopez",        "6/5"),
+        ("Cecilia Juliano",             750, "Rocio Lopez",        "6/5"),
+        ("Marciel Sánchez",            1000, "Sofia Moyano",       "6/5"),
+        ("Nerina Aguero",              1000, "Gianina Yelme",      "7/5"),
+        ("Héctor Sánchez M.",          1000, "Gianina Yelme",      "8/5"),
+        ("Ana María Palacios",         1000, "Gianina Yelme",      "8/5"),
+        ("Mariel Lassalle",            1000, "Rocio Lopez",        "8/5"),
+        ("Miriam Gisel Funes",         1000, "Lucia Gomez",        "8/5"),
+        ("María Julia Pene",            750, "Lucia Gomez",        "8/5"),
+        ("Gabriel Gatti",               750, "Rocio Lopez",        "8/5"),
+        ("Francisco Navalon",          1000, "Sofia Moyano",       "8/5"),
+        ("Giuliana Pacheco",           1000, "Giselle Guille",     "8/5"),
+        ("Micaela Gomez",              1000, "Daniela Ruiz Diaz",  "9/5"),
+        ("Vanesa Morales",             1000, "Rocio Lopez",        "9/5"),
+        ("Carolina Jara",              1000, "Daniela Ruiz Diaz",  "9/5"),
+        ("Jose Scalise",               1000, "Rocio Lopez",        "9/5"),
+        ("Ezequiel Lucero",             750, "Nestor Cardozo",     "9/5"),
+        ("David Valenzuela",           1000, "Daniela Ruiz Diaz",  "9/5"),
+        ("Adrián Benéitez",             750, "Gianina Yelme",      "9/5"),
+        ("Fernanda del Franco",         750, "Debora Roldan",      "9/5"),
+        ("Axel Volz",                  1000, "Roxana Molina",      "9/5"),
+        ("Evelyn Guevara",              750, "Nestor Cardozo",     "10/5"),
+        ("Zulma Andreole",             1000, "Leila Vargas",       "10/5"),
+        ("Samanta de los Santos",      1000, "Leila Vargas",       "10/5"),
+        ("Johana Aiza",                1000, "Hugo Loncaric",      "10/5"),
+        ("Hector D. Benítez",          1000, "Gianina Yelme",      "10/5"),
+        ("Enrique Muñoz",               750, "Gianina Yelme",      "10/5"),
+        ("Cintia Mussa",               1000, "Nestor Cardozo",     "10/5"),
+        ("Luis Avila",                 1000, "Sofia Moyano",       "10/5"),
+        ("Evelin Torres",              1000, "Daniela Ruiz Diaz",  "10/5"),
+        ("Lorena Villar",              1000, "Sofia Moyano",       "10/5"),
+        ("Sergio Lopez",               1000, "Gianina Yelme",      "10/5"),
+        ("Germán de los Rios",          750, "Tomy Garcia",        "10/5"),
+        ("Thomas Acosta",              1000, "Tomy Garcia",        "10/5"),
+        ("Ricardo Molina",             1000, "Nestor Cardozo",     "10/5"),
+        ("Gabriela Eggers",            1000, "Rocio Lopez",        "10/5"),
+        ("Carolina B. Ali",            1000, "Rocio Lopez",        "10/5"),
+        ("Andrés Nadal",               1000, "Roxana Molina",      "10/5"),
+        ("Noelia Beccan",              1000, "Ramiro Ledesma",     "10/5"),
+        ("Mariana Abou Adal",          1000, "Roxana Molina",      "10/5"),
+        ("Jorge Cassolini",            1000, "Roxana Molina",      "10/5"),
+        ("Jesica Bruhl",               1000, "Rocio Lopez",        "10/5"),
+        ("Griselda Rivas",             1000, "Leila Vargas",       "10/5"),
+        ("Rodolfo Egidi",              1000, "Debora Roldan",      "10/5"),
+        ("Rosa Cardozo",               1000, "Leila Vargas",       "11/5"),
+        ("Hernan Lucero",              1000, "Daniela Ruiz Diaz",  "11/5"),
+        ("Ornella Marelli",            1000, "Daniela Ruiz Diaz",  "11/5"),
+        ("Catalina Ruiz",               750, "Giselle Guille",     "11/5"),
+        ("Rocio Gazari",               1000, "Lucia Gomez",        "11/5"),
+        ("Fabián A. Medina",           1000, "Sofia Moyano",       "11/5"),
+        ("Romina Ache",                1000, "Sofia Moyano",       "11/5"),
+    ]
+
+    L5_BRUTO_ARS = 33_635_050
+    L5_CASH_ARS  = 31_280_597  # after 7% financiera fee
+
+    l5_plan750  = [(n, v, f) for n, p, v, f in L5_STUDENTS if p == 750]
+    l5_plan1000 = [(n, v, f) for n, p, v, f in L5_STUDENTS if p == 1000]
+    l5_plan750_count  = len(l5_plan750)    # 16
+    l5_plan1000_count = len(l5_plan1000)   # 46
+    l5_plan750_usd    = l5_plan750_count  * 750    # 12 000
+    l5_plan1000_usd   = l5_plan1000_count * 1000   # 46 000
+    l5_total_nominal  = l5_plan750_usd + l5_plan1000_usd  # 58 000
+    l5_commission_pend = l5_plan1000_count * 500           # 23 000
+
+    l5_cash_bruto_usd = int(L5_BRUTO_ARS / L5_COT_AVG)    # ~24 025
+    l5_cash_neto_usd  = int(L5_CASH_ARS  / L5_COT_AVG)    # ~22 343
+    l5_fee_ars        = L5_BRUTO_ARS - L5_CASH_ARS         # ~2 354 453
+
+    # Daily sale counts
+    from collections import defaultdict as _dd
+    _l5d = _dd(int)
+    for _, _p, _v, _f in L5_STUDENTS:
+        _l5d[_f] += 1
+    L5_DATES = ["4/5", "5/5", "6/5", "7/5", "8/5", "9/5", "10/5", "11/5"]
+    l5_daily_vals = [_l5d[d] for d in L5_DATES]
+
+    # Vendor ranking
+    _l5vu = _dd(float); _l5vc = _dd(int); _l5v750 = _dd(int); _l5v1000 = _dd(int)
+    for _n, _p, _v, _f in L5_STUDENTS:
+        _l5vu[_v]   += _p
+        _l5vc[_v]   += 1
+        if _p == 750: _l5v750[_v]  += 1
+        else:         _l5v1000[_v] += 1
+    l5_vend_rank      = sorted(_l5vu.items(), key=lambda x: -x[1])
+    l5_vend_labels    = [v for v, _ in l5_vend_rank]
+    l5_vend_usd_vals  = [int(u) for _, u in l5_vend_rank]
+    l5_vend_cnt_vals  = [_l5vc[v]   for v in l5_vend_labels]
+    l5_vend_750_vals  = [_l5v750[v] for v in l5_vend_labels]
+    l5_vend_1000_vals = [_l5v1000[v] for v in l5_vend_labels]
+
+    l5_ventas_unicas  = len(L5_STUDENTS)   # 62
+    l5_students_table = L5_STUDENTS
     l5_raw = database.l5_get_all()
-
-    def l5_to_usd(r):
-        if r["moneda"] == "USD":
-            return r["importe"]
-        return round(r["importe"] / (r["cotizacion"] or L5_AVG_COT), 2)
-
-    def l5_parse_fecha(s):
-        try:
-            parts = s.split("/")
-            if len(parts) == 3:
-                return _date(int(parts[2]), int(parts[1]), int(parts[0]))
-        except Exception:
-            pass
-        return _date(2026, 1, 1)
-
-    seen_l5 = set()
-    for r in sorted(l5_raw, key=lambda x: (l5_parse_fecha(x["fecha"]), x["id"])):
-        ref = r["cliente_ref"].strip().lower() if r["cliente_ref"] else f"__noid_{r['id']}"
-        if ref not in seen_l5:
-            r["is_first"] = True
-            seen_l5.add(ref)
-        else:
-            r["is_first"] = False
-        r["usd_equiv"] = l5_to_usd(r)
-
-    l5_ventas_unicas = sum(1 for r in l5_raw if r.get("is_first"))
-    l5_total_usd = round(sum(r["usd_equiv"] for r in l5_raw), 2)
-    l5_total_ars = sum(r["importe"] for r in l5_raw if r["moneda"] == "ARS")
-    l5_total_usd_direct = sum(r["importe"] for r in l5_raw if r["moneda"] == "USD")
-
-    # Daily sales for L5
-    l5_daily = defaultdict(lambda: {"count": 0, "usd": 0.0})
-    for r in l5_raw:
-        if r.get("is_first"):
-            l5_daily[r["fecha"]]["count"] += 1
-        l5_daily[r["fecha"]]["usd"] += r["usd_equiv"]
-    l5_sorted_days = sorted(l5_daily.keys(), key=l5_parse_fecha)
-
-    # Per-vendor totals for L5
-    l5_vendor_sales = defaultdict(int)
-    l5_vendor_usd = defaultdict(float)
-    for r in l5_raw:
-        if r.get("is_first"):
-            l5_vendor_sales[r["vendedor"]] += 1
-        l5_vendor_usd[r["vendedor"]] += r["usd_equiv"]
-    l5_vendor_ranking = sorted(l5_vendor_usd.items(), key=lambda x: -x[1])
-
-    # Cash collected L5
-    l5_neto_usd = 0.0
-    l5_neto_ars = 0.0
-    for r in l5_raw:
-        fee = FEE.get(r["metodo"].strip(), 0.0)
-        neto = r["importe"] * (1 - fee)
-        if r["moneda"] == "USD":
-            l5_neto_usd += neto
-        else:
-            l5_neto_ars += neto
-
-    # Tipo pago breakdown for L5
-    l5_tipo_bd = defaultdict(lambda: {"count": 0, "usd": 0.0})
-    for r in l5_raw:
-        tp = r["tipo_pago"].strip()
-        l5_tipo_bd[tp]["count"] += 1
-        l5_tipo_bd[tp]["usd"] += r["usd_equiv"]
-    tipo_order = ["PAGO", "SEÑA", "CUOTA 1", "CUOTA 2", "CUOTA 3"]
-    l5_tipo_labels = [t for t in tipo_order if t in l5_tipo_bd] + [t for t in l5_tipo_bd if t not in tipo_order]
-    l5_tipo_counts = [l5_tipo_bd[t]["count"] for t in l5_tipo_labels]
-    l5_tipo_usd = [round(l5_tipo_bd[t]["usd"], 2) for t in l5_tipo_labels]
-
-    # Vendor neto USD for L5 (for charts)
-    l5_vendor_neto = {}
-    for r in l5_raw:
-        fee = FEE.get(r["metodo"].strip(), 0.0)
-        v = r["vendedor"]
-        l5_vendor_neto[v] = l5_vendor_neto.get(v, 0.0) + r["usd_equiv"] * (1 - fee)
-    l5_vendor_neto_vals = [round(l5_vendor_neto.get(v, 0), 2) for v, _ in l5_vendor_ranking]
+    l5_raw_count = len(l5_raw)
 
     return render_template(
         "ventas.html",
@@ -2854,27 +2886,28 @@ def ventas():
         tipo_usd=json.dumps(tipo_usd_list),
         # Lanzamiento 5
         l5_raw=l5_raw,
+        l5_raw_count=l5_raw_count,
         l5_ventas_unicas=l5_ventas_unicas,
-        l5_total_usd=l5_total_usd,
-        l5_total_ars=int(l5_total_ars),
-        l5_total_usd_direct=round(l5_total_usd_direct, 2),
-        l5_neto_ars=int(l5_neto_ars),
-        l5_neto_usd=round(l5_neto_usd, 2),
-        l5_sorted_days=l5_sorted_days,
-        l5_daily=dict(l5_daily),
-        l5_vendor_ranking=l5_vendor_ranking,
-        l5_vendor_sales=dict(l5_vendor_sales),
-        l5_avg_cot=L5_AVG_COT,
-        l5_tipo_labels=json.dumps(l5_tipo_labels),
-        l5_tipo_counts=json.dumps(l5_tipo_counts),
-        l5_tipo_usd=json.dumps(l5_tipo_usd),
-        l5_vendor_labels=json.dumps([v for v, _ in l5_vendor_ranking]),
-        l5_vendor_usd_vals=json.dumps([round(u, 2) for _, u in l5_vendor_ranking]),
-        l5_vendor_neto_vals=json.dumps(l5_vendor_neto_vals),
-        l5_vendor_sales_vals=json.dumps([l5_vendor_sales.get(v, 0) for v, _ in l5_vendor_ranking]),
-        l5_daily_labels=json.dumps(l5_sorted_days),
-        l5_daily_count_vals=json.dumps([l5_daily[d]["count"] for d in l5_sorted_days]),
-        l5_daily_usd_vals=json.dumps([round(l5_daily[d]["usd"], 2) for d in l5_sorted_days]),
+        l5_total_nominal=l5_total_nominal,
+        l5_plan750_count=l5_plan750_count,
+        l5_plan750_usd=l5_plan750_usd,
+        l5_plan1000_count=l5_plan1000_count,
+        l5_plan1000_usd=l5_plan1000_usd,
+        l5_commission_pend=l5_commission_pend,
+        l5_cash_bruto_usd=l5_cash_bruto_usd,
+        l5_cash_neto_usd=l5_cash_neto_usd,
+        l5_fee_ars=l5_fee_ars,
+        l5_bruto_ars=L5_BRUTO_ARS,
+        l5_cash_ars=L5_CASH_ARS,
+        l5_cot_avg=L5_COT_AVG,
+        l5_students_table=l5_students_table,
+        l5_daily_dates=json.dumps(L5_DATES),
+        l5_daily_vals=json.dumps(l5_daily_vals),
+        l5_vend_labels=json.dumps(l5_vend_labels),
+        l5_vend_usd_vals=json.dumps(l5_vend_usd_vals),
+        l5_vend_cnt_vals=json.dumps(l5_vend_cnt_vals),
+        l5_vend_750_vals=json.dumps(l5_vend_750_vals),
+        l5_vend_1000_vals=json.dumps(l5_vend_1000_vals),
     )
 
 
