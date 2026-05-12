@@ -2797,23 +2797,96 @@ def ventas():
         ("Romina Ache",                1000, "Sofia Moyano",       "11/5"),
     ]
 
+    # Detalle de pagos por alumno: (nombre, plan, vendedor, fecha, usd_pagado, saldo_cash, saldo_comis)
+    # usd_pagado = ARS abonado ÷ cotizacion | saldo_cash = cash pendiente | saldo_comis = comisión pendiente
+    L5_STUDENT_DETAILS = [
+        # ── Plan $750 ──────────────────────────────────────────────────────────
+        ("Alfonsina Gorostiaga",     750, "Rocio Lopez",       "4/5",  750,   0,   0),
+        ("Mariela Jacinta Peña",     750, "Daniela Ruiz Diaz", "4/5",  750,   0,   0),
+        ("Maria Soledad Calvo",      750, "Hugo Loncaric",     "4/5",  750,   0,   0),
+        ("Matias Nicolas Beltran",   750, "Hugo Loncaric",     "4/5",  750,   0,   0),
+        ("Paola Romo",               750, "Nestor Cardozo",    "5/5",  106, 644,   0),
+        ("Santiago Quaglia",         750, "Rocio Lopez",       "6/5",  750,   0,   0),
+        ("Cecilia Juliano",          750, "Rocio Lopez",       "6/5",  750,   0,   0),
+        ("María Julia Pene",         750, "Lucia Gomez",       "8/5",  750,   0,   0),
+        ("Gabriel Gatti",            750, "Rocio Lopez",       "8/5",  750,   0,   0),
+        ("Ezequiel Lucero",          750, "Nestor Cardozo",    "9/5",  357, 393,   0),
+        ("Adrián Benéitez",          750, "Gianina Yelme",     "9/5",  375, 375,   0),
+        ("Fernanda del Franco",      750, "Debora Roldan",     "9/5",  750,   0,   0),
+        ("Evelyn Guevara",           750, "Nestor Cardozo",   "10/5",   86, 664,   0),
+        ("Enrique Muñoz",            750, "Gianina Yelme",    "10/5",  286, 464,   0),
+        ("Germán de los Rios",       750, "Tomy Garcia",      "10/5",  357, 393,   0),
+        ("Catalina Ruiz",            750, "Giselle Guille",   "11/5",  750,   0,   0),
+        # ── Plan $500+$500 ─────────────────────────────────────────────────────
+        ("Agostina Santangelo",     1000, "Sofia Moyano",      "4/5",  283, 217, 500),
+        ("Camila Gisel More",       1000, "Hugo Loncaric",     "4/5",  106, 394, 500),
+        ("Estefania Guari",         1000, "Hugo Loncaric",     "4/5",  493,   7, 500),
+        ("Estefania Acevedo",       1000, "Daniela Ruiz Diaz", "5/5",  499,   1, 500),
+        ("Fabián Liendo",           1000, "Rocio Lopez",       "5/5",  213, 287, 500),
+        ("Tomas Civalero",          1000, "Leila Vargas",      "6/5",  142, 358, 500),
+        ("Marciel Sánchez",         1000, "Sofia Moyano",      "6/5",  536,   0, 470),  # overpaid, saldo comis reducido
+        ("Nerina Aguero",           1000, "Gianina Yelme",     "7/5",  500,   0, 500),
+        ("Héctor Sánchez M.",       1000, "Gianina Yelme",     "8/5",  250, 250, 500),
+        ("Ana María Palacios",      1000, "Gianina Yelme",     "8/5",  250, 250, 500),
+        ("Mariel Lassalle",         1000, "Rocio Lopez",       "8/5",  250, 250, 500),
+        ("Miriam Gisel Funes",      1000, "Lucia Gomez",       "8/5",  214, 286, 500),
+        ("Francisco Navalon",       1000, "Sofia Moyano",      "8/5",  500,   0, 500),
+        ("Giuliana Pacheco",        1000, "Giselle Guille",    "8/5",   71, 429, 500),
+        ("Micaela Gomez",           1000, "Daniela Ruiz Diaz", "9/5",  500,   0, 500),
+        ("Vanesa Morales",          1000, "Rocio Lopez",       "9/5",  357, 143, 500),
+        ("Carolina Jara",           1000, "Daniela Ruiz Diaz", "9/5",  500,   0, 500),
+        ("Jose Scalise",            1000, "Rocio Lopez",       "9/5",  250, 250, 500),
+        ("David Valenzuela",        1000, "Daniela Ruiz Diaz", "9/5",  500,   0, 500),
+        ("Axel Volz",               1000, "Roxana Molina",     "9/5",  500,   0, 500),
+        ("Zulma Andreole",          1000, "Leila Vargas",     "10/5",  179, 321, 500),
+        ("Samanta de los Santos",   1000, "Leila Vargas",     "10/5",  429,  71, 500),
+        ("Johana Aiza",             1000, "Hugo Loncaric",    "10/5",  500,   0, 500),
+        ("Hector D. Benítez",       1000, "Gianina Yelme",   "10/5",  143, 357, 500),
+        ("Cintia Mussa",            1000, "Nestor Cardozo",  "10/5",   71, 429, 500),
+        ("Luis Avila",              1000, "Sofia Moyano",    "10/5",  357, 143, 500),
+        ("Evelin Torres",           1000, "Daniela Ruiz Diaz","10/5", 250, 250, 500),
+        ("Lorena Villar",           1000, "Sofia Moyano",    "10/5",  500,   0, 500),
+        ("Sergio Lopez",            1000, "Gianina Yelme",   "10/5",  300, 200, 500),
+        ("Thomas Acosta",           1000, "Tomy Garcia",     "10/5",  114, 386, 500),
+        ("Ricardo Molina",          1000, "Nestor Cardozo",  "10/5",  200, 300, 500),
+        ("Gabriela Eggers",         1000, "Rocio Lopez",     "10/5",  500,   0, 500),
+        ("Carolina B. Ali",         1000, "Rocio Lopez",     "10/5",  357, 143, 500),
+        ("Andrés Nadal",            1000, "Roxana Molina",   "10/5",   71, 429, 500),
+        ("Noelia Beccan",           1000, "Ramiro Ledesma",  "10/5",  500,   0, 500),
+        ("Mariana Abou Adal",       1000, "Roxana Molina",   "10/5",  500,   0, 500),
+        ("Jorge Cassolini",         1000, "Roxana Molina",   "10/5",  500,   0, 500),
+        ("Jesica Bruhl",            1000, "Rocio Lopez",     "10/5",  250, 250, 500),
+        ("Griselda Rivas",          1000, "Leila Vargas",    "10/5",  250, 250, 500),
+        ("Rodolfo Egidi",           1000, "Debora Roldan",   "10/5",  500,   0, 500),
+        ("Rosa Cardozo",            1000, "Leila Vargas",    "11/5",   71, 429, 500),
+        ("Hernan Lucero",           1000, "Daniela Ruiz Diaz","11/5", 500,   0, 500),
+        ("Ornella Marelli",         1000, "Daniela Ruiz Diaz","11/5",  71, 429, 500),
+        ("Rocio Gazari",            1000, "Lucia Gomez",     "11/5",  179, 321, 500),
+        ("Fabián A. Medina",        1000, "Sofia Moyano",    "11/5",  500,   0, 500),
+        ("Romina Ache",             1000, "Sofia Moyano",    "11/5",  214, 286, 500),
+    ]
+
     L5_BRUTO_ARS = 33_635_050
     L5_CASH_ARS  = 31_280_597  # after 7% financiera fee
 
-    l5_plan750  = [(n, v, f) for n, p, v, f in L5_STUDENTS if p == 750]
-    l5_plan1000 = [(n, v, f) for n, p, v, f in L5_STUDENTS if p == 1000]
-    l5_plan750_count  = len(l5_plan750)    # 16
-    l5_plan1000_count = len(l5_plan1000)   # 46
+    l5_plan750_count  = sum(1 for _,p,_,_,_,_,_ in L5_STUDENT_DETAILS if p == 750)   # 16
+    l5_plan1000_count = sum(1 for _,p,_,_,_,_,_ in L5_STUDENT_DETAILS if p == 1000)  # 46
     l5_plan750_usd    = l5_plan750_count  * 750    # 12 000
     l5_plan1000_usd   = l5_plan1000_count * 1000   # 46 000
     l5_total_nominal  = l5_plan750_usd + l5_plan1000_usd  # 58 000
-    l5_commission_pend = l5_plan1000_count * 500           # 23 000
 
     l5_cash_bruto_usd = int(L5_BRUTO_ARS / L5_COT_AVG)    # ~24 025
     l5_cash_neto_usd  = int(L5_CASH_ARS  / L5_COT_AVG)    # ~22 343
-    l5_fee_ars        = L5_BRUTO_ARS - L5_CASH_ARS         # ~2 354 453
+    l5_fee_ars        = L5_BRUTO_ARS - L5_CASH_ARS
 
-    # Distribución del cash neto (del sheet)
+    # Totales de pagos por alumno
+    l5_total_paid_usd  = sum(d[4] for d in L5_STUDENT_DETAILS)
+    l5_pending_cash    = sum(d[5] for d in L5_STUDENT_DETAILS)
+    l5_pending_comis   = sum(d[6] for d in L5_STUDENT_DETAILS)
+    l5_alumnos_al_dia  = sum(1 for d in L5_STUDENT_DETAILS if d[5] == 0)
+    l5_alumnos_deben   = sum(1 for d in L5_STUDENT_DETAILS if d[5] > 0)
+
+    # Distribución del cash neto (del sheet) — privado
     L5_D_ADS         = 2716.00
     L5_D_DIR_MKT     = 2234.33
     L5_D_DIR_COM     = 558.58
@@ -2902,14 +2975,18 @@ def ventas():
         l5_plan750_usd=l5_plan750_usd,
         l5_plan1000_count=l5_plan1000_count,
         l5_plan1000_usd=l5_plan1000_usd,
-        l5_commission_pend=l5_commission_pend,
+        l5_pending_comis=l5_pending_comis,
         l5_cash_bruto_usd=l5_cash_bruto_usd,
         l5_cash_neto_usd=l5_cash_neto_usd,
         l5_fee_ars=l5_fee_ars,
         l5_bruto_ars=L5_BRUTO_ARS,
         l5_cash_ars=L5_CASH_ARS,
         l5_cot_avg=L5_COT_AVG,
-        l5_students_table=l5_students_table,
+        l5_total_paid_usd=l5_total_paid_usd,
+        l5_pending_cash=l5_pending_cash,
+        l5_alumnos_al_dia=l5_alumnos_al_dia,
+        l5_alumnos_deben=l5_alumnos_deben,
+        l5_students_table=L5_STUDENT_DETAILS,
         l5_d_ads=L5_D_ADS,
         l5_d_dir_mkt=L5_D_DIR_MKT,
         l5_d_dir_com=L5_D_DIR_COM,
@@ -2919,11 +2996,16 @@ def ventas():
         l5_d_tomi=L5_D_TOMI,
         l5_daily_dates=json.dumps(L5_DATES),
         l5_daily_vals=json.dumps(l5_daily_vals),
-        l5_vend_labels=json.dumps(l5_vend_labels),
-        l5_vend_usd_vals=json.dumps(l5_vend_usd_vals),
-        l5_vend_cnt_vals=json.dumps(l5_vend_cnt_vals),
-        l5_vend_750_vals=json.dumps(l5_vend_750_vals),
-        l5_vend_1000_vals=json.dumps(l5_vend_1000_vals),
+        l5_vend_labels=l5_vend_labels,
+        l5_vend_usd_vals=l5_vend_usd_vals,
+        l5_vend_cnt_vals=l5_vend_cnt_vals,
+        l5_vend_750_vals=l5_vend_750_vals,
+        l5_vend_1000_vals=l5_vend_1000_vals,
+        l5_vend_labels_js=json.dumps(l5_vend_labels),
+        l5_vend_usd_vals_js=json.dumps(l5_vend_usd_vals),
+        l5_vend_cnt_vals_js=json.dumps(l5_vend_cnt_vals),
+        l5_vend_750_vals_js=json.dumps(l5_vend_750_vals),
+        l5_vend_1000_vals_js=json.dumps(l5_vend_1000_vals),
     )
 
 
