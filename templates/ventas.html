@@ -680,6 +680,104 @@
   </div>
 </div>
 
+<!-- Distribución del cash -->
+{% set cash = l5_cash_neto_usd %}
+<div style="background:#fff;border:1px solid #e9ecef;border-radius:14px;padding:20px 24px;margin-bottom:24px;">
+  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:18px;">Distribución del cash neto — U$D {{ "{:,.0f}".format(l5_cash_neto_usd) }}</div>
+
+  <!-- Waterfall row -->
+  <div class="row g-2 align-items-stretch mb-4">
+    <!-- Cash neto base -->
+    <div class="col-12 col-md-2">
+      <div style="background:#eef4fb;border:2px solid #1a4a7a;border-radius:10px;padding:12px;text-align:center;height:100%;">
+        <div style="font-size:10px;color:#1a4a7a;font-weight:700;text-transform:uppercase;margin-bottom:6px;">Cash neto</div>
+        <div style="font-size:22px;font-weight:900;color:#1a4a7a;">$22,343</div>
+        <div style="font-size:9px;color:#888;margin-top:2px;">base 100%</div>
+      </div>
+    </div>
+    <!-- Arrow -->
+    <div class="col-12 col-md-1 d-flex align-items-center justify-content-center" style="font-size:20px;color:#ddd;">→</div>
+    <!-- Deducciones -->
+    <div class="col-12 col-md-5">
+      <div style="background:#fdf5f5;border:1px solid #f5c6c6;border-radius:10px;padding:12px;height:100%;">
+        <div style="font-size:10px;color:#c0392b;font-weight:700;text-transform:uppercase;margin-bottom:8px;">Deducciones</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#666;">Reintegro ADS</span>
+            <span style="font-size:12px;font-weight:700;color:#c0392b;">−${{ "{:,.0f}".format(l5_d_ads) }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#666;">Director Marketing</span>
+            <span style="font-size:12px;font-weight:700;color:#c0392b;">−${{ "{:,.2f}".format(l5_d_dir_mkt) }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#666;">Director Comercial</span>
+            <span style="font-size:12px;font-weight:700;color:#c0392b;">−${{ "{:,.2f}".format(l5_d_dir_com) }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#666;">Comisiones vendedores</span>
+            <span style="font-size:12px;font-weight:700;color:#c0392b;">−${{ "{:,.2f}".format(l5_d_vendedores) }}</span>
+          </div>
+          <div style="height:1px;background:#f5c6c6;margin:4px 0;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#888;">Total deducciones</span>
+            <span style="font-size:12px;font-weight:800;color:#c0392b;">−${{ "{:,.2f}".format(l5_d_ads + l5_d_dir_mkt + l5_d_dir_com + l5_d_vendedores) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Arrow -->
+    <div class="col-12 col-md-1 d-flex align-items-center justify-content-center" style="font-size:20px;color:#ddd;">→</div>
+    <!-- Limpio a dividir -->
+    <div class="col-12 col-md-3">
+      <div style="background:linear-gradient(135deg,#f0f9f4,#dff0e8);border:2px solid #1a7a4a;border-radius:10px;padding:12px;text-align:center;height:100%;">
+        <div style="font-size:10px;color:#1a7a4a;font-weight:700;text-transform:uppercase;margin-bottom:6px;">Limpio a dividir</div>
+        <div style="font-size:24px;font-weight:900;color:#1a7a4a;">${{ "{:,.2f}".format(l5_d_limpio) }}</div>
+        <div style="font-size:9px;color:#1a7a4a;margin-top:4px;opacity:.7;">{{ "%.1f"|format(l5_d_limpio / l5_cash_neto_usd * 100) }}% del cash neto</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- División Tomi vs Multi D -->
+  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:12px;">División del limpio — ${{ "{:,.2f}".format(l5_d_limpio) }}</div>
+  <div class="row g-3">
+    <!-- Tomi -->
+    <div class="col-12 col-md-7">
+      <div style="background:linear-gradient(135deg,#1a0810,#3d0f1e);border-radius:12px;padding:20px 24px;color:#fff;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:#c9a066;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Pago a Tomi</div>
+            <div style="font-size:40px;font-weight:900;line-height:1;color:#c9a066;">${{ "{:,.2f}".format(l5_d_tomi) }}</div>
+            <div style="font-size:11px;color:#888;margin-top:6px;">{{ "%.0f"|format(l5_d_tomi / l5_d_limpio * 100) }}% del limpio · {{ "%.0f"|format(l5_d_tomi / l5_cash_neto_usd * 100) }}% del cash neto total</div>
+          </div>
+          <div style="font-size:48px;opacity:.15;">💰</div>
+        </div>
+        <!-- Progress bar -->
+        <div style="margin-top:14px;">
+          <div style="height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;">
+            <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#c9a066,#f0c070);width:{{ "%.0f"|format(l5_d_tomi / l5_d_limpio * 100) }}%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:#666;">
+            <span>$0</span>
+            <span>${{ "{:,.0f}".format(l5_d_limpio) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Multi D -->
+    <div class="col-12 col-md-5">
+      <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:20px 24px;height:100%;">
+        <div style="font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Pago a Multi D</div>
+        <div style="font-size:32px;font-weight:900;color:#444;line-height:1;">${{ "{:,.2f}".format(l5_d_multid) }}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:6px;">{{ "%.0f"|format(l5_d_multid / l5_d_limpio * 100) }}% del limpio</div>
+        <div style="margin-top:12px;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;">
+          <div style="height:100%;border-radius:3px;background:#bbb;width:{{ "%.0f"|format(l5_d_multid / l5_d_limpio * 100) }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Charts row -->
 <div class="row g-3 mb-4">
   <!-- Vendor chart -->

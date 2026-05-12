@@ -2813,6 +2813,15 @@ def ventas():
     l5_cash_neto_usd  = int(L5_CASH_ARS  / L5_COT_AVG)    # ~22 343
     l5_fee_ars        = L5_BRUTO_ARS - L5_CASH_ARS         # ~2 354 453
 
+    # Distribución del cash neto (del sheet)
+    L5_D_ADS         = 2716.00
+    L5_D_DIR_MKT     = 2234.33
+    L5_D_DIR_COM     = 558.58
+    L5_D_VENDEDORES  = 2457.76
+    L5_D_LIMPIO      = 14376.61
+    L5_D_MULTID      = 4312.98
+    L5_D_TOMI        = 10063.63
+
     # Daily sale counts
     from collections import defaultdict as _dd
     _l5d = _dd(int)
@@ -2901,6 +2910,13 @@ def ventas():
         l5_cash_ars=L5_CASH_ARS,
         l5_cot_avg=L5_COT_AVG,
         l5_students_table=l5_students_table,
+        l5_d_ads=L5_D_ADS,
+        l5_d_dir_mkt=L5_D_DIR_MKT,
+        l5_d_dir_com=L5_D_DIR_COM,
+        l5_d_vendedores=L5_D_VENDEDORES,
+        l5_d_limpio=L5_D_LIMPIO,
+        l5_d_multid=L5_D_MULTID,
+        l5_d_tomi=L5_D_TOMI,
         l5_daily_dates=json.dumps(L5_DATES),
         l5_daily_vals=json.dumps(l5_daily_vals),
         l5_vend_labels=json.dumps(l5_vend_labels),
