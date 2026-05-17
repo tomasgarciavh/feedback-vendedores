@@ -824,6 +824,110 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     DEUDAS — PLAN $500+$500
+     ═══════════════════════════════════════════════════════════════ -->
+{% set total_deuda_cash  = l5_pending_cash %}
+{% set total_deuda_comis = l5_pending_comis %}
+{% set total_deuda_all   = total_deuda_cash + total_deuda_comis %}
+
+<div style="background:#fff;border:1.5px solid #3d0f1e;border-radius:14px;margin-bottom:16px;">
+  <!-- Header -->
+  <div style="padding:14px 20px;border-bottom:1px solid #f5e8e8;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <div style="font-size:13px;font-weight:800;color:#3d0f1e;">Deudas — Plan $500+$500</div>
+      <div style="font-size:11px;color:#888;margin-top:2px;">
+        Saldo cash pendiente + comisiones a cobrar con trabajos
+      </div>
+    </div>
+    <button onclick="toggleDeudas()" id="deudasToggle"
+      style="padding:5px 14px;border:1.5px solid #3d0f1e;border-radius:8px;font-size:11px;font-weight:700;background:#fdf5f5;color:#3d0f1e;cursor:pointer;">
+      Ver detalle
+    </button>
+  </div>
+
+  <!-- KPI resumen -->
+  <div style="padding:14px 20px;display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#fff8f0,#fef3e0);border:1px solid #f5d8a0;border-radius:10px;padding:12px 14px;">
+      <div style="font-size:9px;color:#8b5a2b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Cash pendiente</div>
+      <div style="font-size:26px;font-weight:900;color:#8b5a2b;line-height:1;">U$D {{ "{:,}".format(total_deuda_cash) }}</div>
+      <div style="font-size:10px;color:#aaa;margin-top:3px;">{{ l5_alumnos_deben }} alumnos deben</div>
+    </div>
+    <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#fdf5f5,#fce8e8);border:1px solid #f5c6c6;border-radius:10px;padding:12px 14px;">
+      <div style="font-size:9px;color:#3d0f1e;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comisiones pend.</div>
+      <div style="font-size:26px;font-weight:900;color:#3d0f1e;line-height:1;">U$D {{ "{:,}".format(total_deuda_comis) }}</div>
+      <div style="font-size:10px;color:#aaa;margin-top:3px;">{{ l5_plan1000_count }} alumnos · se cobra con trabajo</div>
+    </div>
+    <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#1a0810,#3d0f1e);border-radius:10px;padding:12px 14px;">
+      <div style="font-size:9px;color:#c9a066;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Total a cobrar</div>
+      <div style="font-size:26px;font-weight:900;color:#fff;line-height:1;">U$D {{ "{:,}".format(total_deuda_all) }}</div>
+      <div style="font-size:10px;color:#c9a066;opacity:.8;margin-top:3px;">cash + comisiones</div>
+    </div>
+  </div>
+
+  <!-- Tabla expandible -->
+  <div id="deudasWrap" style="display:none;overflow-x:auto;border-top:1px solid #f5e8e8;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#1a0810;">
+          <th style="padding:8px 12px;color:#c9a066;text-align:left;">#</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:left;">Alumno</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:left;">Vendedor</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:right;">Saldo cash</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:right;">% cash</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:right;">Comisión</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:right;">% comis.</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:right;">Total deuda</th>
+          <th style="padding:8px 12px;color:#c9a066;text-align:center;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nombre, plan, vendedor, fecha, usd_pagado, saldo_cash, saldo_comis in l5_students_table %}
+        {% if saldo_comis > 0 or saldo_cash > 0 %}
+        {% set total_row = saldo_cash + saldo_comis %}
+        {% set pct_cash  = (saldo_cash  / total_deuda_cash  * 100) | round(1) if total_deuda_cash  > 0 else 0 %}
+        {% set pct_comis = (saldo_comis / total_deuda_comis * 100) | round(1) if total_deuda_comis > 0 else 0 %}
+        <tr style="border-bottom:1px solid #f5f5f5;{% if loop.index is even %}background:#fafafa;{% endif %}">
+          <td style="padding:6px 12px;color:#ccc;font-size:11px;">{{ loop.index }}</td>
+          <td style="padding:6px 12px;font-weight:600;color:#1a0810;">{{ nombre }}</td>
+          <td style="padding:6px 12px;color:#555;font-size:11px;">{{ vendedor }}</td>
+          <td style="padding:6px 12px;text-align:right;font-weight:700;color:{% if saldo_cash > 0 %}#8b5a2b{% else %}#bbb{% endif %};">
+            {% if saldo_cash > 0 %}U$D {{ "{:,}".format(saldo_cash) }}{% else %}—{% endif %}
+          </td>
+          <td style="padding:6px 12px;text-align:right;font-size:11px;color:#aaa;">
+            {% if saldo_cash > 0 %}{{ pct_cash }}%{% else %}—{% endif %}
+          </td>
+          <td style="padding:6px 12px;text-align:right;font-weight:700;color:#3d0f1e;">U$D {{ "{:,}".format(saldo_comis) }}</td>
+          <td style="padding:6px 12px;text-align:right;font-size:11px;color:#aaa;">{{ pct_comis }}%</td>
+          <td style="padding:6px 12px;text-align:right;font-weight:800;color:#1a0810;">U$D {{ "{:,}".format(total_row) }}</td>
+          <td style="padding:6px 12px;text-align:center;">
+            {% if saldo_cash == 0 %}
+            <span style="background:#d4edda;color:#155724;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">cash OK</span>
+            {% elif saldo_cash <= 250 %}
+            <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">parcial</span>
+            {% else %}
+            <span style="background:#f8d7da;color:#721c24;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">pendiente</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f8f2eb;font-weight:800;border-top:2px solid #e9e0d0;">
+          <td colspan="3" style="padding:8px 12px;color:#6b3a1e;">TOTALES</td>
+          <td style="padding:8px 12px;text-align:right;color:#8b5a2b;">U$D {{ "{:,}".format(total_deuda_cash) }}</td>
+          <td style="padding:8px 12px;text-align:right;color:#aaa;">100%</td>
+          <td style="padding:8px 12px;text-align:right;color:#3d0f1e;">U$D {{ "{:,}".format(total_deuda_comis) }}</td>
+          <td style="padding:8px 12px;text-align:right;color:#aaa;">100%</td>
+          <td style="padding:8px 12px;text-align:right;color:#1a0810;">U$D {{ "{:,}".format(total_deuda_all) }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
 <!-- Add entry form -->
 <div style="background:#faf8f5;border:1px solid #e9e0d0;border-radius:12px;margin-bottom:16px;">
   <div style="padding:10px 18px;display:flex;align-items:center;justify-content:space-between;">
@@ -863,7 +967,7 @@
       <div class="col-12 col-md-2">
         <div style="background:#eef4fb;border:2px solid #1a4a7a;border-radius:9px;padding:10px;text-align:center;height:100%;">
           <div style="font-size:9px;color:#1a4a7a;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Cash neto</div>
-          <div style="font-size:20px;font-weight:900;color:#1a4a7a;">$22,343</div>
+          <div style="font-size:20px;font-weight:900;color:#1a4a7a;">U$D {{ "{:,}".format(l5_cash_neto_usd) }}</div>
           <div style="font-size:9px;color:#888;">100%</div>
         </div>
       </div>
@@ -889,7 +993,7 @@
         <div style="background:linear-gradient(135deg,#f0f9f4,#dff0e8);border:2px solid #1a7a4a;border-radius:9px;padding:10px;text-align:center;height:100%;">
           <div style="font-size:9px;color:#1a7a4a;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Limpio a dividir</div>
           <div style="font-size:20px;font-weight:900;color:#1a7a4a;">${{ "{:,.0f}".format(l5_d_limpio) }}</div>
-          <div style="font-size:9px;color:#1a7a4a;opacity:.7;">{{ "%.0f"|format(l5_d_limpio / 22343 * 100) }}% del total</div>
+          <div style="font-size:9px;color:#1a7a4a;opacity:.7;">{{ "%.0f"|format(l5_d_limpio / l5_cash_neto_usd * 100) if l5_cash_neto_usd > 0 else 0 }}% del total</div>
         </div>
       </div>
     </div>
@@ -1231,6 +1335,13 @@ function toggleStudentTable() {
   const open = w.style.display === 'none';
   w.style.display = open ? '' : 'none';
   btn.textContent = open ? 'Ocultar' : 'Ver lista';
+}
+function toggleDeudas() {
+  const w = document.getElementById('deudasWrap');
+  const btn = document.getElementById('deudasToggle');
+  const open = w.style.display === 'none';
+  w.style.display = open ? '' : 'none';
+  btn.textContent = open ? 'Ocultar' : 'Ver detalle';
 }
 </script>
 {% endblock %}

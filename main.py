@@ -2795,6 +2795,15 @@ def ventas():
         ("Rocio Gazari",               1000, "Lucia Gomez",        "11/5"),
         ("Fabián A. Medina",           1000, "Sofia Moyano",       "11/5"),
         ("Romina Ache",                1000, "Sofia Moyano",       "11/5"),
+        # ── Post-cierre ────────────────────────────────────────────────────────
+        ("Isabel Carolina Al Ibrahim", 1000, "Giselle Guille",     "13/5"),
+        ("Alejandra Airut",             750, "Sofia Moyano",       "13/5"),
+        ("Eliana Elizabeth Foreste",   1000, "Leila Vargas",       "14/5"),
+        ("Francisco Pablo Romero",     1000, "Leila Vargas",       "14/5"),
+        ("Paula Yamila Arroyo",        1000, "Leila Vargas",       "14/5"),
+        ("Yanet Mazzola",              1000, "Leila Vargas",       "15/5"),
+        ("Oriana Grasman",             1000, "Leila Vargas",       "15/5"),
+        ("Renzo Santiago",             1000, "Leila Vargas",       "15/5"),
     ]
 
     # Detalle de pagos por alumno: (nombre, plan, vendedor, fecha, usd_pagado, saldo_cash, saldo_comis)
@@ -2819,9 +2828,9 @@ def ventas():
         ("Catalina Ruiz",            750, "Giselle Guille",   "11/5",  750,   0,   0),
         # ── Plan $500+$500 ─────────────────────────────────────────────────────
         ("Agostina Santangelo",     1000, "Sofia Moyano",      "4/5",  283, 217, 500),
-        ("Camila Gisel More",       1000, "Hugo Loncaric",     "4/5",  106, 394, 500),
+        ("Camila Gisel More",       1000, "Hugo Loncaric",     "4/5",  250, 250, 500),
         ("Estefania Guari",         1000, "Hugo Loncaric",     "4/5",  493,   7, 500),
-        ("Estefania Acevedo",       1000, "Daniela Ruiz Diaz", "5/5",  499,   1, 500),
+        ("Estefania Acevedo",       1000, "Daniela Ruiz Diaz", "5/5",  500,   0, 500),
         ("Fabián Liendo",           1000, "Rocio Lopez",       "5/5",  213, 287, 500),
         ("Tomas Civalero",          1000, "Leila Vargas",      "6/5",  142, 358, 500),
         ("Marciel Sánchez",         1000, "Sofia Moyano",      "6/5",  536,   0, 470),  # overpaid, saldo comis reducido
@@ -2860,14 +2869,23 @@ def ventas():
         ("Rodolfo Egidi",           1000, "Debora Roldan",   "10/5",  500,   0, 500),
         ("Rosa Cardozo",            1000, "Leila Vargas",    "11/5",   71, 429, 500),
         ("Hernan Lucero",           1000, "Daniela Ruiz Diaz","11/5", 500,   0, 500),
-        ("Ornella Marelli",         1000, "Daniela Ruiz Diaz","11/5",  71, 429, 500),
+        ("Ornella Marelli",         1000, "Daniela Ruiz Diaz","11/5", 214, 286, 500),
         ("Rocio Gazari",            1000, "Lucia Gomez",     "11/5",  179, 321, 500),
         ("Fabián A. Medina",        1000, "Sofia Moyano",    "11/5",  500,   0, 500),
         ("Romina Ache",             1000, "Sofia Moyano",    "11/5",  214, 286, 500),
+        # ── Post-cierre ────────────────────────────────────────────────────────
+        ("Isabel Carolina Al Ibrahim", 1000, "Giselle Guille",  "13/5",  71, 429, 500),
+        ("Alejandra Airut",             750, "Sofia Moyano",    "13/5", 300, 450,   0),
+        ("Eliana Elizabeth Foreste",   1000, "Leila Vargas",    "14/5", 107, 393, 500),
+        ("Francisco Pablo Romero",     1000, "Leila Vargas",    "14/5",  71, 429, 500),
+        ("Paula Yamila Arroyo",        1000, "Leila Vargas",    "14/5", 214, 286, 500),
+        ("Yanet Mazzola",              1000, "Leila Vargas",    "15/5",  71, 429, 500),
+        ("Oriana Grasman",             1000, "Leila Vargas",    "15/5",  86, 414, 500),
+        ("Renzo Santiago",             1000, "Leila Vargas",    "15/5",  71, 429, 500),
     ]
 
-    L5_BRUTO_ARS = 33_635_050
-    L5_CASH_ARS  = 31_280_597  # after 7% financiera fee
+    L5_BRUTO_ARS = 35_005_350
+    L5_CASH_ARS  = 32_554_997  # after 7% financiera fee
 
     l5_plan750_count  = sum(1 for _,p,_,_,_,_,_ in L5_STUDENT_DETAILS if p == 750)   # 16
     l5_plan1000_count = sum(1 for _,p,_,_,_,_,_ in L5_STUDENT_DETAILS if p == 1000)  # 46
@@ -2888,19 +2906,19 @@ def ventas():
 
     # Distribución del cash neto (del sheet) — privado
     L5_D_ADS         = 2716.00
-    L5_D_DIR_MKT     = 2234.33
-    L5_D_DIR_COM     = 558.58
-    L5_D_VENDEDORES  = 2457.76
-    L5_D_LIMPIO      = 14376.61
-    L5_D_MULTID      = 4312.98
-    L5_D_TOMI        = 10063.63
+    L5_D_DIR_MKT     = 2325.36
+    L5_D_DIR_COM     = 581.34
+    L5_D_VENDEDORES  = 2557.89
+    L5_D_LIMPIO      = 15073.41
+    L5_D_MULTID      = 4521.89
+    L5_D_TOMI        = 10551.09
 
     # Daily sale counts
     from collections import defaultdict as _dd
     _l5d = _dd(int)
     for _, _p, _v, _f in L5_STUDENTS:
         _l5d[_f] += 1
-    L5_DATES = ["4/5", "5/5", "6/5", "7/5", "8/5", "9/5", "10/5", "11/5"]
+    L5_DATES = ["4/5", "5/5", "6/5", "7/5", "8/5", "9/5", "10/5", "11/5", "13/5", "14/5", "15/5"]
     l5_daily_vals = [_l5d[d] for d in L5_DATES]
 
     # Vendor ranking
